@@ -12,6 +12,7 @@ import com.arashi.xposed.BackgroundPolicy
 import com.arashi.tools.QuickCommands
 import com.arashi.tools.ZybosTools
 import com.arashi.tools.ZybosUninstallPickerActivity
+import com.arashi.tcp.TcpHistoryActivity
 import com.arashi.uninstall.UninstallHistoryActivity
 import com.arashi.uninstall.UninstallListActivity
 import com.arashi.uninstall.UninstallSettings
@@ -98,6 +99,7 @@ object MiuixPages {
     @JvmStatic fun renderBackgroundWhitelist(a: BackgroundWhitelistActivity) =
         render(a) { BackgroundWhitelistPage(a) }
     @JvmStatic fun renderUninstallSettings(a: UninstallSettings) = render(a) { UninstallPage(a) }
+    @JvmStatic fun renderTcpHistory(a: TcpHistoryActivity) = render(a) { TcpHistoryPage(a) }
     @JvmStatic fun renderUninstallHistory(a: UninstallHistoryActivity) = render(a) { UninstallHistoryPage(a) }
     @JvmStatic fun renderUninstallList(a: UninstallListActivity, blacklist: Boolean) =
         render(a) { UninstallListPage(a, blacklist) }
@@ -485,6 +487,9 @@ private fun HookPage(a: HookSettings) = Page(a, "Hook 功能设置", a::finish) 
             HookItem("桌面图标圆角", "桌面应用图标与文件夹的改成 iOS 样式的圆角，文件夹使用半透明底色。强行停止桌面后生效", HookConfig.KEY_IOS_ICONS),
 						HookItem("状态栏显示日期", "仿 iPadOS 在状态栏左侧时间后显示月日与星期，如 16:30  10月17日周六。开关控制在下次时钟刷新时生效", HookConfig.KEY_STATUS_BAR_DATE),
         ),
+        "TCP 服务" to listOf(
+            HookItem("拦截登录失败通知", "拦截 ZpTcpService 发出的所有 login.fail 广播并记录错误信息。首次勾选作用域后需重启 TCP 服务，开关控制立即生效", HookConfig.KEY_BLOCK_TCP_LOGIN_FAIL),
+        ),
         "管控服务" to listOf(
             HookItem("拦截管控服务行为", "从 SystemServer 层拦截管控服务的强杀应用和移除任务行为", HookConfig.KEY_BLOCK_SUPERVISE),
             HookItem("阻止时长上报", "拦截管控服务的使用时长上传", HookConfig.KEY_BLOCK_USAGE_REPORT),
@@ -515,6 +520,13 @@ private fun HookPage(a: HookSettings) = Page(a, "Hook 功能设置", a::finish) 
                         else entry.summary + "。" + scopes.unavailableReason(entry.key),
                     enabled = available,
                 )
+                if (entry.key == HookConfig.KEY_BLOCK_TCP_LOGIN_FAIL) {
+                    ArrowPreference(
+                        title = "TCP 拦截记录",
+                        summary = "查看触发时间、错误码、响应状态和调用详情",
+                        onClick = { a.startActivity(Intent(a, TcpHistoryActivity::class.java)) },
+                    )
+                }
                 if (entry.key == HookConfig.KEY_DEV_OPTIONS) {
                     var injectDeveloperMenu by remember {
                         mutableStateOf(

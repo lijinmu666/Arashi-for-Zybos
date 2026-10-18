@@ -56,6 +56,8 @@ jobs:
           set -euo pipefail
           javac -d "$RUNNER_TEMP/clock-tests" app/src/main/java/com/arashi/xposed/StatusBarClockFormat.java tests/StatusBarClockFormatCheck.java
           java -cp "$RUNNER_TEMP/clock-tests" StatusBarClockFormatCheck
+      - name: 验证 TCP 登录失败拦截与记录
+        run: python3 tests/check_tcp_login.py
       - name: 安装 Android SDK
         shell: bash
         run: |

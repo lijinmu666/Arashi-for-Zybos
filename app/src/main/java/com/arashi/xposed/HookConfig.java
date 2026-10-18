@@ -4,6 +4,7 @@ public final class HookConfig {
     private HookConfig() {}
 
     public static final String PREF_NAME = "hook_settings";
+    public static final String KEY_BLOCK_TCP_LOGIN_FAIL = "hook_block_tcp_login_fail";
     public static final String KEY_REMOTE_READY = "remote_config_ready";
     public static final String KEY_ANDROID12_BLACKLIST_HOOK = "hook_legacy_aibangos";
 
@@ -30,7 +31,8 @@ public static final String KEY_BLOCK_SUPERVISE = "hook_block_supervise";
     public static final String KEY_KEEP_BACKGROUND_WHITELIST = "hook_keep_background_whitelist";
 
     public static boolean defaultEnabled(String key) {
-        return !KEY_STATUS_BAR_DATE.equals(key)
+        return !KEY_BLOCK_TCP_LOGIN_FAIL.equals(key)
+                && !KEY_STATUS_BAR_DATE.equals(key)
                 && !KEY_IOS_ICONS.equals(key)
                 && !KEY_ANDROID12_BLACKLIST_HOOK.equals(key)
                 && !KEY_DEV_OPTIONS_MENU.equals(key)
@@ -49,7 +51,7 @@ public static final String KEY_NEUTRALIZE_POLICY = "hook_neutralize_policy";
 
     public static String[] keys() {
         return new String[] {
-                KEY_ANDROID12_BLACKLIST_HOOK, KEY_EXTERNAL_INSTALL, KEY_SHELL_INSTALL,
+                KEY_BLOCK_TCP_LOGIN_FAIL, KEY_ANDROID12_BLACKLIST_HOOK, KEY_EXTERNAL_INSTALL, KEY_SHELL_INSTALL,
                 KEY_CLEAR_BLACKLIST, KEY_CAPTIVE_PORTAL,
                 KEY_ALLOW_USB,
                 KEY_RECORD_INTERNAL_AUDIO, KEY_STATUS_BAR_DATE, KEY_IOS_ICONS, KEY_ALLOW_WALLPAPER, KEY_CLEAR_DETAIL_BLACK, KEY_BLOCK_SUPERVISE,
