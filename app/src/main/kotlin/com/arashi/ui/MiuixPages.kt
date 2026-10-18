@@ -587,7 +587,7 @@ private fun HookPage(a: HookSettings) = Page(a, "Hook 功能设置", a::finish) 
     InfoCard("开关修改后自动保存")
 }
 
-private data class BackgroundChoice(val packageName: String, val label: String)
+private data class BackgroundChoice(val packageName: String, val label: String, val isSystem: Boolean? = null)
 
 @Composable
 private fun BackgroundWhitelistPage(a: BackgroundWhitelistActivity) {
@@ -596,6 +596,7 @@ private fun BackgroundWhitelistPage(a: BackgroundWhitelistActivity) {
         mutableStateOf(prefs.getStringSet(HookConfig.KEY_KEEP_BACKGROUND_WHITELIST, emptySet()).orEmpty().toSet())
     }
     var query by remember { mutableStateOf("") }
+    var filter by remember { mutableIntStateOf(0) }
     var choices by remember { mutableStateOf(emptyList<BackgroundChoice>()) }
     var loading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -607,7 +608,8 @@ private fun BackgroundWhitelistPage(a: BackgroundWhitelistActivity) {
                     .filterNot { BackgroundPolicy.isExempt(it.packageName) }
                     .map { info ->
                         BackgroundChoice(info.packageName,
-                            runCatching { info.loadLabel(manager).toString() }.getOrDefault(info.packageName))
+                            runCatching { info.loadLabel(manager).toString() }.getOrDefault(info.packageName),
+                            (info.flags and (ApplicationInfo.FLAG_SYSTEM or ApplicationInfo.FLAG_UPDATED_SYSTEM_APP)) != 0)
                     }
                     .sortedWith(compareBy<BackgroundChoice> { it.label.lowercase() }.thenBy { it.packageName })
             }
@@ -623,7 +625,13 @@ private fun BackgroundWhitelistPage(a: BackgroundWhitelistActivity) {
     val missing = selected.filterNot { it in knownPackages || BackgroundPolicy.isExempt(it) }
         .sorted().map { BackgroundChoice(it, "未安装或不可见的应用") }
     val visible = (missing + choices).filter {
-        query.isBlank() || it.label.contains(query, true) || it.packageName.contains(query, true)
+        val matchesCategory = when (filter) {
+            1 -> it.isSystem == false
+            2 -> it.isSystem == true
+            3 -> it.packageName in selected
+            else -> true
+        }
+        matchesCategory && (query.isBlank() || it.label.contains(query, true) || it.packageName.contains(query, true))
     }
     fun save(next: Set<String>) {
         selected = next
@@ -659,8 +667,12 @@ private fun BackgroundWhitelistPage(a: BackgroundWhitelistActivity) {
                 )
             }
             item {
-                Text(if (selected.isEmpty()) "当前保留全部应用" else "已选择 ${selected.size} 个应用",
-                    color = MiuixTheme.colorScheme.primary)
+                AppPickerFilterRow(
+                    status = if (selected.isEmpty()) "当前保留全部应用" else "已选择 ${selected.size} 个应用",
+                    categories = listOf("全部", "用户应用", "系统应用", "已选择"),
+                    selectedIndex = filter,
+                    onSelectedIndexChange = { filter = it },
+                )
             }
             if (loading) {
                 item { InfoCard("正在加载应用…") }
@@ -1042,16 +1054,6 @@ private fun UninstallListPage(a: UninstallListActivity, blacklist: Boolean) {
                 )
             }
             item {
-                Card(Modifier.fillMaxWidth()) {
-                    OverlayDropdownPreference(
-                        items = listOf("用户应用", "系统应用", "UID", "已选择"),
-                        selectedIndex = filter,
-                        title = "类别",
-                        onSelectedIndexChange = { filter = it },
-                    )
-                }
-            }
-            item {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     TextField(
                         value = manual,
@@ -1090,11 +1092,11 @@ private fun UninstallListPage(a: UninstallListActivity, blacklist: Boolean) {
                 item { Text(inputError.orEmpty(), color = Color(0xFFE05252)) }
             }
             item {
-                Text(
-                    "已选择 " + selected.size + " 项 · 当前显示 " + visible.size + " 项",
-                    modifier = Modifier.padding(start = 12.dp),
-                    color = MiuixTheme.colorScheme.primary,
-                    style = MiuixTheme.textStyles.footnote1,
+                AppPickerFilterRow(
+                    status = "已选择 " + selected.size + " 项 · 当前显示 " + visible.size + " 项",
+                    categories = listOf("用户应用", "系统应用", "UID", "已选择"),
+                    selectedIndex = filter,
+                    onSelectedIndexChange = { filter = it },
                 )
             }
             items(visible, key = { it.key }) { choice ->
@@ -1387,21 +1389,11 @@ private fun ZybosUninstallPickerPage(a: ZybosUninstallPickerActivity) {
                     )
                 }
                 item {
-                    Card(Modifier.fillMaxWidth()) {
-                        OverlayDropdownPreference(
-                            items = listOf("全部", "用户应用", "已更新的系统应用"),
-                            selectedIndex = filter,
-                            title = "筛选",
-                            onSelectedIndexChange = { filter = it },
-                        )
-                    }
-                }
-                item {
-                    Text(
-                        "当前显示 " + visible.size + " 项",
-                        modifier = Modifier.padding(start = 12.dp),
-                        color = MiuixTheme.colorScheme.primary,
-                        style = MiuixTheme.textStyles.footnote1,
+                    AppPickerFilterRow(
+                        status = "当前显示 " + visible.size + " 项",
+                        categories = listOf("全部", "用户应用", "已更新的系统应用"),
+                        selectedIndex = filter,
+                        onSelectedIndexChange = { filter = it },
                     )
                 }
                 items(visible, key = { it.key }) { choice ->
