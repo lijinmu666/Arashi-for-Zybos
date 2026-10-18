@@ -60,6 +60,8 @@ jobs:
         run: python3 tests/check_tcp_login.py
       - name: 验证导航与下拉面板限制拦截
         run: python3 tests/check_navigation_access.py
+      - name: 验证 iOS 图标图层缩放与尺寸恢复
+        run: python3 tests/check_ios_icon.py
       - name: 安装 Android SDK
         shell: bash
         run: |
