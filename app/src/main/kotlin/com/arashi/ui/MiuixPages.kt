@@ -652,9 +652,11 @@ private fun BackgroundWhitelistPage(a: BackgroundWhitelistActivity) {
                     "选中的应用划卡后不会被强杀，不选择任何应用时默认全部不杀，系统原有豁免应用不显示。选择后立即保存")
             }
             item {
-                TextField(value = query, onValueChange = { query = it },
-                    modifier = Modifier.fillMaxWidth(), label = "搜索应用名或包名",
-                    useLabelAsPlaceholder = true, singleLine = true)
+                AppSearchBar(
+                    query = query,
+                    onQueryChange = { query = it },
+                    label = "搜索应用名或包名",
+                )
             }
             item {
                 Text(if (selected.isEmpty()) "当前保留全部应用" else "已选择 ${selected.size} 个应用",
@@ -1033,13 +1035,10 @@ private fun UninstallListPage(a: UninstallListActivity, blacklist: Boolean) {
                 )
             }
             item {
-                TextField(
-                    value = query,
-                    onValueChange = { query = it },
-                    modifier = Modifier.fillMaxWidth(),
+                AppSearchBar(
+                    query = query,
+                    onQueryChange = { query = it },
                     label = "搜索...",
-                    useLabelAsPlaceholder = true,
-                    singleLine = true,
                 )
             }
             item {
@@ -1381,13 +1380,10 @@ private fun ZybosUninstallPickerPage(a: ZybosUninstallPickerActivity) {
                     IntroCard("可选择用户应用或已更新的系统应用执行卸载")
                 }
                 item {
-                    TextField(
-                        value = query,
-                        onValueChange = { query = it },
-                        modifier = Modifier.fillMaxWidth(),
+                    AppSearchBar(
+                        query = query,
+                        onQueryChange = { query = it },
                         label = "搜索应用名称或包名...",
-                        useLabelAsPlaceholder = true,
-                        singleLine = true,
                     )
                 }
                 item {
