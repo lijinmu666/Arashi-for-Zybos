@@ -1247,6 +1247,7 @@ private fun UninstallPrompt(
 private fun QuickPage(a: QuickCommands) = Page(a, "快捷指令执行", a::finish) {
     IntroCard("以下功能使用 root 权限执行，第一次使用请授予 Arashi 权限")
     Group("应用相关") {
+        Link("冻结桌面 ErrorActivity", "仅冻结桌面的 ErrorActivity 组件，保留桌面其他功能") { a.freezeLauncherErrorActivity() }
         Link("禁用 PadMs", "冻结 com.zuoyebang.padms") { a.run("禁用 PadMs", "pm disable com.zuoyebang.padms") }
         Link("禁用 report服务", "冻结 com.zuoyebang.iot.pad.zpreport") { a.run("禁用 report服务", "pm disable com.zuoyebang.iot.pad.zpreport") }
         Link("禁用 系统升级", "冻结 com.zuoyebang.iot.zp.lib.ota.server") { a.run("禁用 系统升级", "pm disable com.zuoyebang.iot.zp.lib.ota.server") }
