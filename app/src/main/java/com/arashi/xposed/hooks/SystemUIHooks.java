@@ -27,12 +27,14 @@ public static void hookSystemUI(XposedModule mod, ClassLoader cl) {
         hookDefaultBrowser(mod, cl, "SystemUI");
         ScreenRecordingHooks.hookSystemUI(mod, cl);
         StatusBarClockHooks.hookSystemUI(mod, cl);
+        NavigationAccessHooks.hookSystemUI(mod, cl);
         
         Log.i(TAG, "systemui hooks initialized");
     }
 
 public static void hookSystemServer(XposedModule mod, ClassLoader cl) {
         hookDefaultBrowser(mod, cl, "system_server");
+        NavigationAccessHooks.hookSystemServer(mod, cl);
     }
 
 private static void hookDefaultBrowser(XposedModule mod, ClassLoader cl, String where) {
