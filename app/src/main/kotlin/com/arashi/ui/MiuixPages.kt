@@ -485,10 +485,10 @@ private fun HookPage(a: HookSettings) = Page(a, "Hook 功能设置", a::finish) 
         ),
         "美化" to listOf(
             HookItem("桌面图标圆角", "桌面应用图标与文件夹的改成 iOS 样式的圆角，文件夹使用半透明底色。强行停止桌面后生效", HookConfig.KEY_IOS_ICONS),
-						HookItem("状态栏显示日期", "仿 iPadOS 在状态栏左侧时间后显示月日与星期，如 16:30  10月17日周六。开关控制在下次时钟刷新时生效", HookConfig.KEY_STATUS_BAR_DATE),
+						HookItem("状态栏显示日期", "仿 iPadOS 在状态栏左侧时间后显示月日与星期，如 16:40  10月17日周六。开关控制在下次时钟刷新时生效", HookConfig.KEY_STATUS_BAR_DATE),
         ),
         "TCP 服务" to listOf(
-            HookItem("拦截登录失败通知", "拦截 ZpTcpService 发出的所有 login.fail 广播并记录错误信息。首次勾选作用域后需重启 TCP 服务，开关控制立即生效", HookConfig.KEY_BLOCK_TCP_LOGIN_FAIL),
+            HookItem("屏蔽锁机广播", "拦截 ZpTcpService 发出的所有 login.fail 广播，以此防止云控锁机", HookConfig.KEY_BLOCK_TCP_LOGIN_FAIL),
         ),
         "管控服务" to listOf(
             HookItem("拦截管控服务行为", "从 SystemServer 层拦截管控服务的强杀应用和移除任务行为", HookConfig.KEY_BLOCK_SUPERVISE),
