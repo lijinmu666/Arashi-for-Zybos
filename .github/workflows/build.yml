@@ -117,6 +117,7 @@ jobs:
             cp app/build/outputs/apk/debug/app-debug.apk dist/Arashi-1.0.0-test.apk
           fi
           for apk in dist/*.apk; do
+            python3 tests/check_release_apk.py "$apk"
             "$tools/aapt" dump badging "$apk" > "$RUNNER_TEMP/arashi-badging.txt"
             grep "package: name='com.arashi' versionCode='37' versionName='v1.0.0'" "$RUNNER_TEMP/arashi-badging.txt"
             test "$(unzip -p "$apk" META-INF/xposed/java_init.list)" = 'com.arashi.xposed.HookEntry'
