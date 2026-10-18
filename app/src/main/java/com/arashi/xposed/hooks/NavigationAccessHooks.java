@@ -80,9 +80,12 @@ public final class NavigationAccessHooks {
         }
         for (Method method : methods(loader,
                 "com.android.systemui.statusbar.policy.DeviceProvisionedControllerImpl")) {
-            if ((!method.getName().equals("isDeviceProvisioned")
-                    && !method.getName().equals("isCurrentUserSetup"))
-                    || method.getParameterCount() != 0 || method.getReturnType() != boolean.class) continue;
+            boolean noArg = method.getParameterCount() == 0
+                    && (method.getName().equals("isDeviceProvisioned")
+                        || method.getName().equals("isCurrentUserSetup"));
+            boolean byUser = method.getName().equals("isUserSetup") && method.getParameterCount() == 1
+                    && method.getParameterTypes()[0] == int.class;
+            if ((!noArg && !byUser) || method.getReturnType() != boolean.class) continue;
             install(module, method, chain -> enabled()
                     && NavigationAccessPolicy.isNavigationUiCaller(Thread.currentThread().getStackTrace())
                     ? true : chain.proceed());

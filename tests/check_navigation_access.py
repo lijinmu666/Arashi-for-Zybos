@@ -39,7 +39,10 @@ STUBS = {
  public class CommandQueue {public void disable(int d,int a,int b){} public void disable(int d,int a,int b,boolean animate){} }""",
     "com/android/systemui/statusbar/policy/DeviceProvisionedControllerImpl.java": """package com.android.systemui.statusbar.policy;
  public class DeviceProvisionedControllerImpl { public boolean isDeviceProvisioned(){return false;}
- public boolean isCurrentUserSetup(){return false;} }""",
+ public boolean isCurrentUserSetup(){return false;} public boolean isUserSetup(int user){return false;} }""",
+    "com/android/systemui/statusbar/phone/StatusBar.java": """package com.android.systemui.statusbar.phone;
+ public class StatusBar { public static boolean query(java.util.function.Supplier<Boolean> s) {
+ return new java.util.function.Supplier<Boolean>() {public Boolean get(){return s.get();}}.get(); } }""",
     "com/android/systemui/navigationbar/NavigationBar.java": """package com.android.systemui.navigationbar;
  public class NavigationBar {public boolean shouldDisableNavbarGestures(){return true;} }""",
     "com/android/launcher3/g5.java": "package com.android.launcher3; public class g5 {public static Boolean s=false,t=true;}",
@@ -112,6 +115,12 @@ public class NavigationCheck {
   check(call(setting,new Object[]{null,"device_provisioned",7},a->8).equals(8));
   Method setup=Class.forName("com.android.systemui.statusbar.policy.DeviceProvisionedControllerImpl").getMethod("isDeviceProvisioned");
   check(call(setup,new Object[]{},a->false).equals(false)); // No global provisioning spoof
+  Method userSetup=Class.forName("com.android.systemui.statusbar.policy.DeviceProvisionedControllerImpl").getMethod("isUserSetup",int.class);
+  check(call(userSetup,new Object[]{0},a->false).equals(false));
+  check(com.android.systemui.statusbar.phone.StatusBar.query(()->{
+   try{return (Boolean)call(userSetup,new Object[]{0},a->false);}
+   catch(Throwable t){throw new RuntimeException(t);}
+  }));
   Method error=Class.forName("com.zuoyebang.iot.pad.launcher.ErrorActivity").getMethod("onResume");
   call(error,new Object[]{},a->{com.android.launcher3.g5.s=false;com.android.launcher3.g6.s=false;return null;});
   check(com.android.launcher3.g6.s);
