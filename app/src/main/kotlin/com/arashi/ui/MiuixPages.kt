@@ -1923,6 +1923,5 @@ private fun ZybosEnvPage(a: com.arashi.tools.ZybosEnvController) = Page(a, "Zybo
         },
         Modifier.fillMaxWidth(),
         enabled = !busy,
-        colors = ButtonDefaults.textButtonColors(color = Color.White, textColor = Color.Black),
     )
 }
