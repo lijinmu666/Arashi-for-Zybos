@@ -70,8 +70,12 @@ public final class Main extends BasePage {
     private void populateHome() {
         MiuixPages.renderHome(this);
         if (getSharedPreferences(com.arashi.xposed.HookConfig.PREF_NAME, MODE_PRIVATE)
-                .getBoolean(com.arashi.xposed.HookConfig.KEY_BLOCK_TCP_LOGIN_FAIL, false)) {
-            com.arashi.tcp.TcpBlockNotifications.requestPermissionIfNeeded(this);
+                .getBoolean(com.arashi.xposed.HookConfig.KEY_BLOCK_TCP_LOGIN_FAIL, false)
+                && com.arashi.notifications.NotificationPreferences.enabled(this, com.arashi.notifications.NotificationPreferences.TCP)
+                || getSharedPreferences(com.arashi.uninstall.UninstallConfig.PREF_NAME, MODE_PRIVATE)
+                .getBoolean(com.arashi.uninstall.UninstallConfig.ENABLED, false)
+                && com.arashi.notifications.NotificationPreferences.uninstallEnabled(this)) {
+            com.arashi.notifications.AppNotifications.requestPermissionIfNeeded(this);
         }
         if (verifySignatureOnLaunch) {
             verifySignatureOnLaunch = false;

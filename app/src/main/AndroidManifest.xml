@@ -30,6 +30,7 @@
                 <data android:mimeType="application/octet-stream" />
             </intent-filter>
         </activity>
+        <activity android:name=".settings.NotificationSettings" android:exported="false" />
         <activity android:name=".settings.ArashiSettings" android:exported="false" />
         <activity android:name=".about.About" android:exported="false" />
         <activity android:name=".tools.ZybosTools" android:exported="false" />

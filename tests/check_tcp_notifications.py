@@ -10,8 +10,8 @@ STUBS = {
 'android/os/Build.java': '''package android.os; public class Build {public static class VERSION {public static int SDK_INT=34;}}''',
 'android/content/pm/PackageManager.java': '''package android.content.pm; public class PackageManager {public static int PERMISSION_GRANTED=0;}''',
 'android/content/SharedPreferences.java': '''package android.content; public class SharedPreferences {
- boolean requested; public boolean getBoolean(String k,boolean d){return requested;}
- public SharedPreferences edit(){return this;} public SharedPreferences putBoolean(String k,boolean v){requested=v;return this;} public void apply(){} }''',
+ java.util.Map<String,Boolean> values=new java.util.HashMap<>(); public boolean getBoolean(String k,boolean d){return values.getOrDefault(k,d);}
+ public SharedPreferences edit(){return this;} public SharedPreferences putBoolean(String k,boolean v){values.put(k,v);return this;} public void apply(){} }''',
 'android/content/Context.java': '''package android.content; public class Context {
  public static final int MODE_PRIVATE=0; public android.app.NotificationManager manager=new android.app.NotificationManager();
  public SharedPreferences prefs=new SharedPreferences(); public int permission=-1;
@@ -46,7 +46,13 @@ STUBS = {
 'android/provider/Settings.java': '''package android.provider; public class Settings {public static String ACTION_APP_NOTIFICATION_SETTINGS="settings",EXTRA_APP_PACKAGE="package";}''',
 'android/util/Log.java': '''package android.util; public class Log {public static int w(String t,String m,Throwable e){return 0;}}''',
 'com/arashi/tcp/TcpHistoryActivity.java': '''package com.arashi.tcp; public class TcpHistoryActivity extends android.app.Activity {}''',
-'Check.java': '''import android.app.*; import android.content.*; import com.arashi.tcp.*;
+ 'android/os/Bundle.java': '''package android.os; public class Bundle extends java.util.HashMap<String,Object> {
+ public String getString(String k){return (String)get(k);} public boolean getBoolean(String k,boolean d){return (Boolean)getOrDefault(k,d);}
+ public int getInt(String k,int d){return (Integer)getOrDefault(k,d);} }''',
+ 'com/arashi/uninstall/UninstallHistoryActivity.java': '''package com.arashi.uninstall; public class UninstallHistoryActivity extends android.app.Activity {}''',
+ 'com/arashi/uninstall/UninstallHistoryStore.java': '''package com.arashi.uninstall; public class UninstallHistoryStore {
+ public static String REASON="reason",ALLOWED="allowed",CALLER_NAME="name",CALLER_PACKAGE="pkg",CALLER_UID="uid"; }''',
+'Check.java': '''import android.app.*; import android.content.*; import com.arashi.tcp.*; import com.arashi.notifications.*;
 public class Check {
  static void check(boolean b){if(!b)throw new AssertionError();}
  public static void main(String[] args){
@@ -61,11 +67,42 @@ public class Check {
  TcpBlockNotifications.post(a,3,null);check(a.manager.sent.get("tcp-block-3").text.contains("未知错误码"));
  a.manager.enabled=false;TcpBlockNotifications.post(a,4,"403");check(a.manager.sent.size()==3);
  a.manager.enabled=true;a.manager.fail=true;TcpBlockNotifications.post(a,5,"403");check(a.manager.sent.size()==3);
- android.os.Build.VERSION.SDK_INT=32;TcpBlockNotifications.requestPermissionIfNeeded(a);check(a.requests==0);
- android.os.Build.VERSION.SDK_INT=34;TcpBlockNotifications.requestPermissionIfNeeded(a);check(a.requests==1);
- TcpBlockNotifications.requestPermissionIfNeeded(a);check(a.requests==1);
- Activity granted=new Activity();granted.permission=0;TcpBlockNotifications.requestPermissionIfNeeded(granted);check(granted.requests==0);
- System.out.println("TCP notification checks passed");
+ android.os.Build.VERSION.SDK_INT=32;AppNotifications.requestPermissionIfNeeded(a);check(a.requests==0);
+ android.os.Build.VERSION.SDK_INT=34;AppNotifications.requestPermissionIfNeeded(a);check(a.requests==1);
+ AppNotifications.requestPermissionIfNeeded(a);check(a.requests==1);
+ Activity granted=new Activity();granted.permission=0;AppNotifications.requestPermissionIfNeeded(granted);check(granted.requests==0);
+
+ check(UninstallNoticePolicy.key("黑名单",true)==null);
+ check(UninstallNoticePolicy.key("白名单",false)==null);
+ check(UninstallNoticePolicy.key("超时默认拒绝",true)==null);
+ Activity events=new Activity();
+ android.os.Bundle data=new android.os.Bundle();data.put("name","桌面");data.put("uid",1000);
+ data.put("reason","黑名单");data.put("allowed",false);
+ UninstallNotifications.post(events,1,data);
+ Notification denied=events.manager.sent.get("uninstall-1");
+ check(denied.text.equals("桌面(1000) 试图卸载应用，由于其已被添加至黑名单，已拒绝本次卸载。点按查看详情信息"));
+ check(denied.click.intent.target==com.arashi.uninstall.UninstallHistoryActivity.class);
+ events.prefs.putBoolean(NotificationPreferences.BLACKLIST,false);
+ UninstallNotifications.post(events,2,data);check(events.manager.sent.size()==1);
+ data.put("reason","白名单");data.put("allowed",true);UninstallNotifications.post(events,3,data);
+ check(events.manager.sent.get("uninstall-3").text.contains("已放行本次卸载"));
+ events.prefs.putBoolean(NotificationPreferences.WHITELIST,false);
+ UninstallNotifications.post(events,4,data);check(events.manager.sent.size()==2);
+ data.put("reason","超时默认拒绝");data.put("allowed",false);UninstallNotifications.post(events,5,data);
+ check(events.manager.sent.get("uninstall-5").text.contains("倒计时已自动拒绝"));
+ events.prefs.putBoolean(NotificationPreferences.TIMEOUT,false);
+ UninstallNotifications.post(events,6,data);check(events.manager.sent.size()==3);
+ // Decisions that do not match the actual outcome must never generate misleading notifications.
+ data.put("allowed",true);UninstallNotifications.post(events,7,data);
+ data.put("reason","弹窗允许");UninstallNotifications.post(events,8,data);
+ data.put("reason","验证未启用");UninstallNotifications.post(events,9,data);
+ data.put("reason","设备未使用");UninstallNotifications.post(events,10,data);
+ check(events.manager.sent.size()==3);
+ TcpBlockNotifications.post(events,11,"10001");check(events.manager.sent.size()==4);
+ events.prefs.putBoolean(NotificationPreferences.TCP,false);
+ TcpBlockNotifications.post(events,12,"10001");check(events.manager.sent.size()==4);
+ check(!NotificationPreferences.uninstallEnabled(events));
+ System.out.println("TCP and uninstall notification checks passed");
  }
 }''',
 }
@@ -76,5 +113,5 @@ with tempfile.TemporaryDirectory(prefix='arashi-tcp-notify-') as directory:
         target.parent.mkdir(parents=True,exist_ok=True)
         target.write_text(source)
     real=ROOT/'app/src/main/java/com/arashi/tcp/TcpBlockNotifications.java'
-    subprocess.run(['javac','-d',str(tmp/'classes'),*map(str,tmp.rglob('*.java')),str(real)],check=True)
+    subprocess.run(['javac','-d',str(tmp/'classes'),*map(str,tmp.rglob('*.java')),str(real),*map(str,(ROOT/'app/src/main/java/com/arashi/notifications').glob('*.java'))],check=True)
     subprocess.run(['java','-cp',str(tmp/'classes'),'Check'],check=True)

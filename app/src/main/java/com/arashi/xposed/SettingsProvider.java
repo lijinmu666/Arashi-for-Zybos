@@ -76,7 +76,15 @@ private static final Map<Integer, Boolean> TRUSTED_UID_CACHE = new ConcurrentHas
             Context context = getContext();
             if (context == null) return null;
             try {
-                UninstallHistoryStore.append(context, extras);
+                long recordId = UninstallHistoryStore.append(context, extras);
+                long identity = Binder.clearCallingIdentity();
+                try {
+                    com.arashi.notifications.UninstallNotifications.post(context, recordId, extras);
+                } catch (RuntimeException error) {
+                    Log.w(TAG, "Uninstall notification unavailable", error);
+                } finally {
+                    Binder.restoreCallingIdentity(identity);
+                }
                 return Bundle.EMPTY;
             } catch (RuntimeException error) {
                 Log.w(TAG, "Uninstall record unavailable", error);
