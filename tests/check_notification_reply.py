@@ -29,6 +29,22 @@ public class {cls} {{
  result=r.remoteInputActive&&r.isLandscape&&!r.shouldUseSplitNotificationShade?d2|1:d2;
  if(throwNow)throw new IllegalStateException("callback error");}}
 }}'''
+stubs['com/android/systemui/statusbar/policy/RemoteInputView.java']='''package com.android.systemui.statusbar.policy;
+public class RemoteInputView {
+ public RemoteEditText mEditText=new RemoteEditText();public boolean mSending,shown=true;
+ public boolean isShown(){return shown;}
+ public void focus(){} public void onDefocus(boolean a,boolean b,Runnable r){}
+ public static class RemoteEditText {
+  public boolean enabled,focusable,focused,cursor;public int closes;
+  public boolean isEnabled(){return enabled;}public boolean isFocusable(){return focusable;}
+  public boolean isFocused(){return focused;}public boolean isShown(){return true;}
+  public boolean hasWindowFocus(){return true;}
+  public void setEnabled(boolean b){enabled=b;}public void setFocusable(boolean b){focusable=b;}
+  public void setFocusableInTouchMode(boolean b){focusable=b;}public void setCursorVisible(boolean b){cursor=b;}
+  public boolean requestFocus(){focused=enabled&&focusable;return focused;}
+  public void defocusIfNeeded(boolean a){closes++;focused=false;focusable=false;}
+ }
+}'''
 stubs['Check.java']='''import java.lang.reflect.*;
 import com.lijinmu.arashi.xposed.*;import com.lijinmu.arashi.xposed.hooks.*;import io.github.libxposed.api.*;
 import com.android.systemui.statusbar.policy.RemoteInputQuickSettingsDisabler;
@@ -40,6 +56,26 @@ public class Check {
  public static void main(String[] args)throws Throwable {
  check(!HookConfig.defaultEnabled(HookConfig.KEY_NOTIFICATION_REPLY));
  NotificationReplyHooks.hookSystemUI(module,Check.class.getClassLoader());
+ var reply=new com.android.systemui.statusbar.policy.RemoteInputView();
+ Method focus=reply.getClass().getMethod("focus");
+ Method close=reply.mEditText.getClass().getMethod("defocusIfNeeded",boolean.class);
+ ConfigManager.enabled=true;
+ call(focus,reply,new Object[]{},a->{
+  check(reply.mEditText.enabled);
+  call(close,reply.mEditText,new Object[]{true},b->{reply.mEditText.defocusIfNeeded(true);return null;});
+  return null;
+ });
+ check(reply.mEditText.focused&&reply.mEditText.closes==0);
+ // Explicit close outside the synchronous opening remains intact.
+ call(close,reply.mEditText,new Object[]{true},a->{reply.mEditText.defocusIfNeeded(true);return null;});
+ check(!reply.mEditText.focused&&reply.mEditText.closes==1);
+ // Reopening the same editor works, with no repeated/background focus loop.
+ reply.mEditText.enabled=false;
+ call(focus,reply,new Object[]{},a->null);check(reply.mEditText.focused);
+ reply.mEditText.focused=false;reply.mEditText.enabled=false;reply.mSending=true;
+ call(focus,reply,new Object[]{},a->null);check(!reply.mEditText.enabled&&!reply.mEditText.focused);
+ reply.mSending=false;ConfigManager.enabled=false;
+ call(focus,reply,new Object[]{},a->null);check(!reply.mEditText.enabled);
  RemoteInputQuickSettingsDisabler legacy=new RemoteInputQuickSettingsDisabler();
  Method adjust=legacy.getClass().getMethod("adjustDisableFlags",int.class);
  ConfigManager.enabled=false;check(call(adjust,legacy,new Object[]{0x80},a->legacy.adjustDisableFlags((Integer)a[0])).equals(0x81));
