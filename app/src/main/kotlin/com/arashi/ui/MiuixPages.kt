@@ -479,7 +479,6 @@ private fun HookPage(a: HookSettings) = Page(a, "Hook 功能设置", a::finish) 
             HookItem("解除安装黑名单限制", "允许安装被硬编码在 mZybBlacklistApp 中的包名。开关控制重启系统后生效", HookConfig.KEY_CLEAR_BLACKLIST),
         ),
         "行为" to listOf(
-            HookItem("阻止禁用系统导航与下拉面板", "拦截返回、主页、最近任务及下拉面板的禁用限制，覆盖激活与错误页面场景。需勾选系统框架、系统界面与对应桌面作用域，开关控制重启系统后生效", HookConfig.KEY_KEEP_NAVIGATION),
             HookItem("允许打开开发者选项", "绕过系统设置检查，允许打开开发者选项的 Activity", HookConfig.KEY_DEV_OPTIONS),
             HookItem("保留后台进程", "拦截划卡后强杀应用进程。开关控制立即生效", HookConfig.KEY_KEEP_BACKGROUND),
             HookItem("允许 USB 文件传输", "允许挂载外部 USB 设备和使用数据传输。开关控制立即生效", HookConfig.KEY_ALLOW_USB),
@@ -488,6 +487,7 @@ private fun HookPage(a: HookSettings) = Page(a, "Hook 功能设置", a::finish) 
             HookItem("解除应用详情页限制", "允许打开 WebView、report服务 和 PadMs 的应用设置详情页。开关控制立即生效", HookConfig.KEY_CLEAR_DETAIL_BLACK),
             HookItem("录屏系统声音支持", "恢复 SystemUI 录屏菜单的设备声音、麦克风及混合音源选择选项", HookConfig.KEY_RECORD_INTERNAL_AUDIO),
             HookItem("阻止重设默认浏览器", "拦截 SystemUI 开机时将 “学习网站” 设为默认浏览器", HookConfig.KEY_BLOCK_DEFAULT_BROWSER),
+            HookItem("阻止禁用系统导航与下拉面板", "拦截返回、主页、最近任务及下拉面板的禁用限制，覆盖激活与错误页面场景。需勾选系统框架、系统界面与对应桌面作用域，开关控制重启系统后生效", HookConfig.KEY_KEEP_NAVIGATION),
         ),
         "美化" to listOf(
             HookItem("桌面图标圆角", "桌面应用图标与文件夹的改成 iOS 样式的圆角，文件夹使用半透明底色。强行停止桌面后生效", HookConfig.KEY_IOS_ICONS),
@@ -1258,14 +1258,14 @@ private fun UninstallPrompt(
 @Composable
 private fun QuickPage(a: QuickCommands) = Page(a, "快捷指令执行", a::finish) {
     IntroCard("以下功能使用 root 权限执行，第一次使用请授予 Arashi 权限")
-    Group("应用相关") {
-        Link("冻结桌面 ErrorActivity", "仅冻结桌面的 ErrorActivity 组件，保留桌面其他功能") { a.freezeLauncherErrorActivity() }
+    Group("应用") {
         Link("禁用 PadMs", "冻结 com.zuoyebang.padms") { a.run("禁用 PadMs", "pm disable com.zuoyebang.padms") }
         Link("禁用 report服务", "冻结 com.zuoyebang.iot.pad.zpreport") { a.run("禁用 report服务", "pm disable com.zuoyebang.iot.pad.zpreport") }
+        Link("禁用桌面 ErrorActivity", "仅冻结桌面的 ErrorActivity 组件，保留桌面其他功能，以此禁止云控锁机的页面") { a.freezeLauncherErrorActivity() }
         Link("禁用 系统升级", "冻结 com.zuoyebang.iot.zp.lib.ota.server") { a.run("禁用 系统升级", "pm disable com.zuoyebang.iot.zp.lib.ota.server") }
         Link("启用 系统升级", "与上方功能作用排斥") { a.run("启用 系统升级", "pm enable com.zuoyebang.iot.zp.lib.ota.server") }
     }
-    Group("设置相关") {
+    Group("设置") {
         Link("Zybos 环境控制", "读取和修改 persist.sys.env_config") {
             a.startActivity(Intent(a, com.arashi.tools.ZybosEnvController::class.java))
         }
@@ -1284,7 +1284,7 @@ private fun QuickPage(a: QuickCommands) = Page(a, "快捷指令执行", a::finis
             a.run("关闭投屏", "settings put global wifi_display_on 0 && am broadcast --user current -a com.android.systemui.cast.Remove -p com.android.systemui")
         }
     }
-    InfoCard("KSU 请手动授权，Magisk 弹窗时请允许授权；官方版 Arashi 不会执行危险指令")
+    InfoCard("需要 root 权限，KernelSU 请手动授权，Magisk 弹窗时请允许授权。官方版 Arashi 不会执行危险指令")
 }
 
 @Composable
@@ -1414,7 +1414,7 @@ private fun ZybosUninstallPickerPage(a: ZybosUninstallPickerActivity) {
                     AppSearchBar(
                         query = query,
                         onQueryChange = { query = it },
-                        label = "搜索应用名称或包名...",
+                        label = "搜索...",
                     )
                 }
                 item {
@@ -1652,11 +1652,11 @@ private fun AboutPage(a: About) = Page(a, "关于 Arashi", a::finish) {
             if (versionTapCount >= 7) {
                 versionTapCount = 0
                 lastVersionTapAt = 0L
-                MiuixPages.showMessage(a, "棍母棍母棍母", "棍母棍母棍母")
+                MiuixPages.showMessage(a, "大棍母", "棍母棍母棍母")
             }
     })
     AboutCard("作者", "李瑾沐", arrow = true, onClick = {
-        MiuixPages.showMessage(a, "关于作者", "首席开发者 : 李瑾沐\n小红书号 : failgacha\nQQ 昵称 : H...Hey")
+        MiuixPages.showMessage(a, "关于作者", "首席开发者 : 李瑾沐 (H…Hey)\n小红书号 : failgach")
     })
     AboutCard("QQ 群聊", "加入 Arashi 用户交流与反馈群", externalLink = true, compactValue = true, onClick = {
         val url = "https://qun.qq.com/universal-share/share?ac=1&authKey=i%2Bh3ZyTelsMfhjWvc8srNCHnS4BMGrsr4hj1fDcEXx0fC5ECgHyUjh45kS5qiQ3W&busi_data=eyJncm91cENvZGUiOiIxMTI1MTkwMzUwIiwidG9rZW4iOiIrRFg2KzdBTHhRRlZKODZjUUt2U2gySFRBaHFBeFNIYTdFTFc0emcydXJuTEZsN1dvS3MwT1J4ZFF2dnNJNUhOIiwidWluIjoiODQxNTYzNjAifQ%3D%3D&data=PB0LIOhizgFR_GzQFzdDn6FEbw0rzkzMw5JbqCzMZp0t72lHOOiSfSqMcISpvsGOvjkcACA_44t9aKGSV3GaNQ&svctype=4&tempid=h5_group_info"
@@ -1827,7 +1827,7 @@ private fun ZybosEnvPage(a: com.arashi.tools.ZybosEnvController) = Page(a, "Zybo
             }
         }
     }
-    IntroCard("这些开关很危险，请谨慎使用。更改环境可能影响登录与激活")
+    IntroCard("这些开关很危险，请谨慎使用，更改环境可能影响登录与激活。重启后写入生效")
     if (busy) InfoCard("正在读取或写入环境配置…")
     if (error != null) InfoCard("操作失败：${error.orEmpty()}")
     Group("环境配置") {
