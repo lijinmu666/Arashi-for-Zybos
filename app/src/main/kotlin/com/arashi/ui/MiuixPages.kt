@@ -1801,16 +1801,14 @@ private fun ZybosEnvPage(a: com.arashi.tools.ZybosEnvController) = Page(a, "Zybo
     val environments = listOf("PRODUCTION", "TEST", "MOCK")
     var original by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf<String?>(null) }
     var environment by androidx.compose.runtime.saveable.rememberSaveable { mutableIntStateOf(0) }
-    var showTools by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
-    var tips by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
+    var showTools by remember { mutableStateOf(false) }
+    var tips by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(original == null) }
     var error by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
     fun accept(config: com.arashi.tools.ZybosEnvConfig) {
         original = config.json
         environment = environments.indexOf(config.environment)
-        showTools = config.showDebugTools
-        tips = config.tips
         error = null
     }
     LaunchedEffect(Unit) {
@@ -1909,6 +1907,8 @@ private fun ZybosEnvPage(a: com.arashi.tools.ZybosEnvController) = Page(a, "Zybo
                 scope.launch {
                     try {
                         accept(withContext(Dispatchers.IO) { a.resetConfig() })
+                        showTools = false
+                        tips = false
                         MiuixPages.showMessage(a, "重置成功", "已写入并核对默认环境配置")
                     } catch (cancelled: CancellationException) {
                         throw cancelled
