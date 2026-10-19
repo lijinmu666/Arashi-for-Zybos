@@ -60,6 +60,8 @@ jobs:
         run: python3 tests/check_tcp_login.py
       - name: 验证 TCP 与卸载验证通知
         run: python3 tests/check_tcp_notifications.py
+      - name: 验证 Android 12 和 14 息屏拒绝卸载弹窗
+        run: python3 tests/check_uninstall_screen.py
       - name: 验证导航与下拉面板限制拦截
         run: python3 tests/check_navigation_access.py
       - name: 验证 iOS 图标图层缩放与尺寸恢复

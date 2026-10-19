@@ -16,7 +16,8 @@ public final class UninstallNotifications {
         String text = UninstallNoticePolicy.text(key, caller, data.getInt(UninstallHistoryStore.CALLER_UID, -1));
         AppNotifications.post(context, key, "卸载验证 · " + (
                 key.equals(NotificationPreferences.BLACKLIST) ? "黑名单拒绝" :
-                key.equals(NotificationPreferences.WHITELIST) ? "白名单放行" : "倒计时拒绝"),
+                key.equals(NotificationPreferences.WHITELIST) ? "白名单放行" :
+                key.equals(NotificationPreferences.SCREEN_OFF) ? "息屏自动拒绝" : "倒计时拒绝"),
                 "uninstall-" + recordId, "卸载验证", text, UninstallHistoryActivity.class);
     }
 }

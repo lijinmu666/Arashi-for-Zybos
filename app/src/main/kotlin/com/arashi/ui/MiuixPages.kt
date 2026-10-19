@@ -1753,10 +1753,11 @@ private fun NotificationSettingsPage(a: com.arashi.settings.NotificationSettings
     IntroCard("通知开关仅控制消息提醒，不影响卸载验证、TCP 拦截与记录保存，点按通知可查看对应记录")
     Group("卸载验证") {
         listOf(
-            Triple(com.arashi.notifications.NotificationPreferences.BLACKLIST, "黑名单拒绝", "发起者命中黑名单，拒绝卸载时通知"),
-            Triple(com.arashi.notifications.NotificationPreferences.WHITELIST, "白名单放行", "发起者命中白名单，放行卸载请求时通知"),
-            Triple(com.arashi.notifications.NotificationPreferences.TIMEOUT, "倒计时自动拒绝", "未响应验证弹窗，倒计时结束拒绝卸载时通知"),
-        ).forEach { (key, title, summary) ->
+            com.arashi.notifications.NotificationPreferences.BLACKLIST to "黑名单拒绝",
+            com.arashi.notifications.NotificationPreferences.WHITELIST to "白名单放行",
+            com.arashi.notifications.NotificationPreferences.TIMEOUT to "倒计时自动拒绝",
+            com.arashi.notifications.NotificationPreferences.SCREEN_OFF to "息屏自动拒绝",
+        ).forEach { (key, title) ->
             var checked by remember(key) { mutableStateOf(prefs.getBoolean(key, true)) }
             SwitchPreference(
                 checked = checked,
@@ -1766,7 +1767,6 @@ private fun NotificationSettingsPage(a: com.arashi.settings.NotificationSettings
                     if (it) com.arashi.notifications.AppNotifications.requestPermissionIfNeeded(a)
                 },
                 title = title,
-                summary = summary,
             )
         }
     }
@@ -1781,7 +1781,6 @@ private fun NotificationSettingsPage(a: com.arashi.settings.NotificationSettings
                 if (it) com.arashi.notifications.AppNotifications.requestPermissionIfNeeded(a)
             },
             title = "login.fail 拦截成功",
-            summary = "成功拦截并保存记录后发送通知，显示实际错误码",
         )
     }
     Group("系统") {

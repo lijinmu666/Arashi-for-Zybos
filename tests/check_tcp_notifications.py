@@ -101,6 +101,12 @@ public class Check {
  TcpBlockNotifications.post(events,11,"10001");check(events.manager.sent.size()==4);
  events.prefs.putBoolean(NotificationPreferences.TCP,false);
  TcpBlockNotifications.post(events,12,"10001");check(events.manager.sent.size()==4);
+ check(UninstallNoticePolicy.key("设备息屏",true)==null);
+ data.put("reason","设备息屏");data.put("allowed",false);
+ UninstallNotifications.post(events,13,data);
+ check(events.manager.sent.get("uninstall-13").text.equals("桌面(1000) 试图卸载应用，由于设备未使用，已拒绝本次卸载。点按查看详情信息"));
+ events.prefs.putBoolean(NotificationPreferences.SCREEN_OFF,false);
+ UninstallNotifications.post(events,14,data);check(events.manager.sent.size()==5);
  check(!NotificationPreferences.uninstallEnabled(events));
  System.out.println("TCP and uninstall notification checks passed");
  }

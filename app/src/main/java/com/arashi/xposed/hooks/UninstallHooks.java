@@ -15,6 +15,7 @@ import android.util.Log;
 import com.arashi.xposed.Reflect;
 import com.arashi.xposed.SettingsProvider;
 import com.arashi.uninstall.UninstallConfig;
+import com.arashi.uninstall.UninstallScreenState;
 import com.arashi.uninstall.UninstallHistoryStore;
 
 import java.io.FileInputStream;
@@ -429,6 +430,11 @@ public final class UninstallHooks {
 
     private static Decision confirm(Context context, int uid, String[] packages,
             String target, int seconds) {
+        // Only requests that reached popup confirmation use this rule.
+        // Enabled state and black/white lists were already handled above.
+        if (UninstallScreenState.isScreenOff(context)) {
+            return new Decision(false, UninstallScreenState.SCREEN_OFF_REASON);
+        }
         if (!PROMPT_SLOT.tryAcquire()) {
             Log.w(TAG, "Another uninstall confirmation is pending");
             return new Decision(false, "已有待确认请求");
@@ -460,6 +466,9 @@ public final class UninstallHooks {
             if (!finished) {
                 Log.w(TAG, "Confirmation timed out uid=" + uid + " target=" + target);
                 return new Decision(false, "超时默认拒绝");
+            }
+            if (response.get() == UninstallScreenState.SCREEN_OFF_RESULT) {
+                return new Decision(false, UninstallScreenState.SCREEN_OFF_REASON);
             }
             if (response.get() == 1) return new Decision(true, "弹窗允许");
             if (response.get() == 2) return new Decision(false, "超时默认拒绝");
