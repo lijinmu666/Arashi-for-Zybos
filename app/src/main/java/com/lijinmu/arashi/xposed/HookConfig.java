@@ -19,6 +19,7 @@ public static final String KEY_CAPTIVE_PORTAL = "hook_captive_portal";
     public static final String KEY_ALLOW_USB = "hook_allow_usb";
     public static final String KEY_RECORD_INTERNAL_AUDIO = "hook_record_internal_audio";
     public static final String KEY_KEEP_NAVIGATION = "hook_keep_navigation";
+    public static final String KEY_NOTIFICATION_REPLY = "hook_notification_reply";
     public static final String KEY_STATUS_BAR_DATE = "hook_status_bar_date";
     public static final String KEY_IOS_ICONS = "hook_ios_icons";
     public static final String KEY_ALLOW_WALLPAPER = "hook_allow_wallpaper";
@@ -32,7 +33,8 @@ public static final String KEY_BLOCK_SUPERVISE = "hook_block_supervise";
     public static final String KEY_KEEP_BACKGROUND_WHITELIST = "hook_keep_background_whitelist";
 
     public static boolean defaultEnabled(String key) {
-        return !KEY_BLOCK_TCP_LOGIN_FAIL.equals(key)
+        return !KEY_NOTIFICATION_REPLY.equals(key)
+                && !KEY_BLOCK_TCP_LOGIN_FAIL.equals(key)
                 && !KEY_KEEP_NAVIGATION.equals(key)
                 && !KEY_STATUS_BAR_DATE.equals(key)
                 && !KEY_IOS_ICONS.equals(key)
@@ -56,7 +58,7 @@ public static final String KEY_NEUTRALIZE_POLICY = "hook_neutralize_policy";
                 KEY_BLOCK_TCP_LOGIN_FAIL, KEY_ANDROID12_BLACKLIST_HOOK, KEY_EXTERNAL_INSTALL, KEY_SHELL_INSTALL,
                 KEY_CLEAR_BLACKLIST, KEY_CAPTIVE_PORTAL,
                 KEY_ALLOW_USB,
-                KEY_RECORD_INTERNAL_AUDIO, KEY_KEEP_NAVIGATION, KEY_STATUS_BAR_DATE, KEY_IOS_ICONS, KEY_ALLOW_WALLPAPER, KEY_CLEAR_DETAIL_BLACK, KEY_BLOCK_SUPERVISE,
+                KEY_RECORD_INTERNAL_AUDIO, KEY_NOTIFICATION_REPLY, KEY_KEEP_NAVIGATION, KEY_STATUS_BAR_DATE, KEY_IOS_ICONS, KEY_ALLOW_WALLPAPER, KEY_CLEAR_DETAIL_BLACK, KEY_BLOCK_SUPERVISE,
                 KEY_BLOCK_USAGE_REPORT,
                 KEY_DEV_OPTIONS, KEY_DEV_OPTIONS_MENU, KEY_KEEP_BACKGROUND, KEY_NEUTRALIZE_POLICY,
                 KEY_NEUTRALIZE_ADVANCE, KEY_NO_TIMEOUT_LOCK, KEY_BLOCK_DEFAULT_BROWSER

@@ -27,6 +27,7 @@ public static void hookSystemUI(XposedModule mod, ClassLoader cl) {
         hookDefaultBrowser(mod, cl, "SystemUI");
         ScreenRecordingHooks.hookSystemUI(mod, cl);
         StatusBarClockHooks.hookSystemUI(mod, cl);
+        NotificationReplyHooks.hookSystemUI(mod, cl);
         NavigationAccessHooks.hookSystemUI(mod, cl);
         
         Log.i(TAG, "systemui hooks initialized");
