@@ -173,16 +173,16 @@ public final class HookScopes {
         public String unavailableReason(String key) {
             String[] packages = applicationScopes(key);
             if (packages.length == 0) {
-                return "未检测到本次开机的 system_server Hook，请勾选系统框架作用域并重启";
+                return "未检测到本次开机的 SystemServer 的 Hook，请勾选系统框架作用域并重启";
             }
             if (!scopeKnown) {
-                return "暂无法读取 LSPosed 作用域，请确认模块已启用并返回此页面";
+                return "无法读取 LSPosed 作用域，请确认模块已启用并返回此页面";
             }
             String targets = String.join("、", packages);
             if (usesSystemServer(key)) {
-                return "未检测到系统框架 Hook，且未勾选应用作用域：" + targets;
+                return "未检测到系统框架 Hook，并且且未勾选应用作用域：" + targets;
             }
-            return "未勾选对应作用域：" + targets + "；请在 LSPosed 中勾选后重启目标应用";
+            return "未勾选对应作用域：" + targets + "，请在 LSPosed 中勾选后重启目标应用";
         }
     }
 }
