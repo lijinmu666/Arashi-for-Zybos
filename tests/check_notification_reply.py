@@ -33,6 +33,7 @@ stubs['com/android/systemui/statusbar/policy/RemoteInputView.java']='''package c
 public class RemoteInputView {
  public RemoteEditText mEditText=new RemoteEditText();public boolean mSending,shown=true;
  public boolean isShown(){return shown;}
+ public boolean isActive(){return mEditText.focused&&mEditText.enabled;}
  public void focus(){} public void onDefocus(boolean a,boolean b,Runnable r){}
  public static class RemoteEditText {
   public boolean enabled,focusable,focused,cursor;public int closes;
@@ -45,6 +46,14 @@ public class RemoteInputView {
   public void defocusIfNeeded(boolean a){closes++;focused=false;focusable=false;}
  }
 }'''
+stubs['com/android/systemui/statusbar/notification/row/NotificationContentView.java']='''package com.android.systemui.statusbar.notification.row;
+public class NotificationContentView {
+ public com.android.systemui.statusbar.policy.RemoteInputView mExpandedRemoteInput=new com.android.systemui.statusbar.policy.RemoteInputView(),mHeadsUpRemoteInput=new com.android.systemui.statusbar.policy.RemoteInputView();
+ public Object mExpandedChild=new Object(),mHeadsUpChild=new Object();
+ public boolean mUserExpanding,shown=true;public int result,calls;
+ public boolean isShown(){return shown;}public int calculateVisibleType(){calls++;return result;}
+ public void selectLayout(boolean a,boolean b){} public void onLayout(boolean b,int a,int c,int d,int e){}
+}'''
 stubs['Check.java']='''import java.lang.reflect.*;
 import com.lijinmu.arashi.xposed.*;import com.lijinmu.arashi.xposed.hooks.*;import io.github.libxposed.api.*;
 import com.android.systemui.statusbar.policy.RemoteInputQuickSettingsDisabler;
@@ -56,26 +65,30 @@ public class Check {
  public static void main(String[] args)throws Throwable {
  check(!HookConfig.defaultEnabled(HookConfig.KEY_NOTIFICATION_REPLY));
  NotificationReplyHooks.hookSystemUI(module,Check.class.getClassLoader());
- var reply=new com.android.systemui.statusbar.policy.RemoteInputView();
- Method focus=reply.getClass().getMethod("focus");
- Method close=reply.mEditText.getClass().getMethod("defocusIfNeeded",boolean.class);
+ var content=new com.android.systemui.statusbar.notification.row.NotificationContentView();
+ Method calculate=content.getClass().getMethod("calculateVisibleType");
+ XposedInterface.Next calc=a->content.calculateVisibleType();
  ConfigManager.enabled=true;
- call(focus,reply,new Object[]{},a->{
-  check(reply.mEditText.enabled);
-  call(close,reply.mEditText,new Object[]{true},b->{reply.mEditText.defocusIfNeeded(true);return null;});
-  return null;
- });
- check(reply.mEditText.focused&&reply.mEditText.closes==0);
- // Explicit close outside the synchronous opening remains intact.
- call(close,reply.mEditText,new Object[]{true},a->{reply.mEditText.defocusIfNeeded(true);return null;});
- check(!reply.mEditText.focused&&reply.mEditText.closes==1);
- // Reopening the same editor works, with no repeated/background focus loop.
- reply.mEditText.enabled=false;
- call(focus,reply,new Object[]{},a->null);check(reply.mEditText.focused);
- reply.mEditText.focused=false;reply.mEditText.enabled=false;reply.mSending=true;
- call(focus,reply,new Object[]{},a->null);check(!reply.mEditText.enabled&&!reply.mEditText.focused);
- reply.mSending=false;ConfigManager.enabled=false;
- call(focus,reply,new Object[]{},a->null);check(!reply.mEditText.enabled);
+ check((Integer)call(calculate,content,new Object[]{},calc)==0);
+ var edit=content.mExpandedRemoteInput.mEditText;edit.enabled=true;edit.focused=true;
+ check((Integer)call(calculate,content,new Object[]{},calc)==1);
+ content.result=3;check((Integer)call(calculate,content,new Object[]{},calc)==1);
+ // Sending, explicit expansion gestures, hidden shade and disabled hook remain native.
+ content.mExpandedRemoteInput.mSending=true;
+ check((Integer)call(calculate,content,new Object[]{},calc)==3);
+ content.mExpandedRemoteInput.mSending=false;content.mUserExpanding=true;
+ check((Integer)call(calculate,content,new Object[]{},calc)==3);
+ content.mUserExpanding=false;content.shown=false;
+ check((Integer)call(calculate,content,new Object[]{},calc)==3);
+ content.shown=true;ConfigManager.enabled=false;
+ check((Integer)call(calculate,content,new Object[]{},calc)==3);
+ ConfigManager.enabled=true;content.result=2;
+ check((Integer)call(calculate,content,new Object[]{},calc)==2);
+ edit.focused=false;content.result=0;
+ check((Integer)call(calculate,content,new Object[]{},calc)==0);
+ content.mHeadsUpRemoteInput.mEditText.enabled=true;content.mHeadsUpRemoteInput.mEditText.focused=true;
+ check((Integer)call(calculate,content,new Object[]{},calc)==2);
+ content.mHeadsUpChild=null;check((Integer)call(calculate,content,new Object[]{},calc)==0);
  RemoteInputQuickSettingsDisabler legacy=new RemoteInputQuickSettingsDisabler();
  Method adjust=legacy.getClass().getMethod("adjustDisableFlags",int.class);
  ConfigManager.enabled=false;check(call(adjust,legacy,new Object[]{0x80},a->legacy.adjustDisableFlags((Integer)a[0])).equals(0x81));

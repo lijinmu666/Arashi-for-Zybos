@@ -11,7 +11,6 @@ import java.lang.reflect.Method;
 /** Avoid the remote-input-only QS visibility transition on the vendor landscape shade. */
 public final class NotificationReplyHooks {
     private static final String TAG = "[Arashi-Reply]";
-    private static final ThreadLocal<Object> OPENING_EDIT = new ThreadLocal<>();
     private NotificationReplyHooks() {}
 
     public static void hookSystemUI(XposedModule module, ClassLoader loader) {
@@ -34,6 +33,7 @@ public final class NotificationReplyHooks {
         hookDisable(module, loader, "com.android.systemui.statusbar.phone.CentralSurfacesCommandQueueCallbacks");
         hookDisable(module, loader, "com.android.systemui.qs.QSFragment");
         hookReplyDiagnostics(module, loader);
+        hookReplyLayout(module, loader);
 
     }
 
@@ -51,42 +51,12 @@ public final class NotificationReplyHooks {
                     module.hook(method).intercept(chain -> {
                         if (!ConfigManager.isEnabledCached(HookConfig.KEY_NOTIFICATION_REPLY)) return chain.proceed();
                         Object view = chain.getThisObject();
-                        if (event.equals("defocusIfNeeded") && OPENING_EDIT.get() == view) {
-                            Log.i(TAG, "Deferred synchronous focus-loss close while opening reply");
-                            return null;
-                        }
                         Log.i(TAG, "Reply lifecycle before " + event + " " + replyState(view));
                         if (event.equals("onDefocus") || event.equals("defocusIfNeeded")) {
                             Log.w(TAG, "Reply close caller: " + event, new Throwable("reply lifecycle trace"));
                         }
-                        if (!event.equals("focus")) {
-                            try { return chain.proceed(); }
-                            finally { Log.i(TAG, "Reply lifecycle after " + event + " " + replyState(view)); }
-                        }
-                        Object previous = OPENING_EDIT.get();
-                        Object edit = Reflect.getObjectField(view, "mEditText");
-                        // A fresh, explicit reply action must be able to focus the reused
-                        // editor before the visibility aggregation callback runs again.
-                        boolean opening = edit != null && !Boolean.TRUE.equals(Reflect.getObjectField(view, "mSending"));
-                        if (opening) {
-                            OPENING_EDIT.set(edit);
-                            invoke(edit, "setEnabled", true);
-                        }
-                        try {
-                            Object result = chain.proceed();
-                            if (opening && Boolean.TRUE.equals(invoke(view, "isShown"))
-                                    && !Boolean.TRUE.equals(Reflect.getObjectField(view, "mSending"))
-                                    && !Boolean.TRUE.equals(invoke(edit, "isFocused"))) {
-                                invoke(edit, "setFocusableInTouchMode", true);
-                                invoke(edit, "setFocusable", true);
-                                invoke(edit, "setCursorVisible", true);
-                                Log.i(TAG, "Reply focus retry result=" + invoke(edit, "requestFocus"));
-                            }
-                            return result;
-                        } finally {
-                            if (previous == null) OPENING_EDIT.remove(); else OPENING_EDIT.set(previous);
-                            Log.i(TAG, "Reply lifecycle after " + event + " " + replyState(view));
-                        }
+                        try { return chain.proceed(); }
+                        finally { Log.i(TAG, "Reply lifecycle after " + event + " " + replyState(view)); }
                     });
                     module.deoptimize(method);
                 }
@@ -98,13 +68,61 @@ public final class NotificationReplyHooks {
         }
     }
 
-    private static Object invoke(Object owner, String name, Object... args) {
+    private static void hookReplyLayout(XposedModule module, ClassLoader loader) {
         try {
-            return args.length == 0 ? owner.getClass().getMethod(name).invoke(owner)
-                    : owner.getClass().getMethod(name, boolean.class).invoke(owner, args);
-        } catch (ReflectiveOperationException error) {
-            Log.w(TAG, "Reply state operation failed: " + name, error);
-            return null;
+            Class<?> owner = Class.forName(
+                    "com.android.systemui.statusbar.notification.row.NotificationContentView", false, loader);
+            Method method = owner.getDeclaredMethod("calculateVisibleType");
+            method.setAccessible(true);
+            module.hook(method).intercept(chain -> {
+                Object result = chain.proceed();
+                if (!ConfigManager.isEnabledCached(HookConfig.KEY_NOTIFICATION_REPLY)
+                        || !(result instanceof Integer)) return result;
+                int type = (Integer) result;
+                // Types 0/3 cannot host remote input. A height recalculation must
+                // not hide an editor that is currently accepting a reply.
+                // Expanded <-> heads-up transitions retain SystemUI's focus transfer.
+                if (type != 0 && type != 3) return result;
+                Object content = chain.getThisObject();
+                if (Boolean.TRUE.equals(Reflect.getObjectField(content, "mUserExpanding"))
+                        || !callBoolean(content, "isShown")) return result;
+                if (Reflect.getObjectField(content, "mExpandedChild") != null
+                        && activeReply(Reflect.getObjectField(content, "mExpandedRemoteInput"))) {
+                    Log.i(TAG, "Preserve expanded reply layout instead of type=" + type);
+                    return 1;
+                }
+                if (Reflect.getObjectField(content, "mHeadsUpChild") != null
+                        && activeReply(Reflect.getObjectField(content, "mHeadsUpRemoteInput"))) {
+                    Log.i(TAG, "Preserve heads-up reply layout instead of type=" + type);
+                    return 2;
+                }
+                return result;
+            });
+            module.deoptimize(method);
+            // calculateVisibleType can be inlined into these hot layout methods.
+            for (Method caller : owner.getDeclaredMethods()) {
+                if (caller.getName().equals("selectLayout") || caller.getName().equals("onLayout")) {
+                    module.deoptimize(caller);
+                }
+            }
+            Log.i(TAG, "Reply content layout hooked");
+        } catch (ClassNotFoundException | NoSuchMethodException ignored) {
+        } catch (Throwable error) {
+            Log.w(TAG, "Reply content layout hook unavailable", error);
+        }
+    }
+
+    private static boolean activeReply(Object reply) {
+        return reply != null && !Boolean.TRUE.equals(Reflect.getObjectField(reply, "mSending"))
+                && callBoolean(reply, "isActive");
+    }
+
+    private static boolean callBoolean(Object owner, String name) {
+        if (owner == null) return false;
+        try { return Boolean.TRUE.equals(owner.getClass().getMethod(name).invoke(owner)); }
+        catch (ReflectiveOperationException error) {
+            Log.w(TAG, "Reply state unavailable: " + name, error);
+            return false;
         }
     }
 
