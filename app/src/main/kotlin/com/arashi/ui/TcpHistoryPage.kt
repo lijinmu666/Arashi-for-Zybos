@@ -2,6 +2,14 @@ package com.arashi.ui
 
 import android.content.ClipData
 import android.content.ClipboardManager
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.ui.Alignment
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -106,21 +114,33 @@ internal fun TcpHistoryPage(a: TcpHistoryActivity) {
                         Text("触发路径：" + (record.source ?: "未识别"))
                         Text("错误类型：" + if (record.errorType < 0) "未提供" else record.errorType.toString())
                         TextButton(if (expanded) "收起详情" else "查看详情", { expanded = !expanded })
-                        if (expanded) {
-                            SelectionContainer {
-                                Text("进程：${record.process ?: "未知"} (${record.pid})\n" +
-                                    record.details.orEmpty() + "\n\n调用栈：\n" + record.stack.orEmpty(),
-                                    style = MiuixTheme.textStyles.footnote1)
+                        AnimatedVisibility(
+                            visible = expanded,
+                            enter = expandVertically(
+                                animationSpec = tween(250, easing = FastOutSlowInEasing),
+                                expandFrom = Alignment.Top,
+                            ) + fadeIn(animationSpec = tween(200)),
+                            exit = shrinkVertically(
+                                animationSpec = tween(250, easing = FastOutSlowInEasing),
+                                shrinkTowards = Alignment.Top,
+                            ) + fadeOut(animationSpec = tween(150)),
+                        ) {
+                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                SelectionContainer {
+                                    Text("进程：${record.process ?: "未知"} (${record.pid})\n" +
+                                        record.details.orEmpty() + "\n\n调用栈：\n" + record.stack.orEmpty(),
+                                        style = MiuixTheme.textStyles.footnote1)
+                                }
+                                TextButton("复制详情", {
+                                    a.getSystemService(ClipboardManager::class.java)?.setPrimaryClip(
+                                        ClipData.newPlainText("TCP 拦截记录", "$time\n错误码：${record.errorCode}\n" +
+                                            "错误类型：${record.errorType}\n触发路径：${record.source}\n" +
+                                            "进程：${record.process} (${record.pid})\n" +
+                                            record.details.orEmpty() + "\n\n" + record.stack.orEmpty()),
+                                    )
+                                    android.widget.Toast.makeText(a, "已复制详情", android.widget.Toast.LENGTH_SHORT).show()
+                                })
                             }
-                            TextButton("复制详情", {
-                                a.getSystemService(ClipboardManager::class.java)?.setPrimaryClip(
-                                    ClipData.newPlainText("TCP 拦截记录", "$time\n错误码：${record.errorCode}\n" +
-                                        "错误类型：${record.errorType}\n触发路径：${record.source}\n" +
-                                        "进程：${record.process} (${record.pid})\n" +
-                                        record.details.orEmpty() + "\n\n" + record.stack.orEmpty()),
-                                )
-                                android.widget.Toast.makeText(a, "已复制详情", android.widget.Toast.LENGTH_SHORT).show()
-                            })
                         }
                     }
                 }
