@@ -69,6 +69,10 @@ public final class Main extends BasePage {
 
     private void populateHome() {
         MiuixPages.renderHome(this);
+        if (getSharedPreferences(com.arashi.xposed.HookConfig.PREF_NAME, MODE_PRIVATE)
+                .getBoolean(com.arashi.xposed.HookConfig.KEY_BLOCK_TCP_LOGIN_FAIL, false)) {
+            com.arashi.tcp.TcpBlockNotifications.requestPermissionIfNeeded(this);
+        }
         if (verifySignatureOnLaunch) {
             verifySignatureOnLaunch = false;
             if (SignatureVerifier.isMismatched(this)) {

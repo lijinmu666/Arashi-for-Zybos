@@ -514,6 +514,9 @@ private fun HookPage(a: HookSettings) = Page(a, "Hook 功能设置", a::finish) 
                         if (scopes.isAvailable(entry.key)) {
                             checked = it
                             prefs.edit().putBoolean(entry.key, it).apply()
+                            if (entry.key == HookConfig.KEY_BLOCK_TCP_LOGIN_FAIL && it) {
+                                com.arashi.tcp.TcpBlockNotifications.requestPermissionIfNeeded(a)
+                            }
                         }
                     },
                     title = entry.title,
