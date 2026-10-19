@@ -8,7 +8,7 @@ import urllib.request
 
 ROOT = Path(__file__).resolve().parents[1]
 SHA256 = '3cf6cd6892e32e2b4c1c39e0f52f5248a2f5b37646fdfbb79a66b46b618414ed'
-CHECK = r'''package com.arashi.tools;
+CHECK = r'''package com.lijinmu.arashi.tools;
 import org.json.*;
 import java.nio.charset.StandardCharsets;
 public class EnvCheck {
@@ -57,12 +57,12 @@ public class EnvCheck {
  }
 }'''
 STUBS = {
- 'com/arashi/ui/BasePage.java': 'package com.arashi.ui; public class BasePage {protected void populate(){}}',
- 'com/arashi/ui/MiuixPages.java': 'package com.arashi.ui; public class MiuixPages {public static void renderZybosEnvController(com.arashi.tools.ZybosEnvController a){}}',
- 'com/arashi/tools/RootShell.java': '''package com.arashi.tools; class RootShell {
+ 'com/lijinmu/arashi/ui/BasePage.java': 'package com.lijinmu.arashi.ui; public class BasePage {protected void populate(){}}',
+ 'com/lijinmu/arashi/ui/MiuixPages.java': 'package com.lijinmu.arashi.ui; public class MiuixPages {public static void renderZybosEnvController(com.lijinmu.arashi.tools.ZybosEnvController a){}}',
+ 'com/lijinmu/arashi/tools/RootShell.java': '''package com.lijinmu.arashi.tools; class RootShell {
  static String reply,command;static boolean ok;static class Result{boolean ok;String output;Result(boolean b,String s){ok=b;output=s;}}
  static Result run(String s){command=s;return new Result(ok,reply);} }''',
- 'com/arashi/tools/EnvCheck.java': CHECK,
+ 'com/lijinmu/arashi/tools/EnvCheck.java': CHECK,
 }
 with tempfile.TemporaryDirectory(prefix='arashi-env-') as directory:
     tmp=Path(directory)
@@ -73,7 +73,7 @@ with tempfile.TemporaryDirectory(prefix='arashi-env-') as directory:
     assert hashlib.sha256(jar.read_bytes()).hexdigest()==SHA256, 'Unexpected JSON test dependency'
     for name,source in STUBS.items():
         target=tmp/name;target.parent.mkdir(parents=True,exist_ok=True);target.write_text(source)
-    real=ROOT/'app/src/main/java/com/arashi/tools'
+    real=ROOT/'app/src/main/java/com/lijinmu/arashi/tools'
     subprocess.run(['javac','-cp',str(jar),'-d',str(tmp/'classes'),*map(str,tmp.rglob('*.java')),
                     str(real/'ZybosEnvConfig.java'),str(real/'ZybosEnvController.java')],check=True)
-    subprocess.run(['java','-cp',str(tmp/'classes')+':'+str(jar),'com.arashi.tools.EnvCheck',str(tmp/'capture')],check=True)
+    subprocess.run(['java','-cp',str(tmp/'classes')+':'+str(jar),'com.lijinmu.arashi.tools.EnvCheck',str(tmp/'capture')],check=True)

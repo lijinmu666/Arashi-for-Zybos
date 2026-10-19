@@ -1,11 +1,11 @@
 # LSPosed loads HookEntry by its name in META-INF/xposed/java_init.list.
 # Keep hook implementations and helpers intact: callbacks and diagnostic stack
 # traces must remain stable, including classes instantiated by the framework.
--keep class com.arashi.xposed.** { *; }
+-keep class com.lijinmu.arashi.xposed.** { *; }
 
 # This method is replaced at runtime. It must not be renamed, removed, inlined
 # or folded into a constant false result in the UI.
--keep class com.arashi.Main {
+-keep class com.lijinmu.arashi.Main {
     public boolean isModuleActive();
 }
 

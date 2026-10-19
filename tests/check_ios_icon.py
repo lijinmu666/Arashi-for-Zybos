@@ -45,7 +45,7 @@ public class AdaptiveIconDrawable extends Drawable {
  public static float getExtraInsetFraction(){return .25f;}
  public void draw(Canvas c){throw new AssertionError("Old system mask must not be drawn");}
 }'''
-CHECK = '''package com.arashi.xposed.hooks;
+CHECK = '''package com.lijinmu.arashi.xposed.hooks;
 import android.graphics.*;
 import android.graphics.drawable.*;
 public class IconCheck {
@@ -93,11 +93,11 @@ with tempfile.TemporaryDirectory(prefix='arashi-icons-') as directory:
                for name, body in STUBS.items()}
     sources.update({'android/graphics/drawable/Drawable.java': DRAWABLE,
                     'android/graphics/drawable/AdaptiveIconDrawable.java': ADAPTIVE,
-                    'com/arashi/xposed/hooks/IconCheck.java': CHECK})
+                    'com/lijinmu/arashi/xposed/hooks/IconCheck.java': CHECK})
     for name, source in sources.items():
         target = tmp / name
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(source)
-    real = ROOT / 'app/src/main/java/com/arashi/xposed/hooks/IosIconDrawable.java'
+    real = ROOT / 'app/src/main/java/com/lijinmu/arashi/xposed/hooks/IosIconDrawable.java'
     subprocess.run(['javac', '-d', str(tmp / 'classes'), *map(str, tmp.rglob('*.java')), str(real)], check=True)
-    subprocess.run(['java', '-cp', str(tmp / 'classes'), 'com.arashi.xposed.hooks.IconCheck'], check=True)
+    subprocess.run(['java', '-cp', str(tmp / 'classes'), 'com.lijinmu.arashi.xposed.hooks.IconCheck'], check=True)

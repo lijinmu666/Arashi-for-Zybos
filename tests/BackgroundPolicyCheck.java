@@ -1,4 +1,4 @@
-import com.arashi.xposed.BackgroundPolicy;
+import com.lijinmu.arashi.xposed.BackgroundPolicy;
 import java.util.Set;
 public final class BackgroundPolicyCheck {
     private static int checks;

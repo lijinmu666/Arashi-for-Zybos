@@ -12,10 +12,10 @@ if (hasSigningConfig) {
 }
 
 android {
-    namespace = 'com.arashi'
+    namespace = 'com.lijinmu.arashi'
     compileSdk = 37
     defaultConfig {
-        applicationId 'com.arashi'
+        applicationId 'com.lijinmu.arashi'
         minSdk = 31
         targetSdk = 34
         versionCode = 37

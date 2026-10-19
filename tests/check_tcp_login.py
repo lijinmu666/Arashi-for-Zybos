@@ -37,11 +37,11 @@ public class Bundle extends HashMap<String,Object> {
  public static String getProcessName(){return "com.zuoyebang.iot.zptcpservice";} }''',
     'android/app/ActivityThread.java': '''package android.app; public class ActivityThread {
  public static Application currentApplication(){return new Application();} }''',
-    'com/arashi/xposed/ConfigManager.java': '''package com.arashi.xposed; public class ConfigManager {
+    'com/lijinmu/arashi/xposed/ConfigManager.java': '''package com.lijinmu.arashi.xposed; public class ConfigManager {
  public static boolean enabled=true; public static boolean isEnabled(String k){return enabled;} }''',
-    'com/arashi/xposed/SettingsProvider.java': '''package com.arashi.xposed; public class SettingsProvider {
+    'com/lijinmu/arashi/xposed/SettingsProvider.java': '''package com.lijinmu.arashi.xposed; public class SettingsProvider {
  public static final android.net.Uri URI=new android.net.Uri(); public static final String METHOD_ADD_TCP_RECORD="record"; }''',
-    'com/arashi/tcp/TcpHistoryStore.java': '''package com.arashi.tcp; public class TcpHistoryStore {
+    'com/lijinmu/arashi/tcp/TcpHistoryStore.java': '''package com.lijinmu.arashi.tcp; public class TcpHistoryStore {
  public static final String TIME="time",ERROR_TYPE="error_type",ERROR_CODE="error_code",SOURCE="source",DETAILS="details",STACK="stack",PROCESS="process",PID="pid"; }''',
     'io/github/libxposed/api/XposedModule.java': '''package io.github.libxposed.api; import java.lang.reflect.*; import java.util.*;
  public class XposedModule {
@@ -64,8 +64,8 @@ public class Bundle extends HashMap<String,Object> {
  public class LoginData {private int halted=0,rop=0; private String token="HTTP_TOKEN_SENTINEL";}''',
     'com/zuoyebang/iot/zptcpservice/login/LoginResponse.java': '''package com.zuoyebang.iot.zptcpservice.login;
  public class LoginResponse {public LoginData getData(){return null;} }''',
-    'Check.java': '''import android.content.*; import android.os.Bundle; import com.arashi.xposed.*;
-import com.arashi.xposed.hooks.TcpLoginHooks; import io.github.libxposed.api.XposedModule;
+    'Check.java': '''import android.content.*; import android.os.Bundle; import com.lijinmu.arashi.xposed.*;
+import com.lijinmu.arashi.xposed.hooks.TcpLoginHooks; import io.github.libxposed.api.XposedModule;
 import java.lang.reflect.*; import java.util.concurrent.atomic.AtomicInteger;
 public class Check {
  static XposedModule module=new XposedModule(); static AtomicInteger proceeded=new AtomicInteger();
@@ -127,7 +127,7 @@ with tempfile.TemporaryDirectory(prefix='arashi-tcp-check-') as temp:
         path.write_text(content)
         sources.append(str(path))
     sources += [str(ROOT / 'app/src/main/java' / name) for name in (
-        'com/arashi/xposed/HookConfig.java', 'com/arashi/xposed/Reflect.java',
-        'com/arashi/xposed/TcpLoginPolicy.java', 'com/arashi/xposed/hooks/TcpLoginHooks.java')]
+        'com/lijinmu/arashi/xposed/HookConfig.java', 'com/lijinmu/arashi/xposed/Reflect.java',
+        'com/lijinmu/arashi/xposed/TcpLoginPolicy.java', 'com/lijinmu/arashi/xposed/hooks/TcpLoginHooks.java')]
     subprocess.run(['javac', '-encoding', 'UTF-8', '-d', str(folder / 'classes'), *sources], check=True)
     subprocess.run(['java', '-cp', str(folder / 'classes'), 'Check'], check=True)

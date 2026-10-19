@@ -16,7 +16,7 @@ STUBS = {
  public static final int MODE_PRIVATE=0; public android.app.NotificationManager manager=new android.app.NotificationManager();
  public SharedPreferences prefs=new SharedPreferences(); public int permission=-1;
  public <T>T getSystemService(Class<T> c){return c.cast(manager);} public int checkSelfPermission(String p){return permission;}
- public SharedPreferences getSharedPreferences(String n,int m){return prefs;} public String getPackageName(){return "com.arashi";} }''',
+ public SharedPreferences getSharedPreferences(String n,int m){return prefs;} public String getPackageName(){return "com.lijinmu.arashi";} }''',
 'android/app/Activity.java': '''package android.app; public class Activity extends android.content.Context {
  public int requests; public void requestPermissions(String[] s,int r){requests++;} public void startActivity(android.content.Intent i){} }''',
 'android/content/Intent.java': '''package android.content; public class Intent {
@@ -45,14 +45,14 @@ STUBS = {
  public Builder setVisibility(int v){return this;} public Notification build(){return n;} } }''',
 'android/provider/Settings.java': '''package android.provider; public class Settings {public static String ACTION_APP_NOTIFICATION_SETTINGS="settings",EXTRA_APP_PACKAGE="package";}''',
 'android/util/Log.java': '''package android.util; public class Log {public static int w(String t,String m,Throwable e){return 0;}}''',
-'com/arashi/tcp/TcpHistoryActivity.java': '''package com.arashi.tcp; public class TcpHistoryActivity extends android.app.Activity {}''',
+'com/lijinmu/arashi/tcp/TcpHistoryActivity.java': '''package com.lijinmu.arashi.tcp; public class TcpHistoryActivity extends android.app.Activity {}''',
  'android/os/Bundle.java': '''package android.os; public class Bundle extends java.util.HashMap<String,Object> {
  public String getString(String k){return (String)get(k);} public boolean getBoolean(String k,boolean d){return (Boolean)getOrDefault(k,d);}
  public int getInt(String k,int d){return (Integer)getOrDefault(k,d);} }''',
- 'com/arashi/uninstall/UninstallHistoryActivity.java': '''package com.arashi.uninstall; public class UninstallHistoryActivity extends android.app.Activity {}''',
- 'com/arashi/uninstall/UninstallHistoryStore.java': '''package com.arashi.uninstall; public class UninstallHistoryStore {
+ 'com/lijinmu/arashi/uninstall/UninstallHistoryActivity.java': '''package com.lijinmu.arashi.uninstall; public class UninstallHistoryActivity extends android.app.Activity {}''',
+ 'com/lijinmu/arashi/uninstall/UninstallHistoryStore.java': '''package com.lijinmu.arashi.uninstall; public class UninstallHistoryStore {
  public static String REASON="reason",ALLOWED="allowed",CALLER_NAME="name",CALLER_PACKAGE="pkg",CALLER_UID="uid"; }''',
-'Check.java': '''import android.app.*; import android.content.*; import com.arashi.tcp.*; import com.arashi.notifications.*;
+'Check.java': '''import android.app.*; import android.content.*; import com.lijinmu.arashi.tcp.*; import com.lijinmu.arashi.notifications.*;
 public class Check {
  static void check(boolean b){if(!b)throw new AssertionError();}
  public static void main(String[] args){
@@ -81,7 +81,7 @@ public class Check {
  UninstallNotifications.post(events,1,data);
  Notification denied=events.manager.sent.get("uninstall-1");
  check(denied.text.equals("桌面(1000) 试图卸载应用，由于其已被添加至黑名单，已拒绝本次卸载。点按查看详情信息"));
- check(denied.click.intent.target==com.arashi.uninstall.UninstallHistoryActivity.class);
+ check(denied.click.intent.target==com.lijinmu.arashi.uninstall.UninstallHistoryActivity.class);
  events.prefs.putBoolean(NotificationPreferences.BLACKLIST,false);
  UninstallNotifications.post(events,2,data);check(events.manager.sent.size()==1);
  data.put("reason","白名单");data.put("allowed",true);UninstallNotifications.post(events,3,data);
@@ -118,6 +118,6 @@ with tempfile.TemporaryDirectory(prefix='arashi-tcp-notify-') as directory:
         target=tmp/name
         target.parent.mkdir(parents=True,exist_ok=True)
         target.write_text(source)
-    real=ROOT/'app/src/main/java/com/arashi/tcp/TcpBlockNotifications.java'
-    subprocess.run(['javac','-d',str(tmp/'classes'),*map(str,tmp.rglob('*.java')),str(real),*map(str,(ROOT/'app/src/main/java/com/arashi/notifications').glob('*.java'))],check=True)
+    real=ROOT/'app/src/main/java/com/lijinmu/arashi/tcp/TcpBlockNotifications.java'
+    subprocess.run(['javac','-d',str(tmp/'classes'),*map(str,tmp.rglob('*.java')),str(real),*map(str,(ROOT/'app/src/main/java/com/lijinmu/arashi/notifications').glob('*.java'))],check=True)
     subprocess.run(['java','-cp',str(tmp/'classes'),'Check'],check=True)

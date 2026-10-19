@@ -1,4 +1,4 @@
-import com.arashi.xposed.StatusBarClockFormat;
+import com.lijinmu.arashi.xposed.StatusBarClockFormat;
 import java.util.Calendar;
 import java.util.GregorianCalendar;
 import java.util.TimeZone;

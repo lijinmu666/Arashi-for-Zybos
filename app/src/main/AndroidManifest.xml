@@ -71,7 +71,7 @@
 
         <provider
             android:name=".xposed.SettingsProvider"
-            android:authorities="com.arashi.settings"
+            android:authorities="com.lijinmu.arashi.settings"
             android:exported="true"
             android:multiprocess="false" />
     </application>
