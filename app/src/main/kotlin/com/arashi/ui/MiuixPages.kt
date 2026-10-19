@@ -1880,6 +1880,28 @@ private fun ZybosEnvPage(a: com.arashi.tools.ZybosEnvController) = Page(a, "Zybo
         colors = ButtonDefaults.textButtonColorsPrimary(color = Color(0xFF3482FF), textColor = Color.White),
     )
     TextButton(
+        "查看当前配置",
+        {
+            if (!busy) {
+                busy = true
+                scope.launch {
+                    try {
+                        val json = withContext(Dispatchers.IO) { a.readFormattedProperty() }
+                        MiuixPages.showMessage(a, "当前环境配置", json)
+                    } catch (cancelled: CancellationException) {
+                        throw cancelled
+                    } catch (failure: Exception) {
+                        MiuixPages.showMessage(a, "读取失败", failure.message ?: "无法读取环境配置")
+                    } finally {
+                        busy = false
+                    }
+                }
+            }
+        },
+        Modifier.fillMaxWidth(),
+        enabled = !busy,
+    )
+    TextButton(
         "重置为默认",
         {
             if (!busy) {

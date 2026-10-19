@@ -46,6 +46,9 @@ public class EnvCheck {
   check(controller.resetConfig().json.equals(ZybosEnvConfig.DEFAULT_JSON));
   check(RootShell.command.equals("setprop persist.sys.env_config '"+ZybosEnvConfig.DEFAULT_JSON+"' && getprop persist.sys.env_config"));
   controller.readConfig();check(RootShell.command.equals("getprop persist.sys.env_config"));
+  check(controller.readFormattedProperty().contains("\n"));
+  RootShell.reply="";check(controller.readFormattedProperty().equals("属性为空"));
+  RootShell.reply="broken";check(controller.readFormattedProperty().contains("broken"));
   RootShell.ok=false;RootShell.reply="permission denied";
   try{controller.resetConfig();throw new AssertionError();}catch(IllegalStateException expected){check(expected.getMessage().contains("permission denied"));}
   RootShell.ok=true;RootShell.reply="different";

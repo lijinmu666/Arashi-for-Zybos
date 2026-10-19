@@ -9,10 +9,24 @@ public final class ZybosEnvController extends BasePage {
         MiuixPages.renderZybosEnvController(this);
     }
 
-    public ZybosEnvConfig readConfig() throws Exception {
+    private String readProperty() {
         RootShell.Result result = RootShell.run("getprop " + ZybosEnvConfig.PROPERTY);
         if (!result.ok) throw new IllegalStateException(result.output);
-        return ZybosEnvConfig.parse(result.output);
+        return result.output.trim();
+    }
+
+    public ZybosEnvConfig readConfig() throws Exception {
+        return ZybosEnvConfig.parse(readProperty());
+    }
+
+    public String readFormattedProperty() {
+        String raw = readProperty();
+        if (raw.isEmpty()) return "属性为空";
+        try {
+            return new org.json.JSONObject(raw).toString(2);
+        } catch (org.json.JSONException error) {
+            return "当前属性不是有效的 JSON，原始内容如下\n\n" + raw;
+        }
     }
 
     public ZybosEnvConfig applyConfig(String original, String environment, boolean showTools, boolean tips)
