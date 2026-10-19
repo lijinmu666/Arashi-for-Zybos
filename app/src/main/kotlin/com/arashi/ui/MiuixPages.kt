@@ -1257,7 +1257,7 @@ private fun UninstallPrompt(
 
 @Composable
 private fun QuickPage(a: QuickCommands) = Page(a, "快捷指令执行", a::finish) {
-    IntroCard("以下功能使用 root 权限执行，第一次使用请授予 Arashi 权限")
+    IntroCard("以下功能使用 root 权限执行，首次使用请授予 root 权限")
     Group("应用") {
         Link("禁用 PadMs", "冻结 com.zuoyebang.padms") { a.run("禁用 PadMs", "pm disable com.zuoyebang.padms") }
         Link("禁用 report服务", "冻结 com.zuoyebang.iot.pad.zpreport") { a.run("禁用 report服务", "pm disable com.zuoyebang.iot.pad.zpreport") }
