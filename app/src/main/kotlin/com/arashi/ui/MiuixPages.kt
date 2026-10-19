@@ -86,6 +86,7 @@ import java.util.Locale
 import java.text.SimpleDateFormat
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import com.arashi.uninstall.UninstallConfig
@@ -110,6 +111,8 @@ object MiuixPages {
         packages: Array<String>?,
         deadline: Long,
     ) = render(a) { UninstallPrompt(a, target, uid, packages, deadline) }
+    @JvmStatic fun renderZybosEnvController(a: com.arashi.tools.ZybosEnvController) = render(a) { ZybosEnvPage(a) }
+
     @JvmStatic fun renderQuickCommands(a: QuickCommands) = render(a) { QuickPage(a) }
     @JvmStatic fun renderZybosTools(a: ZybosTools) = render(a) { ZybosPage(a) }
     @JvmStatic fun renderZybosUninstallPicker(a: ZybosUninstallPickerActivity) =
@@ -1263,6 +1266,9 @@ private fun QuickPage(a: QuickCommands) = Page(a, "快捷指令执行", a::finis
         Link("启用 系统升级", "与上方功能作用排斥") { a.run("启用 系统升级", "pm enable com.zuoyebang.iot.zp.lib.ota.server") }
     }
     Group("设置相关") {
+        Link("Zybos 环境控制", "读取和修改 persist.sys.env_config") {
+            a.startActivity(Intent(a, com.arashi.tools.ZybosEnvController::class.java))
+        }
         fun set(title: String, key: String, value: Int) =
             a.run(title, "settings put global $key $value; settings get global $key")
         Link("打开开发者模式", "打开 development_settings_enabled") { set("打开开发者模式", "development_settings_enabled", 1) }
@@ -1788,4 +1794,113 @@ private fun NotificationSettingsPage(a: com.arashi.settings.NotificationSettings
             com.arashi.notifications.AppNotifications.openSettings(a)
         }
     }
+}
+
+@Composable
+private fun ZybosEnvPage(a: com.arashi.tools.ZybosEnvController) = Page(a, "Zybos 环境控制", a::finish) {
+    val environments = listOf("PRODUCTION", "TEST", "MOCK")
+    var original by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf<String?>(null) }
+    var environment by androidx.compose.runtime.saveable.rememberSaveable { mutableIntStateOf(0) }
+    var showTools by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
+    var tips by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
+    var busy by remember { mutableStateOf(original == null) }
+    var error by remember { mutableStateOf<String?>(null) }
+    val scope = rememberCoroutineScope()
+    fun accept(config: com.arashi.tools.ZybosEnvConfig) {
+        original = config.json
+        environment = environments.indexOf(config.environment)
+        showTools = config.showDebugTools
+        tips = config.tips
+        error = null
+    }
+    LaunchedEffect(Unit) {
+        if (original == null) {
+            busy = true
+            try {
+                accept(withContext(Dispatchers.IO) { a.readConfig() })
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (failure: Exception) {
+                error = failure.message ?: "无法读取环境配置"
+            } finally {
+                busy = false
+            }
+        }
+    }
+    IntroCard("这些开关很危险，请谨慎使用。更改环境可能影响登录与激活")
+    if (busy) InfoCard("正在读取或写入环境配置…")
+    if (error != null) InfoCard("操作失败：${error.orEmpty()}")
+    Group("环境配置") {
+        OverlayDropdownPreference(
+            items = environments,
+            selectedIndex = environment,
+            title = "环境",
+            enabled = !busy && original != null,
+            onSelectedIndexChange = { environment = it },
+        )
+        SwitchPreference(
+            checked = showTools,
+            onCheckedChange = { showTools = it },
+            title = "启用应用商店调试工具悬浮窗",
+            enabled = !busy && original != null,
+        )
+        SwitchPreference(
+            checked = tips,
+            onCheckedChange = { tips = it },
+            title = "启用tips环境",
+            enabled = !busy && original != null,
+        )
+    }
+    TextButton(
+        "应用并写入",
+        {
+            val base = original
+            if (!busy && base != null) {
+                busy = true
+                val selectedEnv = environments[environment]
+                val selectedTools = showTools
+                val selectedTips = tips
+                scope.launch {
+                    try {
+                        accept(withContext(Dispatchers.IO) { a.applyConfig(base, selectedEnv, selectedTools, selectedTips) })
+                        MiuixPages.showMessage(a, "写入成功", "已写入并核对 persist.sys.env_config")
+                    } catch (cancelled: CancellationException) {
+                        throw cancelled
+                    } catch (failure: Exception) {
+                        error = failure.message ?: "写入失败"
+                        MiuixPages.showMessage(a, "写入失败", error.orEmpty())
+                    } finally {
+                        busy = false
+                    }
+                }
+            }
+        },
+        Modifier.fillMaxWidth(),
+        enabled = !busy && original != null,
+        colors = ButtonDefaults.textButtonColorsPrimary(color = Color(0xFF3482FF), textColor = Color.White),
+    )
+    TextButton(
+        "重置为默认",
+        {
+            if (!busy) {
+                busy = true
+                scope.launch {
+                    try {
+                        accept(withContext(Dispatchers.IO) { a.resetConfig() })
+                        MiuixPages.showMessage(a, "重置成功", "已写入并核对默认环境配置")
+                    } catch (cancelled: CancellationException) {
+                        throw cancelled
+                    } catch (failure: Exception) {
+                        error = failure.message ?: "重置失败"
+                        MiuixPages.showMessage(a, "重置失败", error.orEmpty())
+                    } finally {
+                        busy = false
+                    }
+                }
+            }
+        },
+        Modifier.fillMaxWidth(),
+        enabled = !busy,
+        colors = ButtonDefaults.textButtonColors(color = Color.White, textColor = Color.Black),
+    )
 }
