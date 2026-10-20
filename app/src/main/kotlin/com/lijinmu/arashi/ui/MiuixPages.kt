@@ -495,8 +495,8 @@ private fun HookPage(a: HookSettings) = Page(a, "Hook 功能设置", a::finish) 
             HookItem("阻止禁用系统导航与下拉面板", "拦截返回、主页、最近任务及下拉面板的禁用限制，覆盖激活与错误页面等场景。需勾选系统框架、系统界面 和 桌面 作用域，开关控制重启系统后生效", HookConfig.KEY_KEEP_NAVIGATION),
         ),
         "美化" to listOf(
-            HookItem("使用 AOSP Wi-Fi 图标", "使用原版 Wi-Fi 信号图标，保留信号强度、无网络提示与深浅色适配。重启系统界面后生效", HookConfig.KEY_AOSP_WIFI),
-            HookItem("使用 AOSP 电池图标", "恢复原版竖向电池图标，保留电量百分比与充电状态。重启系统界面后生效", HookConfig.KEY_AOSP_BATTERY),
+            HookItem("使用 AOSP 的 WLAN 图标", "使用原版 Wi-Fi 信号图标，保留信号强度、无网络提示与深浅色适配。重启 SystemUI 后生效", HookConfig.KEY_AOSP_WIFI),
+            HookItem("使用 AOSP 的电池图标", "恢复原版竖向电池图标，保留电量百分比与充电状态。重启 SystemUI 后生效", HookConfig.KEY_AOSP_BATTERY),
             HookItem("桌面图标圆角", "桌面应用图标与文件夹的改成 iOS 样式的圆角，文件夹使用半透明底色。强行停止桌面后生效", HookConfig.KEY_IOS_ICONS),
 						HookItem("状态栏显示日期", "仿 iPadOS 在状态栏左侧时间后显示月日与星期，如 16:40  10月17日周六。开关控制在下次时钟刷新时生效", HookConfig.KEY_STATUS_BAR_DATE),
         ),
