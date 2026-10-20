@@ -131,7 +131,7 @@ jobs:
           for apk in dist/*.apk; do
             python3 tests/check_release_apk.py "$apk"
             "$tools/aapt" dump badging "$apk" > "$RUNNER_TEMP/arashi-badging.txt"
-            grep "package: name='com.lijinmu.arashi' versionCode='39' versionName='v1.0.0'" "$RUNNER_TEMP/arashi-badging.txt"
+            grep "package: name='com.lijinmu.arashi' versionCode='40' versionName='v1.0.0'" "$RUNNER_TEMP/arashi-badging.txt"
             test "$(unzip -p "$apk" META-INF/xposed/java_init.list)" = 'com.lijinmu.arashi.xposed.HookEntry'
             if [[ "$apk" != *-unsigned.apk ]]; then
               "$tools/apksigner" verify --verbose --print-certs "$apk"

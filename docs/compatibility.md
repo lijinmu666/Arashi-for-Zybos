@@ -26,7 +26,7 @@
 
 ## AOSP Wi-Fi 图标
 
-“美化 → 使用 AOSP Wi-Fi 图标”默认关闭，仅需系统界面作用域，启用后重启 SystemUI。针对已提供 Android 12 / 14 样本，将 Wi-Fi 6 及 Android 12 活动变体图标映射到系统自带 AOSP 普通信号图标；不修改连接状态、信号强度、无网络图标、图标可见性或原有 tint。其他未知资源保持原样，不能据此保证其他固件适配。视觉效果待实机验证。
+“美化 → 使用 AOSP Wi-Fi 图标”默认关闭，仅需系统界面作用域，启用后重启 SystemUI。内部版本 39 仅在旧 StatusBarWifiView 路径替换变体，Android 14 用户反馈无变化。内部版本 40 在 SystemUI 的 Resources 图标加载处按 Wi-Fi 图标表匹配精确资源 ID，使用 Android 14 AOSP 原始矢量路径绘制五档信号及无网络提示，覆盖普通、Wi-Fi 6 和新旧显示路径。保留原有 ImageView tint 与连接状态，不强制显示被隐藏的图标。匹配不到的资源仍用原样；修复视觉效果待用户实测。路径版权与 Apache-2.0 许可说明见 AospWifiDrawable.java。
 
 ## 当前验证范围
 
