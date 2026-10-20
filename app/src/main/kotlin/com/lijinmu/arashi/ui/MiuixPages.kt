@@ -84,6 +84,10 @@ import java.util.WeakHashMap
 import java.util.Date
 import java.util.Locale
 import java.text.SimpleDateFormat
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.job
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
@@ -840,40 +844,51 @@ private fun UninstallHistoryPage(a: UninstallHistoryActivity) {
     var hasMore by remember { mutableStateOf(true) }
     var loadError by remember { mutableStateOf<String?>(null) }
     var clearError by remember { mutableStateOf<String?>(null) }
-    // A single effect serializes refresh, pagination and deletion. Changing the
-    // request cancels any old read before it can repopulate a cleared list.
+    val scope = rememberCoroutineScope()
+    var readJob by remember { mutableStateOf<Job?>(null) }
     LaunchedEffect(request) {
-        val deleting = clearing
-        loading = !deleting
+        if (clearing) return@LaunchedEffect
+        readJob = currentCoroutineContext().job
+        loading = true
         try {
-            if (deleting) {
-                val count = withContext(Dispatchers.IO) { UninstallHistoryStore.clear(a) }
-                records = emptyList()
-                hasMore = false
-                loadError = null
-                clearError = null
-                MiuixPages.showMessage(a, "清空完成", "已清空 $count 条卸载记录")
-            } else {
-                val before = records.lastOrNull()?.id ?: Long.MAX_VALUE
-                val batch = withContext(Dispatchers.IO) {
-                    UninstallHistoryStore.read(a, before, 101)
-                }
-                records = records + batch.take(100)
-                hasMore = batch.size > 100
-                loadError = null
-            }
+            val before = records.lastOrNull()?.id ?: Long.MAX_VALUE
+            val batch = withContext(Dispatchers.IO) { UninstallHistoryStore.read(a, before, 101) }
+            records = records + batch.take(100)
+            hasMore = batch.size > 100
+            loadError = null
         } catch (error: CancellationException) {
             throw error
         } catch (error: Exception) {
-            if (deleting) {
+            loadError = error.message ?: "读取记录失败"
+        } finally {
+            loading = false
+        }
+    }
+    fun clearRecords() {
+        if (clearing) return
+        clearing = true
+        scope.launch {
+            try {
+                readJob?.cancelAndJoin()
+                val (count, batch) = withContext(Dispatchers.IO) {
+                    val count = UninstallHistoryStore.clear(a)
+                    count to UninstallHistoryStore.read(a, Long.MAX_VALUE, 101)
+                }
+                records = batch.take(100)
+                hasMore = batch.size > 100
+                loadError = null
+                clearError = null
+                MiuixPages.showMessage(a, "清空完成", "已清空 $count 条卸载记录")
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
                 clearError = error.message ?: "清空记录失败"
                 MiuixPages.showMessage(a, "清空失败", clearError.orEmpty())
-            } else {
-                loadError = error.message ?: "读取记录失败"
+            } finally {
+                clearing = false
+                loading = false
             }
         }
-        loading = false
-        clearing = false
     }
     Scaffold(
         modifier = Modifier.fillMaxSize(),
@@ -909,7 +924,7 @@ private fun UninstallHistoryPage(a: UninstallHistoryActivity) {
                         enabled = !loading && !clearing,
                     )
                     TextButton(
-                        "清空记录",
+                        if (clearing) "正在清空" else "清空记录",
                         { confirmClear = true },
                         Modifier.weight(1f),
                         enabled = records.isNotEmpty() && !loading && !clearing,
@@ -979,10 +994,7 @@ private fun UninstallHistoryPage(a: UninstallHistoryActivity) {
                 "清空",
                 {
                     confirmClear = false
-                    if (!clearing) {
-                        clearing = true
-                        request++
-                    }
+                    clearRecords()
                 },
                 Modifier.weight(1f),
                 colors = ButtonDefaults.textButtonColorsPrimary(),

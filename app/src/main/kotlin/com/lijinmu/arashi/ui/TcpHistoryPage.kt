@@ -22,6 +22,11 @@ import com.lijinmu.arashi.tcp.TcpHistoryActivity
 import com.lijinmu.arashi.tcp.TcpHistoryStore
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.job
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import top.yukonga.miuix.kmp.basic.*
 import top.yukonga.miuix.kmp.icon.MiuixIcons
@@ -41,30 +46,52 @@ internal fun TcpHistoryPage(a: TcpHistoryActivity) {
     var confirmClear by remember { mutableStateOf(false) }
     var hasMore by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
-    // Serialize pagination, refresh and deletion so an old read cannot refill a cleared list.
+    val scope = rememberCoroutineScope()
+    var readJob by remember { mutableStateOf<Job?>(null) }
     LaunchedEffect(request) {
+        if (clearing) return@LaunchedEffect
+        readJob = currentCoroutineContext().job
         loading = true
         try {
-            if (clearing) {
-                val count = withContext(Dispatchers.IO) { TcpHistoryStore.clear(a) }
-                records = emptyList()
-                hasMore = false
-                MiuixPages.showMessage(a, "清空完成", "已清空 $count 条 TCP 拦截记录")
-            } else {
-                val before = records.lastOrNull()?.id ?: Long.MAX_VALUE
-                val batch = withContext(Dispatchers.IO) { TcpHistoryStore.read(a, before, 101) }
-                records = records + batch.take(100)
-                hasMore = batch.size > 100
-            }
+            val before = records.lastOrNull()?.id ?: Long.MAX_VALUE
+            val batch = withContext(Dispatchers.IO) { TcpHistoryStore.read(a, before, 101) }
+            records = records + batch.take(100)
+            hasMore = batch.size > 100
             error = null
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (failure: Exception) {
-            error = failure.message ?: "操作失败"
-            if (clearing) MiuixPages.showMessage(a, "清空失败", error.orEmpty())
+            error = failure.message ?: "读取记录失败"
+        } finally {
+            loading = false
         }
-        loading = false
-        clearing = false
+    }
+    fun clearRecords() {
+        if (clearing) return
+        clearing = true
+        scope.launch {
+            try {
+                // Stop and join the previous read before deleting, so its result
+                // cannot replace the post-delete database snapshot.
+                readJob?.cancelAndJoin()
+                val (count, batch) = withContext(Dispatchers.IO) {
+                    val count = TcpHistoryStore.clear(a)
+                    count to TcpHistoryStore.read(a, Long.MAX_VALUE, 101)
+                }
+                records = batch.take(100)
+                hasMore = batch.size > 100
+                error = null
+                MiuixPages.showMessage(a, "清空完成", "已清空 $count 条 TCP 拦截记录")
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (failure: Exception) {
+                error = failure.message ?: "清空记录失败"
+                MiuixPages.showMessage(a, "清空失败", error.orEmpty())
+            } finally {
+                clearing = false
+                loading = false
+            }
+        }
     }
     Scaffold(
         modifier = Modifier.fillMaxSize(),
@@ -96,9 +123,9 @@ internal fun TcpHistoryPage(a: TcpHistoryActivity) {
                         records = emptyList()
                         hasMore = true
                         request++
-                    }, Modifier.weight(1f), enabled = !loading)
-                    TextButton("清空记录", { confirmClear = true }, Modifier.weight(1f),
-                        enabled = records.isNotEmpty() && !loading)
+                    }, Modifier.weight(1f), enabled = !loading && !clearing)
+                    TextButton(if (clearing) "正在清空" else "清空记录", { confirmClear = true }, Modifier.weight(1f),
+                        enabled = records.isNotEmpty() && !loading && !clearing)
                 }
             }
             items(records, key = { it.id }) { record ->
@@ -148,7 +175,7 @@ internal fun TcpHistoryPage(a: TcpHistoryActivity) {
             if (loading) item { TcpInfoCard("正在加载记录…") }
             if (error != null) item { TcpInfoCard("操作失败：" + error.orEmpty()) }
             if (records.isEmpty() && !loading && error == null) item { TcpInfoCard("暂无 TCP 拦截记录") }
-            if (hasMore && !loading && error == null) item {
+            if (hasMore && !loading && !clearing && error == null) item {
                 TextButton("加载更多", { request++ }, Modifier.fillMaxWidth())
             }
         }
@@ -164,10 +191,7 @@ internal fun TcpHistoryPage(a: TcpHistoryActivity) {
             TextButton("取消", { confirmClear = false }, Modifier.weight(1f))
             TextButton("清空", {
                 confirmClear = false
-                if (!loading) {
-                    clearing = true
-                    request++
-                }
+                clearRecords()
             }, Modifier.weight(1f))
         }
     }
