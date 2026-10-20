@@ -28,6 +28,7 @@ public static void hookSystemUI(XposedModule mod, ClassLoader cl) {
         ScreenRecordingHooks.hookSystemUI(mod, cl);
         StatusBarClockHooks.hookSystemUI(mod, cl);
         AospBatteryHooks.hookSystemUI(mod, cl);
+        AospWifiHooks.hookSystemUI(mod, cl);
         NotificationReplyHooks.hookSystemUI(mod, cl);
         NavigationAccessHooks.hookSystemUI(mod, cl);
         
