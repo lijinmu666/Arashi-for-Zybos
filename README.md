@@ -11,13 +11,16 @@ Arashi 是面向作业帮学习机 AIBangOS 的 LSPosed 模块和系统工具，
 
 ## 下载与使用
 
-下载入口：[GitHub Releases](https://github.com/lijinmu666/Arashi-for-Zybos/releases) · [GitHub Actions](https://github.com/lijinmu666/Arashi-for-Zybos/actions)。主分支保留项目源码。Actions 未配置正式签名时，提供测试签名 APK 和未签名 Release APK；未签名包需要签名后安装，测试签名包不能直接覆盖不同签名的已安装版本。
+下载入口：
+- [GitHub Releases](https://github.com/lijinmu666/Arashi-for-Zybos/releases)
+- [GitHub Actions](https://github.com/lijinmu666/Arashi-for-Zybos/actions)
+- [官方 QQ 群聊](https://qun.qq.com/universal-share/share?ac=1&authKey=i%2Bh3ZyTelsMfhjWvc8srNCHnS4BMGrsr4hj1fDcEXx0fC5ECgHyUjh45kS5qiQ3W&busi_data=eyJncm91cENvZGUiOiIxMTI1MTkwMzUwIiwidG9rZW4iOiIrRFg2KzdBTHhRRlZKODZjUUt2U2gySFRBaHFBeFNIYTdFTFc0emcydXJuTEZsN1dvS3MwT1J4ZFF2dnNJNUhOIiwidWluIjoiODQxNTYzNjAifQ==&data=PB0LIOhizgFR_GzQFzdDn6FEbw0rzkzMw5JbqCzMZp0t72lHOOiSfSqMcISpvsGOvjkcACA_44t9aKGSV3GaNQ&svctype=4&tempid=h5_group_info)
 
-1. 安装 Arashi，在支持 libxposed API 102 的 LSPosed 管理器中启用模块。
+1. 安装 Arashi，在最新版的 LSPosed 中启用模块。
 2. 按需要勾选系统框架及对应应用作用域，然后重启设备。
 3. 在“Hook 功能设置”中启用所需功能。系统框架按本次开机的 Hook 状态检测，应用作用域在设置页实时读取。
 
-最低 Android 版本为 Android 12（API 31）。Hook 针对 AIBangOS 的相关实现，不能据此保证其他系统或所有固件都兼容。
+最低 Android 版本为 Android 12（API 31）。Hook 针对 AIBangOS 的相关实现，不能与其他系统或固件兼容。
 
 ## 功能
 
@@ -28,7 +31,6 @@ Arashi 是面向作业帮学习机 AIBangOS 的 LSPosed 模块和系统工具，
 
 保留后台进程支持应用白名单。开启开关后可在下方选择应用；未选择时默认保留全部，选择后仅保留选中的应用。微信、QQ、护眼、语音助手和时钟沿用固件原有豁免，不显示在选择器中。关闭开关会隐藏入口并保留选择。
 - 管控：阻止管控服务、应用禁用失效、页面屏蔽失效及时间限制相关功能。
-- 实验功能：虚拟显示及跨包通知相关 Hook，默认关闭。
 
 未检测到对应作用域时，相关开关不可用并保留原设置。系统框架 Hook 的变更需要重启设备，应用作用域的变更需要重启目标应用。
 
@@ -79,18 +81,6 @@ app/src/main/java/com/lijinmu/arashi/
 app/src/main/kotlin/com/lijinmu/arashi/ui/MiuixPages.kt
                Miuix 页面和弹窗
 ```
-
-## 本地编译
-
-项目使用 AGP `9.3.0`、Gradle Wrapper `9.7.1` 和 Android SDK `37`。请配置兼容的 JDK 与 Android SDK。
-
-```powershell
-.\gradlew.bat :app:assembleRelease
-```
-
-需要签名时，在项目根目录自行创建 `keystore.properties`，配置 `storeFile`、`storePassword`、`keyAlias` 和 `keyPassword`，并准备自己的签名文件。这些文件以及 `local.properties`、缓存、备份和构建产物均不提交到仓库。
-
-使用自己的签名编译的 APK 会触发应用内的签名不匹配提示。
 
 ## 许可证
 
