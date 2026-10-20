@@ -796,7 +796,7 @@ private fun UninstallPage(a: UninstallSettings) = Page(a, "卸载验证", a::fin
             },
             title = "启用卸载验证",
             summary = if (moduleActive) "每次卸载请求将会弹窗向你确认"
-                else "未检测到 system_server Hook，卸载验证暂时关闭；激活后会恢复此前的开启状态",
+                else "未检测到 system_server Hook，卸载验证暂时关闭。激活后会恢复此前的开启状态",
             enabled = moduleActive,
         )
         OverlayDropdownPreference(
@@ -823,7 +823,7 @@ private fun UninstallPage(a: UninstallSettings) = Page(a, "卸载验证", a::fin
         Link("白名单", "白名单中的发起方不会弹窗向你确认，直接允许") {
             a.startActivity(Intent(a, UninstallListActivity::class.java).putExtra("blacklist", false))
         }
-        Link("黑名单", "与白名单排斥，黑名单直接拒绝卸载；优先于白名单") {
+        Link("黑名单", "与白名单排斥，黑名单直接拒绝卸载，并且优先于白名单") {
             a.startActivity(Intent(a, UninstallListActivity::class.java).putExtra("blacklist", true))
         }
     }
@@ -1081,7 +1081,7 @@ private fun UninstallListPage(a: UninstallListActivity, blacklist: Boolean) {
         ) {
             item {
                 IntroCard(
-                    if (blacklist) "选中的发起方直接拒绝卸载" else "选中的发起方直接允许卸载；黑名单优先",
+                    if (blacklist) "选中的发起方直接拒绝卸载" else "选中的发起方直接允许卸载，并且黑名单优先",
                 )
             }
             item {
