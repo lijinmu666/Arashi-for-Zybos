@@ -2,12 +2,31 @@
 
 本索引按版本梳理开发记录。Git 原始提交保持不变，便于查看差异和回退。
 
+## v1.0.0（当前）
+
+显示版本长期保持 v1.0.0，当前源码 versionCode 为 37，不能仅通过版本名判断是否包含某次修复。此处以提交标识具体变更，不改写原始历史
+
+| 提交 | 内容与验证边界 |
+| --- | --- |
+| [809705e](https://github.com/lijinmu666/Arashi-for-Zybos/commit/809705e) | 包名与命名空间改为 com.lijinmu.arashi |
+| [2a978dd](https://github.com/lijinmu666/Arashi-for-Zybos/commit/2a978dd) | 首次加入通知快捷回复的 QS 兼容路径，设备测试未解决问题 |
+| [e7c013a](https://github.com/lijinmu666/Arashi-for-Zybos/commit/e7c013a) | 添加焦点诊断与恢复尝试，未解决根因，恢复尝试已被后续实现移除 |
+| [83a26a6](https://github.com/lijinmu666/Arashi-for-Zybos/commit/83a26a6) | 保留活动回复面板，Android 14 用户已确认正常回复，Android 12 待实测 |
+| [56c8530](https://github.com/lijinmu666/Arashi-for-Zybos/commit/56c8530) | TCP 与卸载记录改为直接清空、取消旧读取并重新加载，构建通过，实机效果待确认 |
+| [bfe0e95](https://github.com/lijinmu666/Arashi-for-Zybos/commit/bfe0e95) | 调整功能名称、位置与说明，随后 Actions 已成功构建 |
+
+同期功能还包括 TCP login.fail 拦截记录与独立通知、息屏拒绝卸载弹窗、Zybos 环境控制、导航可用性及两套桌面的图标适配，当前使用与兼容状态以 README 和专题文档为准
+
+## v0.9.5 与 v0.9.4
+
+补齐后台白名单显示动画、说明卡片布局、夜间模式、QQ群链接及未签名 release 构建入口，版本条目见[更新记录](../CHANGELOG.md)
+
 ## v0.9.3
 
 - 新增 root 投屏开启、关闭快捷指令。
 - 修复 Android 12 过早读取 PMS 静态字段引发的循环初始化、系统进程崩溃和 LSPosed 安全模式。
-- 云端编译通过的代码提交：[ebeb21a3](https://github.com/lijinmu666/Arashi/commit/ebeb21a3b4b5e94de0ca4c28e640e37d70ff9e92)。
-- 随后的 [7bf5c384](https://github.com/lijinmu666/Arashi/commit/7bf5c38402dae45d10b3c34b7217493277a7c348) 调整了投屏与安装页面文案，不能把此前 APK 视为包含这些文案的重新构建。
+- 云端编译通过的代码提交：[ebeb21a3](https://github.com/lijinmu666/Arashi-for-Zybos/commit/ebeb21a3b4b5e94de0ca4c28e640e37d70ff9e92)。
+- 随后的 [7bf5c384](https://github.com/lijinmu666/Arashi-for-Zybos/commit/7bf5c38402dae45d10b3c34b7217493277a7c348) 调整了投屏与安装页面文案，不能把此前 APK 视为包含这些文案的重新构建。
 
 ## v0.9.2
 
@@ -33,21 +52,21 @@
 
 | 提交 | 内容 |
 | --- | --- |
-| [7bf5c384](https://github.com/lijinmu666/Arashi/commit/7bf5c38402dae45d10b3c34b7217493277a7c348) | 更新 MiuixPages.kt |
-| [ebeb21a3](https://github.com/lijinmu666/Arashi/commit/ebeb21a3b4b5e94de0ca4c28e640e37d70ff9e92) | 启动 v0.9.3 云编译，产物使用提供的密钥本地签名 |
-| [a0b48c43](https://github.com/lijinmu666/Arashi/commit/a0b48c43de2cce4855ad9f56ec3ba8aa80fdf931) | 修复安卓12 PMS 循环初始化导致系统进程崩溃，保持 v0.9.3 暂不编译 [skip ci] |
-| [0492b4c2](https://github.com/lijinmu666/Arashi/commit/0492b4c2ca1159b6e9804e8912ca7865118e527a) | 更新至 v0.9.3，快捷指令新增投屏开关，暂不编译 [skip ci] |
-| [523d5e23](https://github.com/lijinmu666/Arashi/commit/523d5e2360a88de64081c6bd8083130d5b51df93) | 修正 Android SDK 37 的实际包名为 android-37.0 |
-| [e4969a2b](https://github.com/lijinmu666/Arashi/commit/e4969a2b01a38e65e6c41dade1de97d57a805118) | 保留依赖所需 SDK 37，更新云端 SDK 工具与包索引 |
-| [1309fffb](https://github.com/lijinmu666/Arashi/commit/1309fffb630527e61f8fe4e80765a1a8c14e6db9) | 修复云编译 SDK 不可用问题，改用 Android SDK 36 |
-| [d3796341](https://github.com/lijinmu666/Arashi/commit/d3796341aed5c2138148f11566789947905ab228) | 修复云编译 SDK 初始化，使用运行器预装工具 |
-| [fc0243e8](https://github.com/lijinmu666/Arashi/commit/fc0243e83e3edc22bace98afee4e1fcd868c14dc) | 更新至 v0.9.2 并配置 GitHub Actions 云编译 |
-| [4b8d4367](https://github.com/lijinmu666/Arashi/commit/4b8d4367a85f0803a8a6c67eac1be6822f6fb2e7) | 首次初始化时根据安卓12设置兼容模式默认值，保留用户后续选择 |
-| [65c23714](https://github.com/lijinmu666/Arashi/commit/65c23714e104d19d328c52de7e9451b55faa0d9c) | 调整系统兼容性提示，确认后允许继续使用 Arashi |
-| [ac925c38](https://github.com/lijinmu666/Arashi/commit/ac925c383cd7bf88824ca85f97ffd7fc377bd5c7) | 整理仓库并准备 v0.9.1 Release |
-| [e217e08f](https://github.com/lijinmu666/Arashi/commit/e217e08f914015c9ee46bb6bf325532237886e24) | 同步 Arashi v0.9.1 当前源码 |
-| [f661206e](https://github.com/lijinmu666/Arashi/commit/f661206ed26ba3833c66db11d1fbc83eea534db3) | 临时提供 0.2.3 与 Miuix 试验版已签名 APK |
-| [380ce6c0](https://github.com/lijinmu666/Arashi/commit/380ce6c053ebaea848ced1ff2aa57840457b2c66) | 更新 Arashi 0.2.3：清理未使用代码并修复构建配置 |
-| [9d200c48](https://github.com/lijinmu666/Arashi/commit/9d200c48b59536614fd17109df5e1982c0519169) | 更新 Arashi 0.2.2：完善安装器、设置与项目说明 |
-| [cb2d9e39](https://github.com/lijinmu666/Arashi/commit/cb2d9e3957324068fde42c8292356160a6831121) | 发布 Arashi 0.2.1：基础功能与 LSPosed 模块 |
-| [566452ae](https://github.com/lijinmu666/Arashi/commit/566452ae4f7cc19c853c8750982d3f033bb628e6) | Initial commit |
+| [7bf5c384](https://github.com/lijinmu666/Arashi-for-Zybos/commit/7bf5c38402dae45d10b3c34b7217493277a7c348) | 更新 MiuixPages.kt |
+| [ebeb21a3](https://github.com/lijinmu666/Arashi-for-Zybos/commit/ebeb21a3b4b5e94de0ca4c28e640e37d70ff9e92) | 启动 v0.9.3 云编译，产物使用提供的密钥本地签名 |
+| [a0b48c43](https://github.com/lijinmu666/Arashi-for-Zybos/commit/a0b48c43de2cce4855ad9f56ec3ba8aa80fdf931) | 修复安卓12 PMS 循环初始化导致系统进程崩溃，保持 v0.9.3 暂不编译 [skip ci] |
+| [0492b4c2](https://github.com/lijinmu666/Arashi-for-Zybos/commit/0492b4c2ca1159b6e9804e8912ca7865118e527a) | 更新至 v0.9.3，快捷指令新增投屏开关，暂不编译 [skip ci] |
+| [523d5e23](https://github.com/lijinmu666/Arashi-for-Zybos/commit/523d5e2360a88de64081c6bd8083130d5b51df93) | 修正 Android SDK 37 的实际包名为 android-37.0 |
+| [e4969a2b](https://github.com/lijinmu666/Arashi-for-Zybos/commit/e4969a2b01a38e65e6c41dade1de97d57a805118) | 保留依赖所需 SDK 37，更新云端 SDK 工具与包索引 |
+| [1309fffb](https://github.com/lijinmu666/Arashi-for-Zybos/commit/1309fffb630527e61f8fe4e80765a1a8c14e6db9) | 修复云编译 SDK 不可用问题，改用 Android SDK 36 |
+| [d3796341](https://github.com/lijinmu666/Arashi-for-Zybos/commit/d3796341aed5c2138148f11566789947905ab228) | 修复云编译 SDK 初始化，使用运行器预装工具 |
+| [fc0243e8](https://github.com/lijinmu666/Arashi-for-Zybos/commit/fc0243e83e3edc22bace98afee4e1fcd868c14dc) | 更新至 v0.9.2 并配置 GitHub Actions 云编译 |
+| [4b8d4367](https://github.com/lijinmu666/Arashi-for-Zybos/commit/4b8d4367a85f0803a8a6c67eac1be6822f6fb2e7) | 首次初始化时根据安卓12设置兼容模式默认值，保留用户后续选择 |
+| [65c23714](https://github.com/lijinmu666/Arashi-for-Zybos/commit/65c23714e104d19d328c52de7e9451b55faa0d9c) | 调整系统兼容性提示，确认后允许继续使用 Arashi |
+| [ac925c38](https://github.com/lijinmu666/Arashi-for-Zybos/commit/ac925c383cd7bf88824ca85f97ffd7fc377bd5c7) | 整理仓库并准备 v0.9.1 Release |
+| [e217e08f](https://github.com/lijinmu666/Arashi-for-Zybos/commit/e217e08f914015c9ee46bb6bf325532237886e24) | 同步 Arashi v0.9.1 当前源码 |
+| [f661206e](https://github.com/lijinmu666/Arashi-for-Zybos/commit/f661206ed26ba3833c66db11d1fbc83eea534db3) | 临时提供 0.2.3 与 Miuix 试验版已签名 APK |
+| [380ce6c0](https://github.com/lijinmu666/Arashi-for-Zybos/commit/380ce6c053ebaea848ced1ff2aa57840457b2c66) | 更新 Arashi 0.2.3：清理未使用代码并修复构建配置 |
+| [9d200c48](https://github.com/lijinmu666/Arashi-for-Zybos/commit/9d200c48b59536614fd17109df5e1982c0519169) | 更新 Arashi 0.2.2：完善安装器、设置与项目说明 |
+| [cb2d9e39](https://github.com/lijinmu666/Arashi-for-Zybos/commit/cb2d9e3957324068fde42c8292356160a6831121) | 发布 Arashi 0.2.1：基础功能与 LSPosed 模块 |
+| [566452ae](https://github.com/lijinmu666/Arashi-for-Zybos/commit/566452ae4f7cc19c853c8750982d3f033bb628e6) | Initial commit |
