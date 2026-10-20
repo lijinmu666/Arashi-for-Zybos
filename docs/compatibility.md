@@ -20,6 +20,10 @@
 
 检测属性 `ro.build.version.os`，按数字版本比较：`V7.10.0` 及以上禁用 Arashi 安装器和系统特权工具。不能以 Android 12/14 代替此系统版本判断，也不应把这个限制理解为所有安装 Hook 均不可用
 
+## AOSP 电池图标
+
+“美化 → 使用 AOSP 电池图标”默认关闭，仅需系统界面作用域，修改后重启 SystemUI。Android 12（6.3.0 样本）恢复已有但隐藏的 mBatteryIconView；Android 14（7.10 样本）将保留的 AccessorizedBatteryDrawable 连接到新 ImageView。复用原有电量、充电、省电与颜色更新，不修改电池数据、百分比偏好或整组图标可见性。两版均已静态核对，未编译、未实机验证。
+
 ## 当前验证范围
 
 - Android 14 通知快捷回复：用户已确认正常输入和回复

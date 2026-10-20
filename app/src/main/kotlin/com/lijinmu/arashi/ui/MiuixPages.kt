@@ -495,6 +495,7 @@ private fun HookPage(a: HookSettings) = Page(a, "Hook 功能设置", a::finish) 
             HookItem("阻止禁用系统导航与下拉面板", "拦截返回、主页、最近任务及下拉面板的禁用限制，覆盖激活与错误页面等场景。需勾选系统框架、系统界面 和 桌面 作用域，开关控制重启系统后生效", HookConfig.KEY_KEEP_NAVIGATION),
         ),
         "美化" to listOf(
+            HookItem("使用 AOSP 电池图标", "恢复原版竖向电池图标，保留电量百分比与充电状态。重启系统界面后生效", HookConfig.KEY_AOSP_BATTERY),
             HookItem("桌面图标圆角", "桌面应用图标与文件夹的改成 iOS 样式的圆角，文件夹使用半透明底色。强行停止桌面后生效", HookConfig.KEY_IOS_ICONS),
 						HookItem("状态栏显示日期", "仿 iPadOS 在状态栏左侧时间后显示月日与星期，如 16:40  10月17日周六。开关控制在下次时钟刷新时生效", HookConfig.KEY_STATUS_BAR_DATE),
         ),
@@ -1814,6 +1815,12 @@ private fun ZybosEnvPage(a: com.lijinmu.arashi.tools.ZybosEnvController) = Page(
     val environments = listOf("PRODUCTION", "TEST", "MOCK")
     var original by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf<String?>(null) }
     var environment by androidx.compose.runtime.saveable.rememberSaveable { mutableIntStateOf(0) }
+    var tcpServers by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf("[]") }
+    var editingServer by remember { mutableIntStateOf(-2) }
+    var serverEnvironment by remember { mutableIntStateOf(0) }
+    var serverHost by remember { mutableStateOf("") }
+    var serverPort by remember { mutableStateOf("") }
+    var serverError by remember { mutableStateOf<String?>(null) }
     var showTools by remember { mutableStateOf(false) }
     var tips by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(original == null) }
@@ -1821,6 +1828,7 @@ private fun ZybosEnvPage(a: com.lijinmu.arashi.tools.ZybosEnvController) = Page(
     val scope = rememberCoroutineScope()
     fun accept(config: com.lijinmu.arashi.tools.ZybosEnvConfig) {
         original = config.json
+        tcpServers = org.json.JSONObject(config.json).optJSONArray("tcpServerConfigs")?.toString() ?: "[]"
         environment = environments.indexOf(config.environment)
         error = null
     }
@@ -1862,6 +1870,89 @@ private fun ZybosEnvPage(a: com.lijinmu.arashi.tools.ZybosEnvController) = Page(
             enabled = !busy && original != null,
         )
     }
+    Group("TCP 服务器") {
+        InfoCard("按环境配置服务器地址，可添加多条。编辑后点击“应用并写入”保存；空列表使用系统默认服务器")
+        val servers = org.json.JSONArray(tcpServers)
+        for (index in 0 until servers.length()) {
+            val server = servers.getJSONObject(index)
+            Link(
+                server.optString("env"),
+                "${server.optString("host")}:${server.optInt("port")} · 点按编辑或删除",
+            ) {
+                if (!busy) {
+                    editingServer = index
+                    serverEnvironment = environments.indexOf(server.optString("env")).coerceAtLeast(0)
+                    serverHost = server.optString("host")
+                    serverPort = server.optString("port")
+                    serverError = null
+                }
+            }
+        }
+        TextButton("添加服务器", {
+            editingServer = -1
+            serverEnvironment = environment
+            serverHost = ""
+            serverPort = ""
+            serverError = null
+        }, Modifier.fillMaxWidth(), enabled = !busy && original != null)
+    }
+    OverlayDialog(
+        show = editingServer != -2,
+        title = if (editingServer == -1) "添加 TCP 服务器" else "编辑 TCP 服务器",
+        onDismissRequest = { editingServer = -2 },
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            OverlayDropdownPreference(
+                items = environments,
+                selectedIndex = serverEnvironment,
+                title = "环境",
+                onSelectedIndexChange = { serverEnvironment = it; serverError = null },
+            )
+            TextField(
+                value = serverHost,
+                onValueChange = { serverHost = it; serverError = null },
+                label = "服务器域名或 IP",
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            TextField(
+                value = serverPort,
+                onValueChange = { serverPort = it; serverError = null },
+                label = "端口（1–65535）",
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            if (serverError != null) Text(serverError.orEmpty())
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                TextButton("取消", { editingServer = -2 }, Modifier.weight(1f))
+                if (editingServer >= 0) {
+                    TextButton("删除", {
+                        val updated = org.json.JSONArray(tcpServers)
+                        updated.remove(editingServer)
+                        tcpServers = updated.toString()
+                        editingServer = -2
+                    }, Modifier.weight(1f))
+                }
+                TextButton("保存", {
+                    try {
+                        val port = serverPort.trim().toIntOrNull()
+                            ?: throw IllegalArgumentException("端口必须是 1–65535 的整数")
+                        val updated = org.json.JSONArray(tcpServers)
+                        val server = if (editingServer >= 0)
+                            updated.getJSONObject(editingServer) else org.json.JSONObject()
+                        server.put("env", environments[serverEnvironment])
+                        server.put("host", serverHost.trim())
+                        server.put("port", port)
+                        if (editingServer >= 0) updated.put(editingServer, server) else updated.put(server)
+                        tcpServers = com.lijinmu.arashi.tools.ZybosEnvConfig.validateTcpServers(updated.toString())
+                        editingServer = -2
+                    } catch (failure: Exception) {
+                        serverError = failure.message ?: "配置无效"
+                    }
+                }, Modifier.weight(1f), colors = ButtonDefaults.textButtonColorsPrimary())
+            }
+        }
+    }
     TextButton(
         "应用并写入",
         {
@@ -1871,9 +1962,10 @@ private fun ZybosEnvPage(a: com.lijinmu.arashi.tools.ZybosEnvController) = Page(
                 val selectedEnv = environments[environment]
                 val selectedTools = showTools
                 val selectedTips = tips
+                val selectedServers = tcpServers
                 scope.launch {
                     try {
-                        accept(withContext(Dispatchers.IO) { a.applyConfig(base, selectedEnv, selectedTools, selectedTips) })
+                        accept(withContext(Dispatchers.IO) { a.applyConfig(base, selectedEnv, selectedTools, selectedTips, selectedServers) })
                         MiuixPages.showMessage(a, "写入成功", "已写入并核对 persist.sys.env_config")
                     } catch (cancelled: CancellationException) {
                         throw cancelled
