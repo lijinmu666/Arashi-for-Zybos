@@ -1871,7 +1871,11 @@ private fun ZybosEnvPage(a: com.lijinmu.arashi.tools.ZybosEnvController) = Page(
         )
     }
     Group("TCP 服务器") {
-        InfoCard("按环境配置服务器地址，可添加多条。编辑后点击“应用并写入”保存；空列表使用系统默认服务器")
+        Text(
+            "按环境配置服务器地址，可添加多条。编辑后点击“应用并写入”保存；空列表使用系统默认服务器",
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
+            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+        )
         val servers = org.json.JSONArray(tcpServers)
         for (index in 0 until servers.length()) {
             val server = servers.getJSONObject(index)
@@ -1888,6 +1892,7 @@ private fun ZybosEnvPage(a: com.lijinmu.arashi.tools.ZybosEnvController) = Page(
                 }
             }
         }
+        Box(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 16.dp, top = 4.dp)) {
         TextButton("添加服务器", {
             editingServer = -1
             serverEnvironment = environment
@@ -1895,6 +1900,7 @@ private fun ZybosEnvPage(a: com.lijinmu.arashi.tools.ZybosEnvController) = Page(
             serverPort = ""
             serverError = null
         }, Modifier.fillMaxWidth(), enabled = !busy && original != null)
+        }
     }
     OverlayDialog(
         show = editingServer != -2,
