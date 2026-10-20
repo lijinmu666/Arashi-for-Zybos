@@ -4,10 +4,17 @@
 
 ## v1.0.0（当前）
 
-显示版本长期保持 v1.0.0，当前源码 versionCode 为 37，不能仅通过版本名判断是否包含某次修复。此处以提交标识具体变更，不改写原始历史
+显示版本长期保持 v1.0.0，当前源码 versionCode 为 40，不能仅通过版本名判断是否包含某次修复。此处以提交标识具体变更，不改写原始历史
 
 | 提交 | 内容与验证边界 |
 | --- | --- |
+| 当前源码（未重新编译） | 主界面“快捷指令执行”前移到“卸载验证设置”之前；更新 README、专题文档与本索引；仅源码提交，跳过 CI |
+| [1c391da](https://github.com/lijinmu666/Arashi-for-Zybos/commit/1c391da5b5b62af95e0385285d688dd70d72e703)、[b388de1](https://github.com/lijinmu666/Arashi-for-Zybos/commit/b388de1bc8dafb3addea2fee554dce4de58e584a) | 后续页面调整，保留现有代码 |
+| [9d99393](https://github.com/lijinmu666/Arashi-for-Zybos/commit/9d9939308fcc4f93c317e76f0a72e1eb9d26e479) | 内部版本 40：改用 AOSP 原始 Wi-Fi 路径并覆盖新旧显示路径；Actions 成功，Android 12 / 14 用户反馈可用 |
+| [75165f8](https://github.com/lijinmu666/Arashi-for-Zybos/commit/75165f8a4b10db78aefb5bad4e78bd98e28cd45d) | 内部版本 39：首次加入 Wi-Fi 样式开关；旧路径覆盖不足，后续 40 修复 |
+| [6d7c12f](https://github.com/lijinmu666/Arashi-for-Zybos/commit/6d7c12f43033308149ed8bf70bd230714b3d772a) | 修复 TCP 添加服务器按钮间距并去掉嵌套说明卡片 |
+| [4627568](https://github.com/lijinmu666/Arashi-for-Zybos/commit/4627568be4aa7082ff55ff86addb9f0edaeb2f9c) | 内部版本 38：多条 TCP 端点编辑及 AOSP 电池图标；Actions 成功，Android 14 电池图标用户确认生效 |
+| [57b7e47](https://github.com/lijinmu666/Arashi-for-Zybos/commit/57b7e47d431718118110a51044bc88e534c03564) | 整理 v1.0.0 功能、兼容性及已知问题文档 |
 | [809705e](https://github.com/lijinmu666/Arashi-for-Zybos/commit/809705e) | 包名与命名空间改为 com.lijinmu.arashi |
 | [2a978dd](https://github.com/lijinmu666/Arashi-for-Zybos/commit/2a978dd) | 首次加入通知快捷回复的 QS 兼容路径，设备测试未解决问题 |
 | [e7c013a](https://github.com/lijinmu666/Arashi-for-Zybos/commit/e7c013a) | 添加焦点诊断与恢复尝试，未解决根因，恢复尝试已被后续实现移除 |

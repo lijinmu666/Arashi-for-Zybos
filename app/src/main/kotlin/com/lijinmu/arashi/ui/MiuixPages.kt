@@ -413,8 +413,8 @@ private fun HomePage(a: Main) = Page(a, "Arashi") {
     }
     Group("功能") {
         Link("Hook 功能设置", "控制 Hook 是否启用") { a.startActivity(Intent(a, HookSettings::class.java)) }
-        Link("卸载验证设置", "验证发起的卸载请求") { a.startActivity(Intent(a, UninstallSettings::class.java)) }
         Link("快捷指令执行", "调整设置、冻结应用等快捷操作") { a.startActivity(Intent(a, QuickCommands::class.java)) }
+        Link("卸载验证设置", "验证发起的卸载请求") { a.startActivity(Intent(a, UninstallSettings::class.java)) }
         val toolsBlocked = SystemToolSupport.isBlocked()
         Box(Modifier.fillMaxWidth().clickable(enabled = toolsBlocked) {
             MiuixPages.showMessage(a, "暂不可用", SystemToolSupport.MESSAGE)
