@@ -10,7 +10,6 @@ import com.lijinmu.arashi.xposed.HookConfig;
 import com.lijinmu.arashi.xposed.Reflect;
 
 import java.lang.reflect.Method;
-import java.lang.reflect.Modifier;
 
 public final class RestrictionHooks {
 
@@ -50,23 +49,30 @@ hookDetailBlacklist(mod, cl);
     }
 
     private static void hookAllowWallpaper(XposedModule mod, ClassLoader cl) {
+        // These are separate gates in the supplied Android 12 reference module.
+        // A missing vendor injector must not prevent installing the service gate.
+        hookWallpaperGate(mod, cl, "com.android.server.wallpaper.ZybWallpaperInjector",
+                "allowedSetWallpaper");
+        hookWallpaperGate(mod, cl, "com.android.server.wallpaper.WallpaperManagerService",
+                "isSetWallpaperAllowed");
+    }
+
+    private static void hookWallpaperGate(XposedModule mod, ClassLoader cl,
+                                          String className, String methodName) {
         try {
-            Class<?> clz = Class.forName(
-                    "com.android.server.wallpaper.ZybWallpaperInjector", false, cl);
-            Method m = findStaticBool(clz, "allowedSetWallpaper", 1);
-            if (m == null) {
-                Log.w(TAG, "allowedSetWallpaper not found");
+            Class<?> target = Class.forName(className, false, cl);
+            Method gate = Reflect.findMethodExact(target, methodName, String.class);
+            if (gate == null || gate.getReturnType() != boolean.class) {
+                Log.w(TAG, className + "." + methodName + "(String): boolean not found");
                 return;
             }
-            mod.hook(m).intercept(chain -> {
-                if (ConfigManager.isEnabled(HookConfig.KEY_ALLOW_WALLPAPER)) {
-                    Log.i(TAG, "allowedSetWallpaper -> true");
-                    return true;
-                }
+            mod.hook(gate).intercept(chain -> {
+                if (ConfigManager.isEnabled(HookConfig.KEY_ALLOW_WALLPAPER)) return true;
                 return chain.proceed();
             });
-        } catch (Throwable t) {
-            Log.w(TAG, "allowedSetWallpaper hook failed: " + t);
+            Log.i(TAG, "Wallpaper gate registered: " + className + "." + methodName);
+        } catch (Throwable error) {
+            Log.w(TAG, "Wallpaper gate unavailable: " + className + "." + methodName, error);
         }
     }
 
@@ -91,19 +97,6 @@ hookDetailBlacklist(mod, cl);
         } catch (Throwable t) {
             Log.w(TAG, "isDisabledDetailApp hook failed: " + t);
         }
-    }
-
-    private static Method findStaticBool(Class<?> clz, String name, int paramCount) {
-        for (Method method : clz.getDeclaredMethods()) {
-            if (name.equals(method.getName())
-                    && Modifier.isStatic(method.getModifiers())
-                    && method.getParameterCount() == paramCount
-                    && method.getReturnType() == boolean.class) {
-                method.setAccessible(true);
-                return method;
-            }
-        }
-        return null;
     }
 
 }

@@ -4,6 +4,8 @@
 
 ### 当前源码（暂不编译）
 
+- 参考提供的壁纸修复模块，补充 WallpaperManagerService.isSetWallpaperAllowed(String) Hook；与厂商壁纸入口独立注册，受现有壁纸支持开关控制，Android 12 实机效果待验证。
+
 - 调换主界面“快捷指令执行”和“卸载验证设置”的位置。
 - 整理 README、AOSP 图标说明、兼容性与提交索引；Wi-Fi 在 Android 12 / 14 已获用户反馈可用，Android 14 电池已确认生效。
 - 保持内部版本代码 40；本次仅更新源码和文档，不生成新 APK。
