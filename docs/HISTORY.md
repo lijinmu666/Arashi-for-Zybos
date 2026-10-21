@@ -8,6 +8,7 @@
 
 | 提交 | 内容与验证边界 |
 | --- | --- |
+| 尚未编译的源码更新 | 原版样式应用详情操作栏，Android 12／14 样本适配及主机检查；详见[说明](app-details.md)，待真机验证 |
 | 内部版本 41 | 主页激活状态改为大号对勾背景，包含此前入口排序、关于页仓库链接、指令箭头、选择器排序和失效应用自动取消选择，以及 Android 12 壁纸、录屏兼容修正；设备效果分别核验 |
 | [1c391da](https://github.com/lijinmu666/Arashi-for-Zybos/commit/1c391da5b5b62af95e0385285d688dd70d72e703)、[b388de1](https://github.com/lijinmu666/Arashi-for-Zybos/commit/b388de1bc8dafb3addea2fee554dce4de58e584a) | 后续页面调整，保留现有代码 |
 | [9d99393](https://github.com/lijinmu666/Arashi-for-Zybos/commit/9d9939308fcc4f93c317e76f0a72e1eb9d26e479) | 内部版本 40：改用 AOSP 原始 Wi-Fi 路径并覆盖新旧显示路径；Actions 成功，Android 12 / 14 用户反馈可用 |

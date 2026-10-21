@@ -11,6 +11,7 @@ Arashi 是面向作业帮学习机 AIBangOS 的 LSPosed 模块和系统工具，
 - [更新记录](CHANGELOG.md)
 - [提交与版本索引](docs/HISTORY.md)
 - [作用域、兼容性与已知问题](docs/compatibility.md)
+- [原版样式应用详情页](docs/app-details.md)
 - [通知快捷回复修复](docs/notification-reply.md)
 - [桌面壁纸与 iOS 圆角](docs/launcher-compatibility.md)
 - [AOSP 电池与 Wi-Fi 图标](docs/aosp-icons.md)
@@ -39,7 +40,7 @@ Actions 提供测试签名 APK 和未签名 release APK。未签名包需自行�
 ### Hook 功能设置
 
 - 安装：外部应用安装支持、Shell 安装支持、清除安装黑名单。
-- 行为：开发者选项支持及设置侧边菜单注入、保留后台进程、USB 文件传输、壁纸设置、WiFi 网页登录、解除应用详情页限制、修复录屏声音选项、修复通知快捷回复、阻止重设默认浏览器、阻止禁用导航与下拉面板
+- 行为：开发者选项支持及设置侧边菜单注入、保留后台进程、USB 文件传输、壁纸设置、WiFi 网页登录、解除应用详情页限制、原版样式应用详情页、修复录屏声音选项、修复通知快捷回复、阻止重设默认浏览器、阻止禁用导航与下拉面板
 - 美化：AOSP 电池图标、AOSP Wi-Fi 图标、iOS 风格桌面图标圆角、文件夹与最近任务图标适配，以及状态栏时间后显示日期
 - TCP 服务：屏蔽 ZpTcpService 发出的 `login.fail` 广播，保留拦截记录与通知，不改变服务器端设备状态
 
@@ -49,6 +50,8 @@ Actions 提供测试签名 APK 和未签名 release APK。未签名包需自行�
 未检测到对应作用域时，相关开关不可用并保留原设置。系统框架 Hook 的变更需要重启设备，应用作用域的变更需要重启目标应用。
 
 AOSP 电池与 Wi-Fi 图标开关默认关闭，只需系统界面作用域，启用后重启 SystemUI。Wi-Fi 图标在内部版本 40 改用 AOSP 原始路径，Android 12、14 均已获用户反馈可用；Android 14 电池图标已确认生效，Android 12 电池图标仍待单独确认。详见[图标说明](docs/aosp-icons.md)。
+
+“原版样式应用详情页”位于“行为”，默认关闭，作用域为设置。按 Android 12／14 样本接入系统保留的 AOSP 卸载／停用、强行停止操作栏；其余现有设置项保留，原版完整页面并未恢复。开关变更后重新打开详情页，真机效果待验证。详见[应用详情说明](docs/app-details.md)。
 
 ### 卸载验证
 

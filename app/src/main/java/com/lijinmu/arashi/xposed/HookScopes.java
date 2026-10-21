@@ -102,7 +102,8 @@ public final class HookScopes {
     }
 
     private static boolean usesSystemServer(String key) {
-        return !HookConfig.KEY_AOSP_WIFI.equals(key)
+        return !HookConfig.KEY_AOSP_APP_DETAILS.equals(key)
+                && !HookConfig.KEY_AOSP_WIFI.equals(key)
                 && !HookConfig.KEY_AOSP_BATTERY.equals(key)
                 && !HookConfig.KEY_NOTIFICATION_REPLY.equals(key)
                 && !HookConfig.KEY_BLOCK_TCP_LOGIN_FAIL.equals(key)
@@ -131,7 +132,7 @@ public final class HookScopes {
         if (HookConfig.KEY_CAPTIVE_PORTAL.equals(key)) {
             return new String[] { "com.android.captiveportallogin" };
         }
-        if (HookConfig.KEY_DEV_OPTIONS.equals(key)) {
+        if (HookConfig.KEY_DEV_OPTIONS.equals(key) || HookConfig.KEY_AOSP_APP_DETAILS.equals(key)) {
             return new String[] { "com.android.settings" };
         }
         if (HookConfig.KEY_NEUTRALIZE_POLICY.equals(key)
