@@ -1816,12 +1816,6 @@ private fun ZybosEnvPage(a: com.lijinmu.arashi.tools.ZybosEnvController) = Page(
     val environments = listOf("PRODUCTION", "TEST", "MOCK")
     var original by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf<String?>(null) }
     var environment by androidx.compose.runtime.saveable.rememberSaveable { mutableIntStateOf(0) }
-    var tcpServers by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf("[]") }
-    var editingServer by remember { mutableIntStateOf(-2) }
-    var serverEnvironment by remember { mutableIntStateOf(0) }
-    var serverHost by remember { mutableStateOf("") }
-    var serverPort by remember { mutableStateOf("") }
-    var serverError by remember { mutableStateOf<String?>(null) }
     var showTools by remember { mutableStateOf(false) }
     var tips by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(original == null) }
@@ -1829,7 +1823,6 @@ private fun ZybosEnvPage(a: com.lijinmu.arashi.tools.ZybosEnvController) = Page(
     val scope = rememberCoroutineScope()
     fun accept(config: com.lijinmu.arashi.tools.ZybosEnvConfig) {
         original = config.json
-        tcpServers = org.json.JSONObject(config.json).optJSONArray("tcpServerConfigs")?.toString() ?: "[]"
         environment = environments.indexOf(config.environment)
         error = null
     }
@@ -1871,95 +1864,6 @@ private fun ZybosEnvPage(a: com.lijinmu.arashi.tools.ZybosEnvController) = Page(
             enabled = !busy && original != null,
         )
     }
-    Group("TCP 服务器") {
-        Text(
-            "按环境配置服务器地址，可添加多条。编辑后点击“应用并写入”保存；空列表使用系统默认服务器",
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
-            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-        )
-        val servers = org.json.JSONArray(tcpServers)
-        for (index in 0 until servers.length()) {
-            val server = servers.getJSONObject(index)
-            Link(
-                server.optString("env"),
-                "${server.optString("host")}:${server.optInt("port")} · 点按编辑或删除",
-            ) {
-                if (!busy) {
-                    editingServer = index
-                    serverEnvironment = environments.indexOf(server.optString("env")).coerceAtLeast(0)
-                    serverHost = server.optString("host")
-                    serverPort = server.optString("port")
-                    serverError = null
-                }
-            }
-        }
-        Box(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 16.dp, top = 4.dp)) {
-        TextButton("添加服务器", {
-            editingServer = -1
-            serverEnvironment = environment
-            serverHost = ""
-            serverPort = ""
-            serverError = null
-        }, Modifier.fillMaxWidth(), enabled = !busy && original != null)
-        }
-    }
-    OverlayDialog(
-        show = editingServer != -2,
-        title = if (editingServer == -1) "添加 TCP 服务器" else "编辑 TCP 服务器",
-        onDismissRequest = { editingServer = -2 },
-    ) {
-        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            OverlayDropdownPreference(
-                items = environments,
-                selectedIndex = serverEnvironment,
-                title = "环境",
-                onSelectedIndexChange = { serverEnvironment = it; serverError = null },
-            )
-            TextField(
-                value = serverHost,
-                onValueChange = { serverHost = it; serverError = null },
-                label = "服务器域名或 IP",
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-            )
-            TextField(
-                value = serverPort,
-                onValueChange = { serverPort = it; serverError = null },
-                label = "端口（1–65535）",
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-            )
-            if (serverError != null) Text(serverError.orEmpty())
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                TextButton("取消", { editingServer = -2 }, Modifier.weight(1f))
-                if (editingServer >= 0) {
-                    TextButton("删除", {
-                        val updated = org.json.JSONArray(tcpServers)
-                        updated.remove(editingServer)
-                        tcpServers = updated.toString()
-                        editingServer = -2
-                    }, Modifier.weight(1f))
-                }
-                TextButton("保存", {
-                    try {
-                        val port = serverPort.trim().toIntOrNull()
-                            ?: throw IllegalArgumentException("端口必须是 1–65535 的整数")
-                        val updated = org.json.JSONArray(tcpServers)
-                        val server = if (editingServer >= 0)
-                            updated.getJSONObject(editingServer) else org.json.JSONObject()
-                        server.put("env", environments[serverEnvironment])
-                        server.put("host", serverHost.trim())
-                        server.put("port", port)
-                        if (editingServer >= 0) updated.put(editingServer, server) else updated.put(server)
-                        tcpServers = com.lijinmu.arashi.tools.ZybosEnvConfig.validateTcpServers(updated.toString())
-                        editingServer = -2
-                    } catch (failure: Exception) {
-                        serverError = failure.message ?: "配置无效"
-                    }
-                }, Modifier.weight(1f), colors = ButtonDefaults.textButtonColorsPrimary())
-            }
-        }
-    }
     TextButton(
         "应用并写入",
         {
@@ -1969,10 +1873,9 @@ private fun ZybosEnvPage(a: com.lijinmu.arashi.tools.ZybosEnvController) = Page(
                 val selectedEnv = environments[environment]
                 val selectedTools = showTools
                 val selectedTips = tips
-                val selectedServers = tcpServers
                 scope.launch {
                     try {
-                        accept(withContext(Dispatchers.IO) { a.applyConfig(base, selectedEnv, selectedTools, selectedTips, selectedServers) })
+                        accept(withContext(Dispatchers.IO) { a.applyConfig(base, selectedEnv, selectedTools, selectedTips) })
                         MiuixPages.showMessage(a, "写入成功", "已写入并核对 persist.sys.env_config")
                     } catch (cancelled: CancellationException) {
                         throw cancelled

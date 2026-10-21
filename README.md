@@ -80,7 +80,7 @@ TCP 拦截记录保存可获取的错误码、来源、进程及调用信息，�
 
 冻结类指令使用 `pm disable`，包括 PadMs、report、系统升级服务与桌面 ErrorActivity；ErrorActivity 只禁用对应组件，不禁用整个桌面
 
-Zybos 环境控制用于读取、格式化展示、写入或重置 `persist.sys.env_config`，需要 root。环境菜单为 `PRODUCTION`、`TEST`、`MOCK`，支持添加、编辑及删除多条 TCP 服务器配置；两个调试开关每次新进入页面均关闭，不从系统属性恢复开关状态。环境变更可能影响登录和激活，详见[工具说明](docs/records-and-tools.md)
+Zybos 环境控制用于读取、格式化展示、写入或重置 `persist.sys.env_config`，需要 root。环境菜单为 `PRODUCTION`、`TEST`、`MOCK`；两个调试开关每次新进入页面均关闭，不从系统属性恢复开关状态。环境变更可能影响登录和激活，详见[工具说明](docs/records-and-tools.md)
 
 ### 应用安装器
 
