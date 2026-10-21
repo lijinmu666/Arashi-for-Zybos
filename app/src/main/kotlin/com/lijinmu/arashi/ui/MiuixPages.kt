@@ -658,11 +658,15 @@ private fun BackgroundWhitelistPage(a: BackgroundWhitelistActivity) {
         val matchesCategory = when (filter) {
             1 -> it.isSystem == false
             2 -> it.isSystem == true
-            3 -> it.packageName in selected
             else -> true
         }
         matchesCategory && (query.isBlank() || it.label.contains(query, true) || it.packageName.contains(query, true))
-    }
+    }.sortedWith(
+        compareBy<BackgroundChoice> { if (it.packageName in selected) 0 else 1 }
+            .thenBy { if (it.isSystem == true) 1 else 0 }
+            .thenBy { it.label.lowercase() }
+            .thenBy { it.packageName },
+    )
     fun save(next: Set<String>) {
         selected = next
         prefs.edit().putStringSet(HookConfig.KEY_KEEP_BACKGROUND_WHITELIST, next).apply()
@@ -699,7 +703,7 @@ private fun BackgroundWhitelistPage(a: BackgroundWhitelistActivity) {
             item {
                 AppPickerFilterRow(
                     status = if (selected.isEmpty()) "当前保留全部应用" else "已选择 ${selected.size} 个应用",
-                    categories = listOf("全部", "用户应用", "系统应用", "已选择"),
+                    categories = listOf("默认", "用户应用", "系统应用"),
                     selectedIndex = filter,
                     onSelectedIndexChange = { filter = it },
                 )
@@ -1052,14 +1056,19 @@ private fun UninstallListPage(a: UninstallListActivity, blacklist: Boolean) {
     }
     val visible = (manualChoices + choices).filter { choice ->
         val inFilter = when (filter) {
-            0 -> choice.kind == 1
-            1 -> choice.kind == 2
-            2 -> choice.kind == 3
-            else -> choice.key in selected
+            1 -> choice.kind == 1
+            2 -> choice.kind == 2
+            3 -> choice.kind == 3
+            else -> true
         }
         inFilter && (query.isBlank() || choice.title.contains(query, true) ||
             choice.summary.contains(query, true) || choice.key.contains(query, true))
-    }
+    }.sortedWith(
+        compareBy<UninstallChoice> { if (it.key in selected) 0 else 1 }
+            .thenBy { it.kind }
+            .thenBy { it.title.lowercase() }
+            .thenBy { it.key },
+    )
     fun save(next: Set<String>) {
         selected = next
         prefs.edit().putStringSet(prefKey, next).apply()
@@ -1122,7 +1131,7 @@ private fun UninstallListPage(a: UninstallListActivity, blacklist: Boolean) {
                                 save(selected + entry)
                                 manual = ""
                                 query = ""
-                                filter = 3
+                                filter = 0
                             }
                         },
                         colors = ButtonDefaults.textButtonColorsPrimary(),
@@ -1135,7 +1144,7 @@ private fun UninstallListPage(a: UninstallListActivity, blacklist: Boolean) {
             item {
                 AppPickerFilterRow(
                     status = "已选择 " + selected.size + " 项 · 当前显示 " + visible.size + " 项",
-                    categories = listOf("用户应用", "系统应用", "UID", "已选择"),
+                    categories = listOf("默认", "用户应用", "系统应用", "UID"),
                     selectedIndex = filter,
                     onSelectedIndexChange = { filter = it },
                 )
@@ -1440,7 +1449,7 @@ private fun ZybosUninstallPickerPage(a: ZybosUninstallPickerActivity) {
                 item {
                     AppPickerFilterRow(
                         status = "当前显示 " + visible.size + " 项",
-                        categories = listOf("全部", "用户应用", "已更新的系统应用"),
+                        categories = listOf("默认", "用户应用", "已更新的系统应用"),
                         selectedIndex = filter,
                         onSelectedIndexChange = { filter = it },
                     )
