@@ -8,6 +8,7 @@
 
 | 提交 | 内容与验证边界 |
 | --- | --- |
+| 尚未编译的源码更新 | 补充设置侧栏的详情启动路径和延后初始化处理，新增独立原版应用通知开关；主机检查通过，待设备验证 |
 | 内部版本 42 | 原版样式应用详情操作栏，Android 12／14 样本适配及主机检查；详见[说明](app-details.md)，待真机验证 |
 | 内部版本 41 | 主页激活状态改为大号对勾背景，包含此前入口排序、关于页仓库链接、指令箭头、选择器排序和失效应用自动取消选择，以及 Android 12 壁纸、录屏兼容修正；设备效果分别核验 |
 | [1c391da](https://github.com/lijinmu666/Arashi-for-Zybos/commit/1c391da5b5b62af95e0385285d688dd70d72e703)、[b388de1](https://github.com/lijinmu666/Arashi-for-Zybos/commit/b388de1bc8dafb3addea2fee554dce4de58e584a) | 后续页面调整，保留现有代码 |

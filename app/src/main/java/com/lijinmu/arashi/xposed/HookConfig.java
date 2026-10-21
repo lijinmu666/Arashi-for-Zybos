@@ -25,6 +25,7 @@ public static final String KEY_CAPTIVE_PORTAL = "hook_captive_portal";
     public static final String KEY_STATUS_BAR_DATE = "hook_status_bar_date";
     public static final String KEY_IOS_ICONS = "hook_ios_icons";
     public static final String KEY_ALLOW_WALLPAPER = "hook_allow_wallpaper";
+    public static final String KEY_AOSP_APP_NOTIFICATIONS = "hook_aosp_app_notifications";
     public static final String KEY_AOSP_APP_DETAILS = "hook_aosp_app_details";
     public static final String KEY_CLEAR_DETAIL_BLACK = "hook_clear_detail_black";
 
@@ -36,7 +37,8 @@ public static final String KEY_BLOCK_SUPERVISE = "hook_block_supervise";
     public static final String KEY_KEEP_BACKGROUND_WHITELIST = "hook_keep_background_whitelist";
 
     public static boolean defaultEnabled(String key) {
-        return !KEY_AOSP_APP_DETAILS.equals(key)
+        return !KEY_AOSP_APP_NOTIFICATIONS.equals(key)
+                && !KEY_AOSP_APP_DETAILS.equals(key)
                 && !KEY_AOSP_WIFI.equals(key)
                 && !KEY_AOSP_BATTERY.equals(key)
                 && !KEY_NOTIFICATION_REPLY.equals(key)
@@ -61,7 +63,7 @@ public static final String KEY_NEUTRALIZE_POLICY = "hook_neutralize_policy";
 
     public static String[] keys() {
         return new String[] {
-                KEY_AOSP_APP_DETAILS, KEY_BLOCK_TCP_LOGIN_FAIL, KEY_ANDROID12_BLACKLIST_HOOK, KEY_EXTERNAL_INSTALL, KEY_SHELL_INSTALL,
+                KEY_AOSP_APP_NOTIFICATIONS, KEY_AOSP_APP_DETAILS, KEY_BLOCK_TCP_LOGIN_FAIL, KEY_ANDROID12_BLACKLIST_HOOK, KEY_EXTERNAL_INSTALL, KEY_SHELL_INSTALL,
                 KEY_CLEAR_BLACKLIST, KEY_CAPTIVE_PORTAL,
                 KEY_ALLOW_USB,
                 KEY_RECORD_INTERNAL_AUDIO, KEY_NOTIFICATION_REPLY, KEY_KEEP_NAVIGATION, KEY_STATUS_BAR_DATE, KEY_AOSP_WIFI, KEY_AOSP_BATTERY, KEY_IOS_ICONS, KEY_ALLOW_WALLPAPER, KEY_CLEAR_DETAIL_BLACK, KEY_BLOCK_SUPERVISE,

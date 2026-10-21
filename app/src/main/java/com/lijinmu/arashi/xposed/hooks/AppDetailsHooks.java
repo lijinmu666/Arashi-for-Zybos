@@ -39,16 +39,22 @@ public final class AppDetailsHooks {
         try {
             Class<?> fragment = loader.loadClass(
                     "com.android.settings.applications.appinfo.AppInfoDashboardFragment");
-            Method create = Reflect.findMethodExact(fragment, "onCreatePreferences", Bundle.class, String.class);
-            if (create == null) return;
-            module.hook(create).intercept(chain -> {
-                Object result = chain.proceed();
-                if (ConfigManager.isEnabled(HookConfig.KEY_AOSP_APP_DETAILS)) {
-                    try { install(chain.getThisObject(), loader); }
-                    catch (Throwable error) { Log.w(TAG, "Keeping original app details", error); }
-                }
-                return result;
-            });
+            // The side-panel route can initialize its typed controller after preferences exist.
+            for (String name : new String[] { "onCreatePreferences", "onResume", "refreshUi" }) {
+                Class<?>[] params = name.equals("onCreatePreferences")
+                        ? new Class<?>[] { Bundle.class, String.class } : new Class<?>[0];
+                Method method = Reflect.findMethodExact(fragment, name, params);
+                if (method == null || method.getDeclaringClass() != fragment) continue;
+                module.hook(method).intercept(chain -> {
+                    Object result = chain.proceed();
+                    if (ConfigManager.isEnabled(HookConfig.KEY_AOSP_APP_DETAILS)) {
+                        try { install(chain.getThisObject(), loader); }
+                        catch (Throwable error) { Log.w(TAG, "Keeping original app details", error); }
+                    }
+                    return result;
+                });
+                module.deoptimize(method);
+            }
             // The two samples use different classes, field names and state setters.
             hookHeader(module, loader, "com.android.settings.widget.AppStoreDetailHeaderPreference");
             hookHeader(module, loader, "com.android.settings.zyb.widget.ZybAppStoreDetailHeaderPreference");
@@ -274,7 +280,7 @@ public final class AppDetailsHooks {
         }
     }
 
-    private static Object invoke(Object target, String name, Object... args) throws Exception {
+    static Object invoke(Object target, String name, Object... args) throws Exception {
         for (Class<?> type = target.getClass(); type != null; type = type.getSuperclass()) {
             for (Method method : type.getDeclaredMethods()) {
                 if (!method.getName().equals(name) || method.getParameterCount() != args.length) continue;

@@ -45,7 +45,7 @@ stubs.update({
 'com/lijinmu/arashi/xposed/ConfigManager.java': 'package com.lijinmu.arashi.xposed;public class ConfigManager {public static boolean enabled=true;public static boolean isEnabled(String k){return enabled;}}',
 'com/android/settings/applications/appinfo/AppInfoDashboardFragment.java': '''package com.android.settings.applications.appinfo;
 public class AppInfoDashboardFragment {public Object mAppButtonsPreferenceController;public androidx.preference.PreferenceScreen screen=new androidx.preference.PreferenceScreen();
- public void onCreatePreferences(android.os.Bundle b,String s){}public androidx.preference.PreferenceScreen getPreferenceScreen(){return screen;}
+ public void onResume(){} public boolean refreshUi(){return true;} public void onCreatePreferences(android.os.Bundle b,String s){}public androidx.preference.PreferenceScreen getPreferenceScreen(){return screen;}
  public android.content.Context getContext(){return new android.content.Context();}
 }''',
 })
@@ -133,6 +133,12 @@ public class Check {
   com.android.settings.R.string.uninstall_text=0;run(false);
   com.android.settings.R.drawable.ic_settings_force_stop=2;com.android.settings.R.drawable.ic_settings_disable=7;com.android.settings.R.drawable.ic_settings_enable=8;
   com.android.settings.R.string.uninstall_text=4;run(true);
+  AppInfoDashboardFragment late=new AppInfoDashboardFragment();Controller lateController=new Controller();
+  var lateHeader=new com.android.settings.widget.AppStoreDetailHeaderPreference();lateHeader.setKey("app_store_detail_header");
+  lateHeader.uninstallListener=v->{};lateHeader.forceStopListener=v->{};late.screen.addPreference(lateHeader);late.mAppButtonsPreferenceController=lateController;
+  call(create,late,new Object[]{null,null});check(late.screen.items.size()==1);
+  lateController.mButtonsPref=lateHeader;call(AppInfoDashboardFragment.class.getMethod("onResume"),late,new Object[]{});
+  check(late.screen.items.containsKey("arashi_app_actions")&&!lateHeader.visible);
   AppInfoDashboardFragment unrelated=new AppInfoDashboardFragment();call(create,unrelated,new Object[]{null,null});check(unrelated.screen.items.isEmpty());
   System.out.println("App details: Android 12/14 callbacks, state changes, gating and fallback passed");
  }
