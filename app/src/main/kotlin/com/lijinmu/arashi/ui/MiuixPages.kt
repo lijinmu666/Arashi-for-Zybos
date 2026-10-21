@@ -56,6 +56,7 @@ import com.lijinmu.arashi.xposed.SettingsProvider
 import com.lijinmu.arashi.uninstall.UninstallHistoryStore
 import com.lijinmu.arashi.zybos.SystemToolSupport
 import top.yukonga.miuix.kmp.basic.Card
+import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.basic.CardDefaults
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Icon
@@ -1271,14 +1272,18 @@ private fun UninstallPrompt(
 }
 
 @Composable
+private fun QuickCommandItem(title: String, summary: String, action: () -> Unit) =
+    BasicComponent(title = title, summary = summary, onClick = action)
+
+@Composable
 private fun QuickPage(a: QuickCommands) = Page(a, "快捷指令执行", a::finish) {
     IntroCard("以下功能使用 root 权限执行，首次使用请授予 root 权限")
     Group("应用") {
-        Link("禁用 PadMs", "冻结 com.zuoyebang.padms") { a.run("禁用 PadMs", "pm disable com.zuoyebang.padms") }
-        Link("禁用 report服务", "冻结 com.zuoyebang.iot.pad.zpreport") { a.run("禁用 report服务", "pm disable com.zuoyebang.iot.pad.zpreport") }
-        Link("禁用桌面 ErrorActivity", "仅冻结桌面的 ErrorActivity 组件，保留桌面其他功能，以此禁止云控锁机的页面") { a.freezeLauncherErrorActivity() }
-        Link("禁用 系统升级", "冻结 com.zuoyebang.iot.zp.lib.ota.server") { a.run("禁用 系统升级", "pm disable com.zuoyebang.iot.zp.lib.ota.server") }
-        Link("启用 系统升级", "与上方功能作用排斥") { a.run("启用 系统升级", "pm enable com.zuoyebang.iot.zp.lib.ota.server") }
+        QuickCommandItem("禁用 PadMs", "冻结 com.zuoyebang.padms") { a.run("禁用 PadMs", "pm disable com.zuoyebang.padms") }
+        QuickCommandItem("禁用 report服务", "冻结 com.zuoyebang.iot.pad.zpreport") { a.run("禁用 report服务", "pm disable com.zuoyebang.iot.pad.zpreport") }
+        QuickCommandItem("禁用桌面 ErrorActivity", "仅冻结桌面的 ErrorActivity 组件，保留桌面其他功能，以此禁止云控锁机的页面") { a.freezeLauncherErrorActivity() }
+        QuickCommandItem("禁用 系统升级", "冻结 com.zuoyebang.iot.zp.lib.ota.server") { a.run("禁用 系统升级", "pm disable com.zuoyebang.iot.zp.lib.ota.server") }
+        QuickCommandItem("启用 系统升级", "与上方功能作用排斥") { a.run("启用 系统升级", "pm enable com.zuoyebang.iot.zp.lib.ota.server") }
     }
     Group("设置") {
         Link("Zybos 环境控制", "读取和修改 persist.sys.env_config") {
@@ -1286,16 +1291,16 @@ private fun QuickPage(a: QuickCommands) = Page(a, "快捷指令执行", a::finis
         }
         fun set(title: String, key: String, value: Int) =
             a.run(title, "settings put global $key $value; settings get global $key")
-        Link("打开开发者模式", "打开 development_settings_enabled") { set("打开开发者模式", "development_settings_enabled", 1) }
-        Link("关闭开发者模式", "关闭 development_settings_enabled") { set("关闭开发者模式", "development_settings_enabled", 0) }
-        Link("打开 USB调试", "打开 adb_enabled") { set("打开 USB调试", "adb_enabled", 1) }
-        Link("关闭 USB调试", "关闭 adb_enabled") { set("关闭 USB调试", "adb_enabled", 0) }
+        QuickCommandItem("打开开发者模式", "打开 development_settings_enabled") { set("打开开发者模式", "development_settings_enabled", 1) }
+        QuickCommandItem("关闭开发者模式", "关闭 development_settings_enabled") { set("关闭开发者模式", "development_settings_enabled", 0) }
+        QuickCommandItem("打开 USB调试", "打开 adb_enabled") { set("打开 USB调试", "adb_enabled", 1) }
+        QuickCommandItem("关闭 USB调试", "关闭 adb_enabled") { set("关闭 USB调试", "adb_enabled", 0) }
     }
     Group("投屏") {
-        Link("开启投屏", "启用 SystemUI 的无线显示并添加投屏磁贴") {
+        QuickCommandItem("开启投屏", "启用 SystemUI 的无线显示并添加投屏磁贴") {
             a.run("开启投屏", "settings put global wifi_display_on 1 && am broadcast --user current -a com.android.systemui.cast.Add -p com.android.systemui")
         }
-        Link("关闭投屏", "与上方设置排斥") {
+        QuickCommandItem("关闭投屏", "与上方设置排斥") {
             a.run("关闭投屏", "settings put global wifi_display_on 0 && am broadcast --user current -a com.android.systemui.cast.Remove -p com.android.systemui")
         }
     }
