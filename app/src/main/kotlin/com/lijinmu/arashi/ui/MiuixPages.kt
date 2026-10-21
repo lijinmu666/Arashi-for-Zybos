@@ -35,6 +35,13 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -395,22 +402,64 @@ private fun rememberSystemServerActivation(a: androidx.activity.ComponentActivit
 
 @Composable
 private fun HomePage(a: Main) = Page(a, "Arashi") {
+    val moduleActive by rememberSystemServerActivation(a)
+    val statusColor = if (moduleActive) MiuixTheme.colorScheme.primary
+        else MiuixTheme.colorScheme.onSurfaceVariantSummary
     Card(
         modifier = Modifier.fillMaxWidth(),
-        insideMargin = PaddingValues(horizontal = 22.dp, vertical = 24.dp),
+        insideMargin = PaddingValues(0.dp),
         colors = CardDefaults.defaultColors(
             color = MiuixTheme.colorScheme.tertiaryContainer,
             contentColor = MiuixTheme.colorScheme.onSurface,
         ),
     ) {
-        Text(
-            "版本 ${BuildConfig.VERSION_NAME}",
-            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-            style = MiuixTheme.textStyles.main.copy(fontWeight = FontWeight.SemiBold),
-        )
-        Spacer(Modifier.height(18.dp))
-        val moduleActive by rememberSystemServerActivation(a)
-        StatusLine("LSPosed", if (moduleActive) "已激活" else "未激活", moduleActive)
+        Box(Modifier.fillMaxWidth().clipToBounds()) {
+            // Decorative status watermark: it does not duplicate accessibility text.
+            Canvas(Modifier.matchParentSize()) {
+                val extent = minOf(size.height * 1.25f, 190.dp.toPx())
+                val left = size.width - extent * 0.92f
+                val top = (size.height - extent) / 2f
+                val watermark = statusColor.copy(alpha = 0.13f)
+                if (moduleActive) {
+                    val check = Path().apply {
+                        moveTo(left + extent * 0.16f, top + extent * 0.52f)
+                        lineTo(left + extent * 0.40f, top + extent * 0.76f)
+                        lineTo(left + extent * 0.92f, top + extent * 0.20f)
+                    }
+                    drawPath(check, watermark, style = Stroke(
+                        width = extent * 0.14f,
+                        cap = StrokeCap.Round,
+                        join = StrokeJoin.Round,
+                    ))
+                } else {
+                    val center = Offset(left + extent * 0.54f, top + extent * 0.5f)
+                    drawCircle(watermark, radius = extent * 0.34f, center = center,
+                        style = Stroke(width = extent * 0.10f))
+                    drawLine(watermark,
+                        Offset(center.x, center.y - extent * 0.13f),
+                        Offset(center.x, center.y + extent * 0.03f),
+                        strokeWidth = extent * 0.07f, cap = StrokeCap.Round)
+                    drawCircle(watermark, radius = extent * 0.04f,
+                        center = Offset(center.x, center.y + extent * 0.16f))
+                }
+            }
+            Column(
+                Modifier.fillMaxWidth().padding(horizontal = 22.dp, vertical = 24.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Text("LSPosed", color = statusColor, style = MiuixTheme.textStyles.body1)
+                Text(
+                    if (moduleActive) "已激活" else "未激活",
+                    color = statusColor,
+                    style = MiuixTheme.textStyles.title1.copy(fontWeight = FontWeight.SemiBold),
+                )
+                Text(
+                    "版本 ${BuildConfig.VERSION_NAME}",
+                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                    style = MiuixTheme.textStyles.footnote1,
+                )
+            }
+        }
     }
     Group("功能") {
         Link("Hook 功能设置", "控制 Hook 是否启用") { a.startActivity(Intent(a, HookSettings::class.java)) }
