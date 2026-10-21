@@ -68,7 +68,6 @@ import top.yukonga.miuix.kmp.basic.CardDefaults
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
-import top.yukonga.miuix.kmp.basic.LinearProgressIndicator
 import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.SmallTopAppBar
 import top.yukonga.miuix.kmp.basic.Text
@@ -104,7 +103,12 @@ import kotlinx.coroutines.withContext
 import com.lijinmu.arashi.uninstall.UninstallConfig
 
 object MiuixPages {
-    private data class Message(val title: String, val body: String, val buttonLabel: String = "知道了")
+    private data class Message(
+        val title: String,
+        val body: String,
+        val buttonLabel: String = "知道了",
+        val loading: Boolean = false,
+    )
     private val messages = WeakHashMap<Activity, MutableState<Message?>>()
 
     @JvmStatic fun renderHome(a: Main) = render(a) { HomePage(a) }
@@ -165,6 +169,10 @@ object MiuixPages {
 
     @JvmStatic fun showMessage(a: Activity, title: String, body: String) {
         a.runOnUiThread { messageState(a).value = Message(title, body) }
+    }
+
+    @JvmStatic fun showProgress(a: Activity, title: String, detail: String) {
+        a.runOnUiThread { messageState(a).value = Message(title, detail, loading = true) }
     }
 
     @JvmStatic fun showSignatureWarning(a: Activity) {
@@ -274,6 +282,11 @@ object MiuixPages {
             summary = displayed?.body,
             onDismissRequest = { message.value = null },
         ) {
+            if (displayed?.loading == true) {
+                Box(Modifier.fillMaxWidth().padding(bottom = 16.dp), contentAlignment = Alignment.Center) {
+                    LoadingIndicator(displayed.title)
+                }
+            }
             TextButton(
                 displayed?.buttonLabel ?: "知道了",
                 { message.value = null },
@@ -786,7 +799,7 @@ private fun BackgroundWhitelistPage(a: BackgroundWhitelistActivity) {
                 )
             }
             if (loading) {
-                item { InfoCard("正在加载应用…") }
+                item { LoadingCard("加载应用") }
             } else if (error != null) {
                 item { InfoCard("加载失败：" + error.orEmpty()) }
             } else {
@@ -1007,11 +1020,12 @@ private fun UninstallHistoryPage(a: UninstallHistoryActivity) {
                         Modifier.weight(1f),
                         enabled = !loading && !clearing,
                     )
-                    TextButton(
-                        if (clearing) "正在清空" else "清空记录",
+                    LoadingTextButton(
+                        "清空记录",
                         { confirmClear = true },
                         Modifier.weight(1f),
                         enabled = records.isNotEmpty() && !loading && !clearing,
+                        loading = clearing,
                     )
                 }
             }
@@ -1050,7 +1064,7 @@ private fun UninstallHistoryPage(a: UninstallHistoryActivity) {
                 item { InfoCard("暂无卸载记录") }
             }
             if (loading) {
-                item { InfoCard("正在加载记录…") }
+                item { LoadingCard("加载记录") }
             }
             if (loadError != null) {
                 item { InfoCard("读取失败：" + loadError) }
@@ -1830,7 +1844,7 @@ private fun InstallerProgressPage(
     label: String,
     packageName: String?,
     icon: Drawable?,
-) = Page(a, "正在安装") {
+) = Page(a, "安装应用") {
     Card(Modifier.fillMaxWidth(), insideMargin = PaddingValues(18.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             if (icon != null) {
@@ -1857,8 +1871,7 @@ private fun InstallerProgressPage(
     }
     Card(Modifier.fillMaxWidth(), insideMargin = PaddingValues(18.dp)) {
         Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-            Text("正在安装…", style = MiuixTheme.textStyles.title3)
-            LinearProgressIndicator(modifier = Modifier.fillMaxWidth(), height = 8.dp)
+            LoadingIndicator("安装应用", Modifier.align(Alignment.CenterHorizontally))
             Text(
                 "安装包较大时可能需要一些时间",
                 color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
@@ -1941,7 +1954,7 @@ private fun ZybosEnvPage(a: com.lijinmu.arashi.tools.ZybosEnvController) = Page(
         }
     }
     IntroCard("这些开关很危险，请谨慎使用，更改环境可能影响登录与激活。重启后写入生效")
-    if (busy) InfoCard("正在读取或写入环境配置…")
+    if (busy) LoadingCard("读取或写入环境配置")
     if (error != null) InfoCard("操作失败：${error.orEmpty()}")
     Group("环境配置") {
         OverlayDropdownPreference(

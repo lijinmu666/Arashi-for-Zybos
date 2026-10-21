@@ -170,7 +170,7 @@ return path;
                 showResult("包名无效", "请输入正确的应用包名");
                 return;
             }
-            showResult("正在安装", "正在处理 " + path + "，请稍候");
+            showProgress("安装应用", path);
             if (!ZybosService.detect(this)) {
                 showResult("不可用", "未检测到 ZybosSysApiManager");
                 return;
@@ -228,6 +228,12 @@ return path;
         return installed != null && (before == null
                 || installed.getLongVersionCode() != before.getLongVersionCode()
                 || installed.lastUpdateTime != before.lastUpdateTime);
+    }
+
+    private void showProgress(String title, String detail) {
+        ui.post(() -> {
+            if (!isFinishing() && !isDestroyed()) MiuixPages.showProgress(this, title, detail);
+        });
     }
 
     private void showResult(String title, String message) {
@@ -288,7 +294,7 @@ public void uninstallApk(String pkg) {
                 showResult("包名无效", "请输入要卸载的应用包名");
                 return;
             }
-            showResult("正在卸载", "正在处理 " + pkg + "，请稍候");
+            showProgress("卸载应用", pkg);
             if (!ZybosService.detect(this)) {
                 showResult("不可用", "未检测到 ZybosSysApiManager，本设备可能不是 AibangOS");
                 return;

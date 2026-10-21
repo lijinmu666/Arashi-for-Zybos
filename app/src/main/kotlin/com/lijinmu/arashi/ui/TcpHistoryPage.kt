@@ -124,8 +124,8 @@ internal fun TcpHistoryPage(a: TcpHistoryActivity) {
                         hasMore = true
                         request++
                     }, Modifier.weight(1f), enabled = !loading && !clearing)
-                    TextButton(if (clearing) "正在清空" else "清空记录", { confirmClear = true }, Modifier.weight(1f),
-                        enabled = records.isNotEmpty() && !loading && !clearing)
+                    LoadingTextButton("清空记录", { confirmClear = true }, Modifier.weight(1f),
+                        enabled = records.isNotEmpty() && !loading && !clearing, loading = clearing)
                 }
             }
             items(records, key = { it.id }) { record ->
@@ -172,7 +172,7 @@ internal fun TcpHistoryPage(a: TcpHistoryActivity) {
                     }
                 }
             }
-            if (loading) item { TcpInfoCard("正在加载记录…") }
+            if (loading) item { LoadingCard("加载记录") }
             if (error != null) item { TcpInfoCard("操作失败：" + error.orEmpty()) }
             if (records.isEmpty() && !loading && error == null) item { TcpInfoCard("暂无 TCP 拦截记录") }
             if (hasMore && !loading && !clearing && error == null) item {
