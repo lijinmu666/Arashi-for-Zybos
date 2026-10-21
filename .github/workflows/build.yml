@@ -58,6 +58,8 @@ jobs:
           set -euo pipefail
           javac -d "$RUNNER_TEMP/settings-tests" app/src/main/java/com/lijinmu/arashi/xposed/Reflect.java app/src/main/java/com/lijinmu/arashi/xposed/SettingsHeaderCompat.java tests/SettingsHeaderCompatCheck.java
           java -cp "$RUNNER_TEMP/settings-tests" SettingsHeaderCompatCheck
+      - name: 验证 AOSP 蓝牙已连接图标
+        run: python3 tests/check_bluetooth_icon.py
       - name: 验证状态栏日期格式
         shell: bash
         run: |

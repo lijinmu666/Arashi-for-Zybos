@@ -1,10 +1,10 @@
-# AOSP 电池与 Wi-Fi 图标
+# AOSP 电池、Wi-Fi 与蓝牙图标
 
 ## 使用
 
-入口：Hook 功能设置 → 美化 → 使用 AOSP 电池图标 / 使用 AOSP Wi-Fi 图标。
+入口：Hook 功能设置 → 美化 → 状态栏使用 AOSP 的电池图标 / WLAN 图标 / 蓝牙图标。
 
-两个开关独立，默认关闭，只需系统界面 `com.android.systemui` 作用域。安装或更新模块后、切换开关后重启 SystemUI，或重启设备。图标功能不修改真实电量、网络连接状态或系统图标显示策略。
+三个开关独立，默认关闭，只需系统界面 `com.android.systemui` 作用域。安装或更新模块后、切换开关后重启 SystemUI，或重启设备。图标功能不修改真实电量、网络连接状态或系统图标显示策略。
 
 ## 电池图标
 
@@ -24,12 +24,23 @@
 | 功能 | Android 12 | Android 14 |
 | --- | --- | --- |
 | AOSP Wi-Fi，内部版本 40 | 用户已反馈可用 | 用户已反馈可用 |
+| AOSP 蓝牙已连接 | 样本核对、主机检查通过，待真机验证 | 样本核对、主机检查通过，待真机验证 |
 | AOSP 电池 | 样本适配完成，待单独实测确认 | 用户已确认生效 |
 
 上述反馈仅代表已测试设备及固件，不能推断所有 Android 12 / 14 固件兼容。此前 Android 12 Wi-Fi 不可用的反馈已由用户更正，不再列为未解决问题。
+
+## 蓝牙已连接图标
+
+新增独立开关，默认关闭。Android 12 与 14 的 `PhoneStatusBarPolicy.updateBluetooth` 都选用 `ic_bluetooth_connected_zyb`；14 的调用已内联成资源整数，不依赖生成的 R 字段查找。沿 `Resources.getDrawable` / `getDrawableForDensity` 按完整的包名、类型和资源名匹配，直接绘制 AOSP 原始矢量：蓝牙符号左右各有一个点，原生尺寸为 17dp，路径视口为 24×24。
+
+只替换厂商的连接图标资源，不修改蓝牙状态、状态栏图标可见策略、无障碍描述，也不替换使用其他资源的快捷设置磁贴。SystemUI 内如果有其他位置引用同一资源，也会使用这份图形。每次加载产生独立 Drawable，支持屏幕密度、显式请求密度、tint、透明度与颜色过滤器；资源不匹配或解析异常时继续原加载流程。
+
+`python3 tests/check_bluetooth_icon.py` 运行真实 Hook 和绘制代码，核对两版匹配、开关关闭、无关资源、其他包名、异常回退、密度、绘制边界、独立 tint／透明度及与 AOSP 矢量路径一致性。检查不代表真机渲染与连接切换已验证。本次只提交源码，未编译 APK。
 
 ## 来源与排查
 
 Wi-Fi 路径取自 AOSP `android-14.0.0_r1` 的 `ic_wifi_signal_*.xml` 与 SettingsLib 的 `ic_no_internet_wifi_signal_*.xml`；版权、Apache-2.0 许可及源路径保留在 `AospWifiDrawable.java` 中。
 
-相关实现：`AospBatteryHooks.java`、`AospWifiHooks.java`、`AospWifiDrawable.java`。若更换固件后失效，提供系统和 SystemUI 版本，以及重启 SystemUI 后的 `[Arashi-Battery]` / `[Arashi-Wifi]` 日志，以核对 Hook 安装和资源匹配。
+蓝牙路径取自 AOSP `android-12.0.0_r1` / `android-14.0.0_r1` 的 `packages/SystemUI/res/drawable/ic_bluetooth_connected.xml`，两版内容一致；来源与 Apache-2.0 许可保留在 `AospBluetoothDrawable.java` 中。
+
+相关实现：`AospBatteryHooks.java`、`AospWifiHooks.java`、`AospWifiDrawable.java`、`AospBluetoothHooks.java`、`AospBluetoothDrawable.java`。若更换固件后失效，提供系统和 SystemUI 版本，以及重启 SystemUI 后的 `[Arashi-Battery]` / `[Arashi-Wifi]` / `[Arashi-Bluetooth]` 日志，以核对 Hook 安装和资源匹配。
