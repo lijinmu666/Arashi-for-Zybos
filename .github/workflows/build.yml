@@ -1,4 +1,4 @@
-name: 编译 Arashi 1.0.0 APK
+name: 编译 Arashi 1.1.0 APK
 
 on:
   push:
@@ -135,15 +135,15 @@ jobs:
           mkdir -p dist
           tools="$ANDROID_HOME/build-tools/37.0.0"
           if [[ "$OFFICIAL_SIGNED" == 'true' ]]; then
-            cp app/build/outputs/apk/release/app-release.apk dist/Arashi-1.0.0-release.apk
+            cp app/build/outputs/apk/release/app-release.apk dist/Arashi-1.1.0-release.apk
           else
-            cp app/build/outputs/apk/release/app-release-unsigned.apk dist/Arashi-1.0.0-release-unsigned.apk
-            cp app/build/outputs/apk/debug/app-debug.apk dist/Arashi-1.0.0-test.apk
+            cp app/build/outputs/apk/release/app-release-unsigned.apk dist/Arashi-1.1.0-release-unsigned.apk
+            cp app/build/outputs/apk/debug/app-debug.apk dist/Arashi-1.1.0-test.apk
           fi
           for apk in dist/*.apk; do
             python3 tests/check_release_apk.py "$apk"
             "$tools/aapt" dump badging "$apk" > "$RUNNER_TEMP/arashi-badging.txt"
-            grep "package: name='com.lijinmu.arashi' versionCode='45' versionName='v1.0.0'" "$RUNNER_TEMP/arashi-badging.txt"
+            grep "package: name='com.lijinmu.arashi' versionCode='46' versionName='v1.1.0'" "$RUNNER_TEMP/arashi-badging.txt"
             test "$(unzip -p "$apk" META-INF/xposed/java_init.list)" = 'com.lijinmu.arashi.xposed.HookEntry'
             if [[ "$apk" != *-unsigned.apk ]]; then
               "$tools/apksigner" verify --verbose --print-certs "$apk"
@@ -155,7 +155,7 @@ jobs:
           sha256sum dist/*.apk > dist/SHA256SUMS.txt
       - uses: actions/upload-artifact@v4
         with:
-          name: Arashi-1.0.0-APKs
+          name: Arashi-1.1.0-APKs
           path: dist/*
           if-no-files-found: error
           retention-days: 14

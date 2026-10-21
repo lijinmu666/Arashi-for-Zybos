@@ -824,7 +824,12 @@ private fun BackgroundWhitelistPage(a: BackgroundWhitelistActivity) {
                                     onCheckedChange = { checked ->
                                         save(if (checked) selected + choice.packageName else selected - choice.packageName)
                                     },
-                                    title = choice.label, summary = choice.packageName,
+                                    title = choice.label,
+                                    summary = choice.packageName + when (choice.isSystem) {
+                                        true -> " · 系统应用"
+                                        false -> " · 用户应用"
+                                        null -> ""
+                                    },
                                     checkboxLocation = CheckboxLocation.End,
                                 )
                             }
