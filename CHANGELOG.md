@@ -4,6 +4,8 @@
 
 ### 当前源码（暂不编译）
 
+- 录屏音源选择补充 PendingIntent 最终启动入口校正与请求方法反优化，兼容 Android 12 辅助方法被内联的路径；新增服务音源、录屏准备/启动/结束/保存诊断及主机回归检查，设备效果待验证。
+
 - 参考提供的壁纸修复模块，补充 WallpaperManagerService.isSetWallpaperAllowed(String) Hook；与厂商壁纸入口独立注册，受现有壁纸支持开关控制，Android 12 实机效果待验证。
 
 - 调换主界面“快捷指令执行”和“卸载验证设置”的位置。
