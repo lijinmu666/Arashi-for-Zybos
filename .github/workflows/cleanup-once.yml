@@ -1,0 +1,41 @@
+name: 清理过时的历史构建（一次性）
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/cleanup-once.yml']
+permissions:
+  contents: read
+  actions: write
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const keep = [39585557671,39434030841];
+            const targets = [39433689880,39420601715,39419219124,39418651442,39416414909,39376576109,39375592459,39375501697,39373172078,39298777688,39295688511,39290202644,39278034212,39257551435,39257259751,39256536658,39248500240,39247740957,39246270545,39244505440,39240657692,39240075764,39238781500,39238296485,39131975704,39131579494,39120702466,39120625515,39104075307,39103370810,39100013169,39082693881,39081993167,39081590158,39019726975,39018624790,39018204562,39018038529,39017099710,39017006035,39016441507,39014553372,39003771200,39003639561,39003244834,38999498564,38990740436,38990567098,38989838431,38989151383,38988766149,38988554584,38986972123,38986847717,38984425944,38951556377,38950769367,38950499368,38949785514,38949195992,38945968729,38925764058,38923993043,38922664519,38922388463,38915699272,38915303611,38913606321,38912557148,38912200491,38911186804,38910813450,38905023164,38821806983,38774083088,38773173846,38772488070,38765940818,38764235490,38763150943,38752737531,38745961408,38745625575,38732499253,38731061585,38724883264,38651070183,38599140221,38240337177,38240141107,38239684863,38239529644,38239444030,35943945067,35943501612,35943106462,35942911517];
+            // Explicit snapshot of the already reviewed historical builds.
+            // New runs, current work and the two retained downloads are excluded.
+            for (const run_id of keep) {
+              const {data: run} = await github.rest.actions.getWorkflowRun({owner, repo, run_id});
+              if (run.conclusion !== 'success') throw new Error('Retained build is not successful: ' + run_id);
+            }
+            for (const run_id of targets) {
+              const {data: run} = await github.rest.actions.getWorkflowRun({owner, repo, run_id});
+              if (run.status !== 'completed' || !run.name.startsWith('编译 Arashi') || keep.includes(run_id))
+                throw new Error('Unexpected cleanup target: ' + run_id);
+            }
+            let deleted = 0;
+            for (const run_id of targets) {
+              await github.rest.actions.deleteWorkflowRun({owner, repo, run_id});
+              deleted++;
+              core.info('Deleted historical build ' + run_id);
+            }
+            await core.summary.addHeading('历史构建清理结果')
+              .addRaw('删除旧构建及附带产物：' + deleted + '\n\n')
+              .addRaw('保留成功构建：' + keep.join(', ') + '\n')
+              .write();
