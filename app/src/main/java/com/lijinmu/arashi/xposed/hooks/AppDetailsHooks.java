@@ -1,6 +1,8 @@
 package com.lijinmu.arashi.xposed.hooks;
 
 import android.content.Context;
+import android.content.Intent;
+import android.os.UserHandle;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageInfo;
 import android.os.Bundle;
@@ -161,12 +163,18 @@ public final class AppDetailsHooks {
         Bridge bridge = new Bridge(context, screen, header, controller, loader);
         try {
             bridge.prepare(); // Resolve every required component before touching the screen.
-            if (!Boolean.TRUE.equals(invoke(screen, "addPreference", bridge.titlePreference))
+            if ((!bridge.retainedTitle && !Boolean.TRUE.equals(invoke(screen, "addPreference", bridge.titlePreference)))
                     || !Boolean.TRUE.equals(invoke(screen, "addPreference", bridge.actions))) {
                 throw new IllegalStateException("Cannot add app detail preferences");
             }
             HEADERS.put(header, new WeakReference<>(bridge));
             invoke(header, "setVisible", false);
+            // The retained stock XML already contains an action slot. Our state bridge
+            // supplies its controls in the same position, so leave no duplicate row.
+            Object unusedActions = find(screen, "action_buttons");
+            if (unusedActions != null) invoke(unusedActions, "setVisible", false);
+            Object vendorTitle = find(screen, "app_store_title");
+            if (vendorTitle != null) invoke(vendorTitle, "setVisible", false);
             Log.i(TAG, "SettingsLib app actions installed: " + controller.getClass().getName());
         } catch (Throwable error) {
             bridge.restore();
@@ -186,7 +194,9 @@ public final class AppDetailsHooks {
         Object titlePreference, actions;
         ImageView icon;
         TextView title, version;
-        boolean restored;
+        boolean restored, retainedTitle;
+        Intent launchIntent;
+        ApplicationInfo launchApp;
 
         Bridge(Context context, Object screen, Object header, Object controller, ClassLoader loader) {
             this.context = context;
@@ -208,7 +218,9 @@ public final class AppDetailsHooks {
                     throw new IllegalStateException("Native button state unavailable");
                 }
             }
-            int order = (Integer) invoke(header, "getOrder");
+            Object stockTitle = find(screen, "header_view");
+            retainedTitle = stockTitle != null;
+            int order = retainedTitle ? -9999 : (Integer) invoke(header, "getOrder");
             actions = loader.loadClass("com.android.settingslib.widget.ActionButtonsPreference")
                     .getConstructor(Context.class).newInstance(context);
             invoke(actions, "setKey", "arashi_app_actions");
@@ -222,6 +234,18 @@ public final class AppDetailsHooks {
             invoke(actions, "setButton3Text", resource("string", "force_stop"));
             invoke(actions, "setButton2OnClickListener", (View.OnClickListener) view -> click("uninstallListener", view));
             invoke(actions, "setButton3OnClickListener", (View.OnClickListener) view -> click("forceStopListener", view));
+            if (retainedTitle) {
+                titlePreference = stockTitle;
+                icon = (ImageView) invoke(stockTitle, "findViewById", resource("id", "entity_header_icon"));
+                title = (TextView) invoke(stockTitle, "findViewById", resource("id", "entity_header_title"));
+                version = (TextView) invoke(stockTitle, "findViewById", resource("id", "entity_header_summary"));
+                if (icon == null || title == null || version == null) throw new IllegalStateException("Missing native header views");
+                invoke(actions, "setButton1Text", resource("string", "launch_instant_app"));
+                invoke(actions, "setButton1Icon", resource("drawable", "ic_settings_open"));
+                invoke(actions, "setButton1OnClickListener", (View.OnClickListener) view -> openApp());
+                refresh();
+                return;
+            }
             LinearLayout content = new LinearLayout(context);
             content.setOrientation(LinearLayout.VERTICAL);
             content.setGravity(Gravity.CENTER_HORIZONTAL);
@@ -255,7 +279,14 @@ public final class AppDetailsHooks {
             Object label = Reflect.getObjectField(entry, "label");
             title.setText(label instanceof CharSequence ? (CharSequence) label : app.loadLabel(context.getPackageManager()));
             icon.setImageDrawable(app.loadIcon(context.getPackageManager()));
-            version.setText(pkg.versionName);
+            version.setText(retainedTitle ? "" : pkg.versionName);
+            if (retainedTitle) {
+                launchApp = app;
+                Object manager = context.getPackageManager();
+                launchIntent = (Intent) invoke(manager, "getLaunchIntentForPackage", pkg.packageName);
+                invoke(actions, "setButton1Visible", launchIntent != null);
+                invoke(actions, "setButton1Enabled", launchIntent != null && app.enabled);
+            }
             String text = (app.flags & ApplicationInfo.FLAG_SYSTEM) == 0 ? "uninstall_text"
                     : app.enabled && !Boolean.TRUE.equals(invoke(controller, "isDisabledUntilUsed")) ? "disable_text" : "enable_text";
             invoke(actions, "setButton2Text", resource("string", text));
@@ -264,6 +295,15 @@ public final class AppDetailsHooks {
             invoke(actions, "setButton2Icon", resource("drawable", actionIcon));
             invoke(actions, "setButton2Enabled", state("bEnableInUnstall", "enableUninstall"));
             invoke(actions, "setButton3Enabled", state("bEnableForceStop", "enableForceStop"));
+        }
+
+        void openApp() {
+            if (restored || launchIntent == null || launchApp == null || !launchApp.enabled) return;
+            try {
+                // Launch for the profile owning the displayed application, as AOSP does.
+                Object user = UserHandle.class.getMethod("getUserHandleForUid", int.class).invoke(null, launchApp.uid);
+                invoke(context, "startActivityAsUser", launchIntent, user);
+            } catch (Throwable error) { Log.w(TAG, "Cannot open target app", error); }
         }
 
         boolean state(String legacy, String modern) {
@@ -294,7 +334,7 @@ public final class AppDetailsHooks {
             restored = true;
             HEADERS.remove(header);
             try { invoke(header, "setVisible", true); } catch (Exception ignored) {}
-            if (titlePreference != null) {
+            if (titlePreference != null && !retainedTitle) {
                 try { invoke(screen, "removePreference", titlePreference); } catch (Exception ignored) {}
             }
             if (actions != null) {

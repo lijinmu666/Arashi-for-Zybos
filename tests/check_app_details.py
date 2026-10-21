@@ -57,13 +57,26 @@ public class AppInfoDashboardFragment {public android.view.View view;public andr
  public android.content.Context getContext(){return new android.content.Context();}
 }''',
 })
+stubs.update({
+'android/content/Intent.java':'package android.content;public class Intent {}',
+'android/os/UserHandle.java':'package android.os;public class UserHandle {public int uid;public static UserHandle getUserHandleForUid(int uid){var u=new UserHandle();u.uid=uid;return u;}}',
+})
+stubs['android/content/pm/PackageInfo.java'] = stubs['android/content/pm/PackageInfo.java'].replace('public String versionName=', 'public String packageName="test.app";public String versionName=')
+stubs['android/content/pm/ApplicationInfo.java'] = stubs['android/content/pm/ApplicationInfo.java'].replace('public int flags,', 'public int uid;public int flags,')
+stubs['android/content/res/Resources.java'] = stubs['android/content/res/Resources.java'].replace('default->0;', 'case "entity_header_icon"->11;case "entity_header_title"->12;case "entity_header_summary"->13;case "launch_instant_app"->14;case "ic_settings_open"->15;default->0;')
+stubs['android/content/Context.java'] = stubs['android/content/Context.java'].replace('public class Context {', 'public class Context {public static android.os.UserHandle openedUser;public void startActivityAsUser(Intent i,android.os.UserHandle u){openedUser=u;}')
+stubs['android/content/pm/PackageManager.java'] = 'package android.content.pm;public class PackageManager {public static boolean launchable=true;public android.content.Intent getLaunchIntentForPackage(String p){return launchable?new android.content.Intent():null;}}'
+stubs['com/android/settingslib/widget/LayoutPreference.java'] = '''package com.android.settingslib.widget;public class LayoutPreference extends androidx.preference.Preference {
+ public android.widget.TextView title=new android.widget.TextView(new android.content.Context()),summary=new android.widget.TextView(new android.content.Context());public android.widget.ImageView icon=new android.widget.ImageView(new android.content.Context());
+ public LayoutPreference(android.content.Context c,android.view.View v){}public android.view.View findViewById(int id){return id==11?icon:id==12?title:summary;}
+}'''
 actions = '''package com.android.settingslib.widget;public class ActionButtonsPreference extends androidx.preference.Preference {
- public int text2,text3;public boolean enabled2,enabled3;public android.view.View.OnClickListener listener2,listener3;
+ public int text1,text2,text3;public boolean visible1,visible2,visible3,visible4,enabled1,enabled2,enabled3;public android.view.View.OnClickListener listener1,listener2,listener3;
  public ActionButtonsPreference(android.content.Context c){}
 '''
 for n in range(1, 5):
-    actions += f'public void setButton{n}Visible(boolean b){{}}\n'
-for n in [2, 3]:
+    actions += f'public void setButton{n}Visible(boolean b){{visible{n}=b;}}\n'
+for n in [1, 2, 3]:
     actions += f'''public void setButton{n}Icon(int i){{}}
  public void setButton{n}Text(int i){{text{n}=i;}}
  public void setButton{n}Enabled(boolean b){{enabled{n}=b;}}
@@ -168,6 +181,22 @@ public class Check {
   call(ZybAppButtonsPreferenceController.class.getMethod("initButtonPreference"),modernController,new Object[]{});
   check(modernPage.screen.items.size()==1);View.drain();check(modernPage.screen.items.size()==3&&!modernHeader.visible);
   AppInfoDashboardFragment unrelated=new AppInfoDashboardFragment();call(create,unrelated,new Object[]{null,null});check(unrelated.screen.items.isEmpty());
+  // Full retained XML reuses its real header and adds the native open action.
+  var full=new AppInfoDashboardFragment();var fullController=new Controller();
+  fullController.mAppEntry.info.uid=1012345;
+  var fullHeader=new com.android.settings.widget.AppStoreDetailHeaderPreference();fullHeader.setKey("app_store_detail_header");
+  fullHeader.uninstallListener=v->{};fullHeader.forceStopListener=v->{};fullController.mButtonsPref=fullHeader;
+  full.mAppButtonsPreferenceController=fullController;full.screen.addPreference(fullHeader);
+  var retained=new LayoutPreference(new android.content.Context(),new View());retained.setKey("header_view");full.screen.addPreference(retained);
+  var unused=new Preference();unused.setKey("action_buttons");full.screen.addPreference(unused);
+  call(create,full,new Object[]{null,null});
+  var fullActions=(ActionButtonsPreference)full.screen.findPreference("arashi_app_actions");
+  check(fullActions!=null&&fullActions.visible1&&fullActions.enabled1&&!unused.visible);
+  check(full.screen.findPreference("header_view")==retained&&full.screen.findPreference("arashi_app_header")==null);
+  fullActions.listener1.onClick(new View());check(android.content.Context.openedUser.uid==1012345);
+  PackageManager.launchable=false;
+  call(fullHeader.getClass().getMethod("refreshHeader",String.class,Object.class),fullHeader,new Object[]{"v",null});
+  check(!fullActions.visible1&&!fullActions.enabled1);
   System.out.println("App details: Android 12/14 deferred initialization, stale panes, callbacks and fallback passed");
  }
 }'''

@@ -48,6 +48,8 @@ jobs:
           java -cp "$RUNNER_TEMP/background-tests" BackgroundPolicyCheck
       - name: 验证设置侧栏入口与原版应用通知设置
         run: python3 tests/check_settings_routes.py
+      - name: 验证 Android 12 和 14 完整应用信息页
+        run: python3 tests/check_full_app_info.py
       - name: 验证 Android 12 和 14 应用详情操作栏
         run: python3 tests/check_app_details.py
       - name: 验证 Android 12 和 14 设置菜单兼容性
