@@ -1,8 +1,8 @@
-# 原版样式应用详情页
+# 原版应用详情与通知设置
 
-开关位于 Hook 功能设置 → 行为，默认关闭，作用域为设置 `com.android.settings`。作用域首次启用后重启设置；之后切换开关，退出当前应用详情页并重新打开。已打开的页面沿用创建时的界面，避免操作过程中切换按钮。
+开关位于 Hook 功能设置 → 行为，应用详情和通知共用一个开关，默认关闭，沿用旧版应用详情开关的已有状态，作用域为设置 `com.android.settings`。作用域首次启用后重启设置；之后切换开关，退出当前应用详情页并重新打开。已打开的页面沿用创建时的界面，避免操作过程中切换按钮。
 
-当前恢复应用信息头部和 AOSP SettingsLib 操作栏，显示卸载／停用／启用、强行停止。没有新增打开应用按钮。存储、权限、默认设置等现有项目继续使用固件实现；通知页可通过独立开关恢复下文所述的原版控件。应用详情本身不是完整恢复所有 AOSP 页面内容，也不会补回已删除的控制器。
+当前恢复应用信息头部和 AOSP SettingsLib 操作栏，显示卸载／停用／启用、强行停止。没有新增打开应用按钮。存储、权限、默认设置等现有项目继续使用固件实现；通知页由同一个开关恢复下文所述的原版控件。应用详情本身不是完整恢复所有 AOSP 页面内容，也不会补回已删除的控制器。
 
 ## 样本核对
 
@@ -25,19 +25,19 @@
 
 内部版本 42 包含此功能，APK 由 GitHub Actions 构建。尚未真机验证视图、卸载／停用确认及强行停止操作；主机模型不能证明设备上的操作结果。其他固件需另行核对。
 
-## 设置侧栏入口修正（尚未编译）
+## 设置侧栏入口修正（内部版本 43）
 
 用户确认内部版本 42 在活动启动器打开的原生应用列表中可生效，但从设置主页侧栏“应用与存储”进入时仍显示原页面。旧实现只在 `onCreatePreferences` 后尝试一次，并没有调整厂商专用启动器。
 
 此次补充 `onResume`、`refreshUi` 后的幂等安装重试，并在两版 `ZybSubSettingLauncher.toIntent` 及普通 `SubSettingLauncher.toIntent` 中，仅对指定应用详情目的地选择 `InstalledAppDetailsTop` 宿主。保留原 Intent 的包名、UID、参数、flags，仍由原启动器负责目标用户和结果回调；移除旧侧栏索引，交由目标宿主生成适合当前版本的索引。未找到目标类时保留原跳转。
 
-## 原版应用通知设置（尚未编译）
+## 原版应用通知设置（内部版本 43）
 
-独立开关位于“行为”，默认关闭，作用域为设置。该功能处理应用详情中的“通知”以及应用通知列表进入的应用通知页，不替换“声音”等系统其他页面。启用作用域后重启设置，更改开关后退出当前通知页再打开。
+应用详情和通知设置合并为“行为”中的“原版应用详情与通知设置”，默认关闭，作用域为设置。该功能处理应用详情中的“通知”以及应用通知列表进入的应用通知页，不替换“声音”等系统其他页面。启用作用域后重启设置，更改开关后退出当前通知页再打开。
 
 - Android 14：固件仍保留 `app_notification_settings.xml`，实际却选择 `zyb_app_notification_settings.xml`。启用后恢复前者，并把 `ZybBlockPreferenceController` 换回保留的 `BlockPreferenceController`，移除厂商声音总开关控制器，使用原版通知渠道与相应控件。厂商类型的头部偏好仅作为隐藏的数据对象保留，可见部分使用原版信息头部。
 - Android 12：原 `app_notification_settings.xml` 已直接修改，仍保留渠道列表和大部分通知控制器。隐藏厂商可见头部、`NotifySwitchPreference` 及厂商勿扰控件，增加保留的 `LayoutPreference` 信息头部和 `SettingsMainSwitchPreference` 主开关。通过适配监听器调用原 `BlockPreferenceController.onValueClick`，不重写通知后端。原 XML 中的通知渠道、角标等原版控件沿用。
 - 两版专用启动器的应用通知目的地选择 `Settings$AppNotificationSettingsActivity`，保留原请求参数、目标用户和结果处理。
 - Android 12 的 `SettingsMainSwitchPreference` 没有 14 的 `setSwitchBarEnabled`、`setDisabledByAdmin` 方法，使用偏好本身的可用状态，并在控件绑定后向实际 SwitchBar 同步管理员限制。不能用 14 的接口模型替代 12 验证。
 
-主机检查 `tests/check_settings_routes.py` 覆盖开关独立控制、三种启动器、参数保留、无关目的地不变、14 的 XML／控制器配对、12 的回调与策略限制、资源缺失及状态同步失败回退；`tests/check_app_details.py` 增加延后初始化的恢复页面检查。真机界面、通知开关、渠道设置和用户切换仍待验证；没有编译新的 APK。
+主机检查 `tests/check_settings_routes.py` 覆盖同一开关同时控制详情与通知、三种启动器、参数保留、无关目的地不变、14 的 XML／控制器配对、12 的回调与策略限制、资源缺失及状态同步失败回退；`tests/check_app_details.py` 增加延后初始化的恢复页面检查。真机界面、通知开关、渠道设置和用户切换仍待验证；内部版本 43 由 GitHub Actions 编译。

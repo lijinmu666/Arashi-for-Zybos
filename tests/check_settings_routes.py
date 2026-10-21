@@ -14,7 +14,7 @@ stubs.update({
  public String getStringExtra(String k){return (String)extras.get(k);}public void removeExtra(String k){extras.remove(k);}public Intent setClassName(String p,String n){component=n;return this;}
 }''',
 'com/lijinmu/arashi/xposed/ConfigManager.java':'''package com.lijinmu.arashi.xposed;public class ConfigManager {
- public static boolean details,notifications;public static boolean isEnabled(String k){return k.equals(HookConfig.KEY_AOSP_APP_DETAILS)?details:notifications;}}''',
+ public static boolean enabled;public static boolean isEnabled(String k){return k.equals(HookConfig.KEY_AOSP_APP_DETAILS)&&enabled;}}''',
 'com/android/settings/applications/InstalledAppDetailsTop.java':'package com.android.settings.applications;public class InstalledAppDetailsTop {}',
 'com/android/settings/Settings.java':'package com.android.settings;public class Settings {public static class AppNotificationSettingsActivity {}}',
 'com/android/settings/notification/NotificationBackend.java':'package com.android.settings.notification;public class NotificationBackend {}',
@@ -77,24 +77,26 @@ public class Check {
  static Object invoke(Method m,Object o,Object... args)throws Throwable {var h=module.hooks.get(m);check(h!=null);return h.intercept(new XposedInterface.Chain(o,args,a->m.invoke(o,a)));}
  public static void main(String[] args)throws Throwable {
   var loader=Check.class.getClassLoader();SettingsPageRoutes.hookSettings(module,loader);AppNotificationHooks.hookSettings(module,loader);
-  check(!HookConfig.defaultEnabled(HookConfig.KEY_AOSP_APP_NOTIFICATIONS));
+  check(!HookConfig.defaultEnabled(HookConfig.KEY_AOSP_APP_DETAILS));
+  var keys=java.util.Arrays.asList(HookConfig.keys());check(!keys.contains("hook_aosp_app_notifications"));
+  check(java.util.Collections.frequency(keys,HookConfig.KEY_AOSP_APP_DETAILS)==1);
   for(String cls:new String[]{"com.android.settings.core.ZybSubSettingLauncher","com.android.settings.zyb.ZybSubSettingLauncher","com.android.settings.core.SubSettingLauncher"}){
    var c=Class.forName(cls);Object launch=c.getConstructor().newInstance();Intent original=(Intent)c.getField("intent").get(launch);
    original.component="vendor";original.flags=123;Object arguments=new Object();original.extras.put(":settings:show_fragment_args",arguments);
    original.extras.put(":settings:show_zyb_index",12);original.extras.put("uid",1012345);
    original.extras.put(":settings:show_fragment","com.android.settings.applications.appinfo.AppInfoDashboardFragment");
-   Method method=c.getMethod("toIntent");ConfigManager.details=false;check(invoke(method,launch)==original);
-   ConfigManager.details=true;Intent routed=(Intent)invoke(method,launch);check(routed!=original&&routed.component.endsWith("InstalledAppDetailsTop"));
+   Method method=c.getMethod("toIntent");ConfigManager.enabled=false;check(invoke(method,launch)==original);
+   ConfigManager.enabled=true;Intent routed=(Intent)invoke(method,launch);check(routed!=original&&routed.component.endsWith("InstalledAppDetailsTop"));
    check(routed.flags==123&&routed.extras.get(":settings:show_fragment_args")==arguments&&(Integer)routed.extras.get("uid")==1012345);
    check(!routed.extras.containsKey(":settings:show_zyb_index")&&original.extras.containsKey(":settings:show_zyb_index")&&original.component.equals("vendor"));
    original.extras.put(":settings:show_fragment","com.android.settings.notification.app.AppNotificationSettings");
-   ConfigManager.notifications=false;check(invoke(method,launch)==original);ConfigManager.notifications=true;
+   ConfigManager.enabled=false;check(invoke(method,launch)==original);ConfigManager.enabled=true;
    check(((Intent)invoke(method,launch)).component.endsWith("AppNotificationSettingsActivity"));
    original.extras.put(":settings:show_fragment","unrelated.Fragment");check(invoke(method,launch)==original);
   }
   Method create=AppNotificationSettings.class.getMethod("createPreferenceControllers",Context.class),xml=AppNotificationSettings.class.getMethod("getPreferenceScreenResId");
-  ConfigManager.notifications=false;var off=new AppNotificationSettings();invoke(create,off,new Context());check((Integer)invoke(xml,off)==99&&off.mControllers.get(1) instanceof ZybBlockPreferenceController);
-  ConfigManager.notifications=true;
+  ConfigManager.enabled=false;var off=new AppNotificationSettings();invoke(create,off,new Context());check((Integer)invoke(xml,off)==99&&off.mControllers.get(1) instanceof ZybBlockPreferenceController);
+  ConfigManager.enabled=true;
   com.android.settings.R.layout.settings_entity_header=0;var unsupported=new AppNotificationSettings();
   invoke(create,unsupported,new Context());check((Integer)invoke(xml,unsupported)==99&&unsupported.mControllers.get(1) instanceof ZybBlockPreferenceController);
   com.android.settings.R.layout.settings_entity_header=20;
@@ -123,7 +125,7 @@ public class Check {
 
    }
   }
-  System.out.println("Sidebar routes, argument preservation, notification layouts/controllers and legacy callbacks passed");
+  System.out.println("Merged switch, sidebar routes, notification layouts/controllers and legacy callbacks passed");
  }
 }'''
 with tempfile.TemporaryDirectory() as directory:

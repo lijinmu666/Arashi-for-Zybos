@@ -45,7 +45,7 @@ public final class SettingsPageRoutes {
         if (DETAILS.equals(destination) && ConfigManager.isEnabled(HookConfig.KEY_AOSP_APP_DETAILS)) {
             target = "com.android.settings.applications.InstalledAppDetailsTop";
         } else if (NOTIFICATIONS.equals(destination)
-                && ConfigManager.isEnabled(HookConfig.KEY_AOSP_APP_NOTIFICATIONS)) {
+                && ConfigManager.isEnabled(HookConfig.KEY_AOSP_APP_DETAILS)) {
             target = "com.android.settings.Settings$AppNotificationSettingsActivity";
         } else return original;
         loader.loadClass(target); // An unknown firmware keeps its original route.

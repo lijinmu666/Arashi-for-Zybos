@@ -41,7 +41,7 @@ public final class AppNotificationHooks {
             hookLegacyBlock(module, loader);
             module.hook(create).intercept(chain -> {
                 Object original = chain.proceed();
-                if (!ConfigManager.isEnabled(HookConfig.KEY_AOSP_APP_NOTIFICATIONS)
+                if (!ConfigManager.isEnabled(HookConfig.KEY_AOSP_APP_DETAILS)
                         || !(original instanceof List)) return original;
                 Object fragment = chain.getThisObject();
                 try {
