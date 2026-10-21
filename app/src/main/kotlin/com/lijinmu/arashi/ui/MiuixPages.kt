@@ -620,6 +620,32 @@ private fun HookPage(a: HookSettings) = Page(a, "Hook 功能设置", a::finish) 
 private data class BackgroundChoice(val packageName: String, val label: String, val isSystem: Boolean? = null)
 
 @Composable
+private fun PruneMissingAppSelections(
+    a: androidx.activity.ComponentActivity,
+    selected: Set<String>,
+    prefixed: Boolean,
+    onPruned: (Set<String>) -> Unit,
+) {
+    var revision by remember { mutableIntStateOf(0) }
+    DisposableEffect(a) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) revision++
+        }
+        a.lifecycle.addObserver(observer)
+        onDispose { a.lifecycle.removeObserver(observer) }
+    }
+    LaunchedEffect(a, selected, prefixed, revision) {
+        val missing = withContext(Dispatchers.IO) {
+            com.lijinmu.arashi.settings.InstalledAppSelections.findMissing(
+                a.packageManager, selected, prefixed)
+        }
+        // A selection change cancels the previous check; never replace new edits
+        // with the result of an older snapshot.
+        if (missing.isNotEmpty()) onPruned(selected - missing)
+    }
+}
+
+@Composable
 private fun BackgroundWhitelistPage(a: BackgroundWhitelistActivity) {
     val prefs = a.getSharedPreferences(HookConfig.PREF_NAME, Context.MODE_PRIVATE)
     var selected by remember {
@@ -671,6 +697,7 @@ private fun BackgroundWhitelistPage(a: BackgroundWhitelistActivity) {
         selected = next
         prefs.edit().putStringSet(HookConfig.KEY_KEEP_BACKGROUND_WHITELIST, next).apply()
     }
+    PruneMissingAppSelections(a, selected, prefixed = false, onPruned = ::save)
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         topBar = {
@@ -1073,6 +1100,7 @@ private fun UninstallListPage(a: UninstallListActivity, blacklist: Boolean) {
         selected = next
         prefs.edit().putStringSet(prefKey, next).apply()
     }
+    PruneMissingAppSelections(a, selected, prefixed = true, onPruned = ::save)
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         topBar = {
