@@ -28,6 +28,9 @@ import io.github.libxposed.api.XposedModule;
 /** Restores the retained SettingsLib action bar without replacing the typed vendor controller. */
 public final class AppDetailsHooks {
     private static final String TAG = "[Arashi-AppDetails]";
+    private static final String APP_INFO = "com.android.settings.applications.appinfo.AppInfoDashboardFragment";
+    private static final Set<Object> PENDING = Collections.synchronizedSet(
+            Collections.newSetFromMap(new WeakHashMap<>()));
     private static final Map<Object, WeakReference<Bridge>> HEADERS =
             Collections.synchronizedMap(new WeakHashMap<>());
 
@@ -37,8 +40,7 @@ public final class AppDetailsHooks {
 
     public static void hookSettings(XposedModule module, ClassLoader loader) {
         try {
-            Class<?> fragment = loader.loadClass(
-                    "com.android.settings.applications.appinfo.AppInfoDashboardFragment");
+            Class<?> fragment = loader.loadClass(APP_INFO);
             // The side-panel route can initialize its typed controller after preferences exist.
             for (String name : new String[] { "onCreatePreferences", "onResume", "refreshUi" }) {
                 Class<?>[] params = name.equals("onCreatePreferences")
@@ -47,10 +49,7 @@ public final class AppDetailsHooks {
                 if (method == null || method.getDeclaringClass() != fragment) continue;
                 module.hook(method).intercept(chain -> {
                     Object result = chain.proceed();
-                    if (ConfigManager.isEnabled(HookConfig.KEY_AOSP_APP_DETAILS)) {
-                        try { install(chain.getThisObject(), loader); }
-                        catch (Throwable error) { Log.w(TAG, "Keeping original app details", error); }
-                    }
+                    requestInstall(chain.getThisObject(), loader, name.equals("onCreatePreferences"));
                     return result;
                 });
                 module.deoptimize(method);
@@ -64,15 +63,51 @@ public final class AppDetailsHooks {
         }
     }
 
+    private static void requestInstall(Object fragment, ClassLoader loader, boolean beforeView) {
+        if (fragment == null || !APP_INFO.equals(fragment.getClass().getName())
+                || !ConfigManager.isEnabled(HookConfig.KEY_AOSP_APP_DETAILS)) return;
+        try {
+            Object current = invoke(fragment, "getView");
+            if (current instanceof View) {
+                View view = (View) current;
+                if (!PENDING.add(fragment)) return;
+                boolean posted = view.post(() -> {
+                    PENDING.remove(fragment);
+                    try {
+                        // A reused two-pane host may have detached or replaced this view.
+                        if (invoke(fragment, "getView") == view
+                                && ConfigManager.isEnabled(HookConfig.KEY_AOSP_APP_DETAILS)) {
+                            install(fragment, loader);
+                        }
+                    } catch (Throwable error) { Log.w(TAG, "Keeping original app details", error); }
+                });
+                if (!posted) PENDING.remove(fragment);
+            } else if (beforeView) {
+                // The initial preference screen is safe to edit before its adapter/view exists.
+                install(fragment, loader);
+            }
+        } catch (Throwable error) {
+            PENDING.remove(fragment);
+            Log.w(TAG, "Keeping original app details", error);
+        }
+    }
+
     private static void deoptimizeStateCallers(XposedModule module, ClassLoader loader) {
         // Tiny vendor setters may already be inlined into these callers by dex2oat.
         String prefix = "com.android.settings.applications.appinfo.";
         for (String name : new String[] { "AppButtonsPreferenceController",
                 "ZybAppButtonsPreferenceController", "AppHeaderViewPreferenceController" }) {
             try {
-                for (Method method : loader.loadClass(prefix + name).getDeclaredMethods()) {
+                Class<?> type = loader.loadClass(prefix + name);
+                Method init = Reflect.findMethodExact(type, "initButtonPreference");
+                if (init != null) module.hook(init).intercept(chain -> {
+                    Object result = chain.proceed();
+                    requestInstall(Reflect.getObjectField(chain.getThisObject(), "mFragment"), loader, false);
+                    return result;
+                });
+                for (Method method : type.getDeclaredMethods()) {
                     String n = method.getName();
-                    if (n.equals("refreshUi") || n.equals("updateUninstallButton")
+                    if (n.equals("displayPreference") || n.equals("refreshUi") || n.equals("updateUninstallButton")
                             || n.equals("updateForceStopButtonInner") || n.equals("handleDisableable")
                             || n.equals("setAppLabelAndIcon")) {
                         method.setAccessible(true);

@@ -10,7 +10,6 @@ import com.lijinmu.arashi.xposed.hooks.CaptivePortalHooks;
 import com.lijinmu.arashi.xposed.hooks.ControlHooks;
 import com.lijinmu.arashi.xposed.hooks.DevOptionsHooks;
 import com.lijinmu.arashi.xposed.hooks.AppDetailsHooks;
-import com.lijinmu.arashi.xposed.hooks.SettingsPageRoutes;
 import com.lijinmu.arashi.xposed.hooks.AppNotificationHooks;
 import com.lijinmu.arashi.xposed.hooks.InstallHooks;
 import com.lijinmu.arashi.xposed.hooks.LauncherWallpaperHooks;
@@ -79,7 +78,6 @@ public final class HookEntry extends XposedModule {
             DevOptionsHooks.hookSettings(this, param.getClassLoader());
             AppDetailsHooks.hookSettings(this, param.getClassLoader());
             AppNotificationHooks.hookSettings(this, param.getClassLoader());
-            SettingsPageRoutes.hookSettings(this, param.getClassLoader());
         } else if (PKG_SUPERVISE.equals(pkg)) {
             ConfigManager.init(pkg);
             SuperviseHooks.hookSupervise(this, param.getClassLoader());

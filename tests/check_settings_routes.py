@@ -1,10 +1,12 @@
-"""Check sidebar launch routing and both notification restoration strategies against real hook code."""
+"""Check original Settings hosts are preserved, plus both notification restoration strategies."""
 from pathlib import Path
 import subprocess, shutil, tempfile
 ROOT = Path(__file__).resolve().parents[1]
 ns = {'__file__': str(ROOT / 'tests/check_app_details.py')}
 exec((ROOT / 'tests/check_app_details.py').read_text().split('with tempfile.TemporaryDirectory()')[0], ns)
 stubs = ns['stubs']
+assert 'SettingsPageRoutes' not in (ROOT/'app/src/main/java/com/lijinmu/arashi/xposed/HookEntry.java').read_text()
+assert not (ROOT/'app/src/main/java/com/lijinmu/arashi/xposed/hooks/SettingsPageRoutes.java').exists()
 stubs.update({
 'androidx/preference/PreferenceViewHolder.java':'package androidx.preference;public class PreferenceViewHolder {}',
 'android/util/AttributeSet.java':'package android.util;public interface AttributeSet {}',
@@ -74,9 +76,9 @@ stubs['Check.java'] = '''import java.lang.reflect.*;import java.util.*;import an
 import com.lijinmu.arashi.xposed.*;import com.lijinmu.arashi.xposed.hooks.*;import com.android.settings.notification.app.*;import com.android.settings.widget.*;import io.github.libxposed.api.*;
 public class Check {
  static XposedModule module=new XposedModule();static void check(boolean b){if(!b)throw new AssertionError();}
- static Object invoke(Method m,Object o,Object... args)throws Throwable {var h=module.hooks.get(m);check(h!=null);return h.intercept(new XposedInterface.Chain(o,args,a->m.invoke(o,a)));}
+ static Object invoke(Method m,Object o,Object... args)throws Throwable {var h=module.hooks.get(m);return h==null?m.invoke(o,args):h.intercept(new XposedInterface.Chain(o,args,a->m.invoke(o,a)));}
  public static void main(String[] args)throws Throwable {
-  var loader=Check.class.getClassLoader();SettingsPageRoutes.hookSettings(module,loader);AppNotificationHooks.hookSettings(module,loader);
+  var loader=Check.class.getClassLoader();AppDetailsHooks.hookSettings(module,loader);AppNotificationHooks.hookSettings(module,loader);
   check(!HookConfig.defaultEnabled(HookConfig.KEY_AOSP_APP_DETAILS));
   var keys=java.util.Arrays.asList(HookConfig.keys());check(!keys.contains("hook_aosp_app_notifications"));
   check(java.util.Collections.frequency(keys,HookConfig.KEY_AOSP_APP_DETAILS)==1);
@@ -86,12 +88,12 @@ public class Check {
    original.extras.put(":settings:show_zyb_index",12);original.extras.put("uid",1012345);
    original.extras.put(":settings:show_fragment","com.android.settings.applications.appinfo.AppInfoDashboardFragment");
    Method method=c.getMethod("toIntent");ConfigManager.enabled=false;check(invoke(method,launch)==original);
-   ConfigManager.enabled=true;Intent routed=(Intent)invoke(method,launch);check(routed!=original&&routed.component.endsWith("InstalledAppDetailsTop"));
+   ConfigManager.enabled=true;check(!module.hooks.containsKey(method));Intent routed=(Intent)invoke(method,launch);check(routed==original&&routed.component.equals("vendor"));
    check(routed.flags==123&&routed.extras.get(":settings:show_fragment_args")==arguments&&(Integer)routed.extras.get("uid")==1012345);
-   check(!routed.extras.containsKey(":settings:show_zyb_index")&&original.extras.containsKey(":settings:show_zyb_index")&&original.component.equals("vendor"));
+   check(routed.extras.containsKey(":settings:show_zyb_index")&&(Integer)routed.extras.get(":settings:show_zyb_index")==12&&original.component.equals("vendor"));
    original.extras.put(":settings:show_fragment","com.android.settings.notification.app.AppNotificationSettings");
    ConfigManager.enabled=false;check(invoke(method,launch)==original);ConfigManager.enabled=true;
-   check(((Intent)invoke(method,launch)).component.endsWith("AppNotificationSettingsActivity"));
+   check(invoke(method,launch)==original&&original.component.equals("vendor"));
    original.extras.put(":settings:show_fragment","unrelated.Fragment");check(invoke(method,launch)==original);
   }
   Method create=AppNotificationSettings.class.getMethod("createPreferenceControllers",Context.class),xml=AppNotificationSettings.class.getMethod("getPreferenceScreenResId");
@@ -125,14 +127,14 @@ public class Check {
 
    }
   }
-  System.out.println("Merged switch, sidebar routes, notification layouts/controllers and legacy callbacks passed");
+  System.out.println("Original Settings hosts preserved; merged switch and notification controller checks passed");
  }
 }'''
 with tempfile.TemporaryDirectory() as directory:
     temp=Path(directory)
     for name,content in stubs.items():
         path=temp/name;path.parent.mkdir(parents=True,exist_ok=True);path.write_text(content)
-    sources=list(temp.rglob('*.java'))+[ROOT/'app/src/main/java/com/lijinmu/arashi/xposed'/p for p in ['Reflect.java','HookConfig.java','hooks/AppDetailsHooks.java','hooks/SettingsPageRoutes.java','hooks/AppNotificationHooks.java']]
+    sources=list(temp.rglob('*.java'))+[ROOT/'app/src/main/java/com/lijinmu/arashi/xposed'/p for p in ['Reflect.java','HookConfig.java','hooks/AppDetailsHooks.java','hooks/AppNotificationHooks.java']]
     compiler=[shutil.which('javac')] if shutil.which('javac') else ['java','com.sun.tools.javac.Main']
     subprocess.run(compiler+['-d',str(temp/'classes')]+[str(p) for p in sources],check=True)
     subprocess.run(['java','-cp',str(temp/'classes'),'Check'],check=True)

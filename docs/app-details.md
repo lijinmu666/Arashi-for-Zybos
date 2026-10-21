@@ -25,11 +25,15 @@
 
 内部版本 42 包含此功能，APK 由 GitHub Actions 构建。尚未真机验证视图、卸载／停用确认及强行停止操作；主机模型不能证明设备上的操作结果。其他固件需另行核对。
 
-## 设置侧栏入口修正（内部版本 43）
+## 设置侧栏入口与闪退反馈（内部版本 43／44）
 
 用户确认内部版本 42 在活动启动器打开的原生应用列表中可生效，但从设置主页侧栏“应用与存储”进入时仍显示原页面。旧实现只在 `onCreatePreferences` 后尝试一次，并没有调整厂商专用启动器。
 
-此次补充 `onResume`、`refreshUi` 后的幂等安装重试，并在两版 `ZybSubSettingLauncher.toIntent` 及普通 `SubSettingLauncher.toIntent` 中，仅对指定应用详情目的地选择 `InstalledAppDetailsTop` 宿主。保留原 Intent 的包名、UID、参数、flags，仍由原启动器负责目标用户和结果回调；移除旧侧栏索引，交由目标宿主生成适合当前版本的索引。未找到目标类时保留原跳转。
+43 补充了 `onResume`、`refreshUi` 后的重试，并把启动器的应用详情目的地强制切到 `InstalledAppDetailsTop`，通知目的地强制切到 `Settings$AppNotificationSettingsActivity`。用户随后确认点击应用详情立即闪退。主机的类存在与参数保留模型没有验证真实 Activity 的启动、主题与宿主生命周期，因此此前通过不能证明该跳转兼容。
+
+44 删除了强制替换 Activity 的 Hook，完整保留原 Intent、组件、flags、侧栏索引、参数及原启动器的用户和结果处理。页面内的恢复同时在两版控制器 `initButtonPreference` 完成后触发；有视图时使用 `View.post` 延后执行，避免在原刷新调用栈内改动偏好。重复请求合并，视图已更换、开关已关闭或投递失败时不修改页面；初始偏好创建且尚无视图时保留原本的安装路径。
+
+尚未获取设备崩溃堆栈，因此撤回可疑回归路径属于修正措施，不能当作已证实的根因或设备修复结果。44 装机后仍需确认从设置侧栏及原生应用列表进入均不闪退，并验证控件实际生效。
 
 ## 原版应用通知设置（内部版本 43）
 
@@ -37,7 +41,7 @@
 
 - Android 14：固件仍保留 `app_notification_settings.xml`，实际却选择 `zyb_app_notification_settings.xml`。启用后恢复前者，并把 `ZybBlockPreferenceController` 换回保留的 `BlockPreferenceController`，移除厂商声音总开关控制器，使用原版通知渠道与相应控件。厂商类型的头部偏好仅作为隐藏的数据对象保留，可见部分使用原版信息头部。
 - Android 12：原 `app_notification_settings.xml` 已直接修改，仍保留渠道列表和大部分通知控制器。隐藏厂商可见头部、`NotifySwitchPreference` 及厂商勿扰控件，增加保留的 `LayoutPreference` 信息头部和 `SettingsMainSwitchPreference` 主开关。通过适配监听器调用原 `BlockPreferenceController.onValueClick`，不重写通知后端。原 XML 中的通知渠道、角标等原版控件沿用。
-- 两版专用启动器的应用通知目的地选择 `Settings$AppNotificationSettingsActivity`，保留原请求参数、目标用户和结果处理。
+- 44 起不再改变通知目的地的 Activity，沿用原宿主、请求参数、目标用户和结果处理。
 - Android 12 的 `SettingsMainSwitchPreference` 没有 14 的 `setSwitchBarEnabled`、`setDisabledByAdmin` 方法，使用偏好本身的可用状态，并在控件绑定后向实际 SwitchBar 同步管理员限制。不能用 14 的接口模型替代 12 验证。
 
-主机检查 `tests/check_settings_routes.py` 覆盖同一开关同时控制详情与通知、三种启动器、参数保留、无关目的地不变、14 的 XML／控制器配对、12 的回调与策略限制、资源缺失及状态同步失败回退；`tests/check_app_details.py` 增加延后初始化的恢复页面检查。真机界面、通知开关、渠道设置和用户切换仍待验证；内部版本 43 由 GitHub Actions 编译。
+主机检查 `tests/check_settings_routes.py` 覆盖同一开关同时控制详情与通知、三种启动器未被 Hook、原组件及完整参数保留、14 的 XML／控制器配对、12 的回调与策略限制、资源缺失及状态同步失败回退；`tests/check_app_details.py` 增加两版控制器就绪后的延后安装、重复任务、旧视图、关闭开关及投递失败的恢复检查。真机界面、通知开关、渠道设置和用户切换仍待验证；内部版本 44 由 GitHub Actions 编译，闪退修正待设备复验。

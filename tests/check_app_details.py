@@ -22,7 +22,11 @@ stubs.update({
 'android/content/pm/ApplicationInfo.java': 'package android.content.pm;public class ApplicationInfo {public static int FLAG_SYSTEM=1;public int flags,enabledSetting;public boolean enabled=true;public CharSequence loadLabel(PackageManager p){return "App";}public android.graphics.drawable.Drawable loadIcon(PackageManager p){return new android.graphics.drawable.Drawable();}}',
 'android/content/pm/PackageInfo.java': 'package android.content.pm;public class PackageInfo {public String versionName="1.0";}',
 'android/graphics/drawable/Drawable.java': 'package android.graphics.drawable;public class Drawable {}',
-'android/view/View.java': 'package android.view;public class View {public interface OnClickListener {void onClick(View v);}}',
+'android/view/View.java': '''package android.view;public class View {
+ public static java.util.List<Runnable> queue=new java.util.ArrayList<>();public boolean accept=true;
+ public boolean post(Runnable r){if(!accept)return false;queue.add(r);return true;}
+ public static void drain(){var copy=new java.util.ArrayList<>(queue);queue.clear();for(var r:copy)r.run();}
+ public interface OnClickListener {void onClick(View v);}}''',
 'android/view/Gravity.java': 'package android.view;public class Gravity {public static int CENTER_HORIZONTAL=1,CENTER=2;}',
 'android/widget/LinearLayout.java': 'package android.widget;public class LinearLayout extends android.view.View {public static int VERTICAL=1;public LinearLayout(android.content.Context c){}public void setOrientation(int v){}public void setGravity(int v){}public void setPadding(int a,int b,int c,int d){}public void addView(android.view.View v){}public void addView(android.view.View v,LayoutParams p){}public static class LayoutParams {public LayoutParams(int a,int b){}}}',
 'android/widget/ImageView.java': 'package android.widget;public class ImageView extends android.view.View {public ImageView(android.content.Context c){}public void setImageDrawable(android.graphics.drawable.Drawable d){}}',
@@ -43,8 +47,12 @@ stubs.update({
  public static class string {public static int force_stop=3,uninstall_text=4,disable_text=5,enable_text=6;}
 }''',
 'com/lijinmu/arashi/xposed/ConfigManager.java': 'package com.lijinmu.arashi.xposed;public class ConfigManager {public static boolean enabled=true;public static boolean isEnabled(String k){return enabled;}}',
+'com/android/settings/applications/appinfo/AppButtonsPreferenceController.java': '''package com.android.settings.applications.appinfo;
+public class AppButtonsPreferenceController {public Object mFragment,mButtonsPref,nextHeader;public void initButtonPreference(){mButtonsPref=nextHeader;}public void displayPreference(){}}''',
+'com/android/settings/applications/appinfo/ZybAppButtonsPreferenceController.java': '''package com.android.settings.applications.appinfo;
+public class ZybAppButtonsPreferenceController {public Object mFragment,mButtonsPref,nextHeader;public void initButtonPreference(){mButtonsPref=nextHeader;}public void displayPreference(){}}''',
 'com/android/settings/applications/appinfo/AppInfoDashboardFragment.java': '''package com.android.settings.applications.appinfo;
-public class AppInfoDashboardFragment {public Object mAppButtonsPreferenceController;public androidx.preference.PreferenceScreen screen=new androidx.preference.PreferenceScreen();
+public class AppInfoDashboardFragment {public android.view.View view;public android.view.View getView(){return view;}public Object mAppButtonsPreferenceController;public androidx.preference.PreferenceScreen screen=new androidx.preference.PreferenceScreen();
  public void onResume(){} public boolean refreshUi(){return true;} public void onCreatePreferences(android.os.Bundle b,String s){}public androidx.preference.PreferenceScreen getPreferenceScreen(){return screen;}
  public android.content.Context getContext(){return new android.content.Context();}
 }''',
@@ -80,7 +88,8 @@ import com.android.settings.applications.appinfo.*;import com.lijinmu.arashi.xpo
 public class Check {
  static XposedModule module=new XposedModule();static int uninstalls,stops;
  public static class Entry {public ApplicationInfo info=new ApplicationInfo();public String label="Target";}
- public static class Controller {public Object mButtonsPref;public Entry mAppEntry=new Entry();public PackageInfo mPackageInfo=new PackageInfo();private boolean isDisabledUntilUsed(){return mAppEntry.info.enabledSetting==4;}}
+ public static class Controller extends AppButtonsPreferenceController {public Entry mAppEntry=new Entry();public PackageInfo mPackageInfo=new PackageInfo();private boolean isDisabledUntilUsed(){return mAppEntry.info.enabledSetting==4;}}
+ public static class ModernController extends ZybAppButtonsPreferenceController {public Entry mAppEntry=new Entry();public PackageInfo mPackageInfo=new PackageInfo();private boolean isDisabledUntilUsed(){return false;}}
  static void check(boolean b){if(!b)throw new AssertionError();}
  static Object call(Method m,Object self,Object[] args)throws Throwable {
   XposedInterface.Next original=a->m.invoke(self,a);
@@ -137,10 +146,29 @@ public class Check {
   var lateHeader=new com.android.settings.widget.AppStoreDetailHeaderPreference();lateHeader.setKey("app_store_detail_header");
   lateHeader.uninstallListener=v->{};lateHeader.forceStopListener=v->{};late.screen.addPreference(lateHeader);late.mAppButtonsPreferenceController=lateController;
   call(create,late,new Object[]{null,null});check(late.screen.items.size()==1);
-  lateController.mButtonsPref=lateHeader;call(AppInfoDashboardFragment.class.getMethod("onResume"),late,new Object[]{});
+  late.view=new View();lateController.mFragment=late;lateController.nextHeader=lateHeader;
+  call(AppButtonsPreferenceController.class.getMethod("initButtonPreference"),lateController,new Object[]{});
+  call(AppInfoDashboardFragment.class.getMethod("onResume"),late,new Object[]{});
+  check(View.queue.size()==1&&late.screen.items.size()==1&&lateHeader.visible);
+  // The old pane disappears before the posted callback; it must remain untouched.
+  late.view=new View();View.drain();check(late.screen.items.size()==1&&lateHeader.visible);
+  call(AppInfoDashboardFragment.class.getMethod("onResume"),late,new Object[]{});
+  ConfigManager.enabled=false;View.drain();check(late.screen.items.size()==1&&lateHeader.visible);
+  ConfigManager.enabled=true;late.view.accept=false;
+  call(AppInfoDashboardFragment.class.getMethod("onResume"),late,new Object[]{});check(View.queue.isEmpty());
+  late.view.accept=true;call(AppInfoDashboardFragment.class.getMethod("onResume"),late,new Object[]{});
+  check(late.screen.items.size()==1);View.drain();
   check(late.screen.items.containsKey("arashi_app_actions")&&!lateHeader.visible);
+  var modernPage=new AppInfoDashboardFragment();var modernController=new ModernController();
+  var modernHeader=new com.android.settings.zyb.widget.ZybAppStoreDetailHeaderPreference();modernHeader.setKey("app_store_detail_header");
+  modernHeader.uninstallListener=v->{};modernHeader.forceStopListener=v->{};
+  modernPage.screen.addPreference(modernHeader);modernPage.mAppButtonsPreferenceController=modernController;
+  call(create,modernPage,new Object[]{null,null});check(modernPage.screen.items.size()==1);
+  modernPage.view=new View();modernController.mFragment=modernPage;modernController.nextHeader=modernHeader;
+  call(ZybAppButtonsPreferenceController.class.getMethod("initButtonPreference"),modernController,new Object[]{});
+  check(modernPage.screen.items.size()==1);View.drain();check(modernPage.screen.items.size()==3&&!modernHeader.visible);
   AppInfoDashboardFragment unrelated=new AppInfoDashboardFragment();call(create,unrelated,new Object[]{null,null});check(unrelated.screen.items.isEmpty());
-  System.out.println("App details: Android 12/14 callbacks, state changes, gating and fallback passed");
+  System.out.println("App details: Android 12/14 deferred initialization, stale panes, callbacks and fallback passed");
  }
 }'''
 with tempfile.TemporaryDirectory() as directory:
