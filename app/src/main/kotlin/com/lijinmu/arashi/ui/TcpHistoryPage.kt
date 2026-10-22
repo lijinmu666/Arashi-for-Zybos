@@ -115,9 +115,6 @@ internal fun TcpHistoryPage(a: TcpHistoryActivity) {
                 TcpInfoCard("记录已拦截的 login.fail 通知，错误码来自广播，响应字段在捕获到对应登录流程时显示。记录不包含登录令牌和设备密钥")
             }
             item {
-                TextButton("拦截通知设置", { a.startActivity(android.content.Intent(a, com.lijinmu.arashi.settings.NotificationSettings::class.java)) })
-            }
-            item {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     TextButton("刷新", {
                         records = emptyList()

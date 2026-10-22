@@ -2,6 +2,9 @@
 
 ## 未发布
 
+- 移除 TCP 拦截记录页的“拦截通知设置”按钮。
+
+
 - 修复 TCP 与卸载验证记录的“清空记录”点击无响应：将确认弹窗及结果提示放入页面 Scaffold 的 Miuix 弹窗宿主作用域，确认后执行原有数据库清空并刷新列表。未编译 APK。
 
 - 启用模块静态作用域，名单同时包含 `com.zuoyebang.iot.pad.launcher14` 与 `com.android.launcher3`，兼顾 Android 14／12 桌面。
