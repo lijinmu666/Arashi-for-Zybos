@@ -552,6 +552,7 @@ private fun HookPage(a: HookSettings) = Page(a, "Hook 功能设置", a::finish) 
             HookItem("允许 USB 文件传输", "允许挂载外部 USB 设备和使用数据传输。开关控制后立即生效", HookConfig.KEY_ALLOW_USB),
             HookItem("允许任意应用设置壁纸", "允许任意应用设置壁纸，并移除新版桌面覆盖系统壁纸的静态背景。需要 系统框架 和 桌面 作用域，开关控制立即生效", HookConfig.KEY_ALLOW_WALLPAPER),
             HookItem("允许 WiFi 网页登录", "允许连接到认证型 WiFi 并正常跳转到 “登录到网络” 登录验证网页", HookConfig.KEY_CAPTIVE_PORTAL),
+            HookItem("始终使用传统电源菜单", "将电源菜单改为系统对话框。需要 系统框架 和 系统界面 作用域，开关控制下次打开电源菜单时生效", HookConfig.KEY_LEGACY_POWER_MENU),
             HookItem("原版应用详情页设置", "恢复完整的 AOSP 原版应用信息页及应用通知设置，沿用系统控制器。开关控制重新打开页面后生效", HookConfig.KEY_AOSP_APP_DETAILS),
             HookItem("解除应用详情页限制", "允许打开 WebView、report服务 和 PadMs 的应用设置详情页。开关控制立即生效", HookConfig.KEY_CLEAR_DETAIL_BLACK),
             HookItem("修复录屏的声音选项", "恢复 SystemUI 录屏菜单的设备声音、麦克风及混合音源选择选项", HookConfig.KEY_RECORD_INTERNAL_AUDIO),
@@ -560,7 +561,6 @@ private fun HookPage(a: HookSettings) = Page(a, "Hook 功能设置", a::finish) 
             HookItem("阻止禁用系统导航与下拉面板", "拦截返回、主页、最近任务和下拉面板的禁用。需要 系统框架、系统界面 和 桌面 作用域", HookConfig.KEY_KEEP_NAVIGATION),
         ),
         "美化" to listOf(
-            HookItem("始终使用传统电源菜单", "将电源菜单改为系统对话框。需要 系统框架 和 系统界面 作用域，开关控制下次打开电源菜单时生效", HookConfig.KEY_LEGACY_POWER_MENU),
             HookItem("自定义 SystemUI 主题色", "自定义下拉面板、锁屏密码键盘按下效果与密码圆点的强调色。关闭后重启恢复系统颜色", HookConfig.KEY_SYSTEMUI_THEME),
             HookItem("原版状态栏图标", "将蓝牙、WLAN 和电池图标恢复为 AOSP 原版样式，保留状态与深浅色适配", HookConfig.KEY_AOSP_STATUS_ICONS),
             HookItem("解除通知图标数量限制", "取消普通状态栏通知图标的固定数量上限，按可用宽度显示，空间不足时仍会折叠", HookConfig.KEY_UNLIMITED_NOTIFICATION_ICONS),
