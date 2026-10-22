@@ -69,6 +69,7 @@ import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.Scaffold
+import top.yukonga.miuix.kmp.basic.PullToRefresh
 import top.yukonga.miuix.kmp.basic.SmallTopAppBar
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextButton
@@ -928,6 +929,8 @@ private fun UninstallHistoryPage(a: UninstallHistoryActivity) {
     var confirmClear by remember { mutableStateOf(false) }
     var clearing by remember { mutableStateOf(false) }
     var loading by remember { mutableStateOf(true) }
+    var initialLoading by remember { mutableStateOf(true) }
+    var refreshingRequested by remember { mutableStateOf(false) }
     var hasMore by remember { mutableStateOf(true) }
     var loadError by remember { mutableStateOf<String?>(null) }
     var clearError by remember { mutableStateOf<String?>(null) }
@@ -949,7 +952,16 @@ private fun UninstallHistoryPage(a: UninstallHistoryActivity) {
             loadError = error.message ?: "读取记录失败"
         } finally {
             loading = false
+            initialLoading = false
+            refreshingRequested = false
         }
+    }
+    fun refreshRecords() {
+        if (loading || clearing) return
+        refreshingRequested = true
+        records = emptyList()
+        hasMore = true
+        request++
     }
     fun clearRecords() {
         if (clearing) return
@@ -990,81 +1002,76 @@ private fun UninstallHistoryPage(a: UninstallHistoryActivity) {
             )
         },
     ) { innerPadding ->
-        LazyColumn(
+        PullToRefresh(
+            isRefreshing = refreshingRequested || (loading && !initialLoading),
+            onRefresh = ::refreshRecords,
             modifier = Modifier.fillMaxSize().padding(innerPadding).consumeWindowInsets(innerPadding),
-            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 28.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            refreshTexts = listOf("下拉刷新", "松开刷新", "正在刷新", "刷新完成"),
         ) {
-            item {
-                IntroCard("记录已捕获的卸载请求，允许不代表系统最终卸载成功")
-            }
-            item {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    TextButton(
-                        "刷新",
-                        {
-                            records = emptyList()
-                            hasMore = true
-                            request++
-                        },
-                        Modifier.weight(1f),
-                        enabled = !loading && !clearing,
-                    )
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 28.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                item {
+                    IntroCard("记录已捕获的卸载请求，允许不代表系统最终卸载成功")
+                }
+                item {
                     LoadingTextButton(
                         "清空记录",
                         { confirmClear = true },
-                        Modifier.weight(1f),
+                        Modifier.fillMaxWidth(),
                         enabled = records.isNotEmpty() && !loading && !clearing,
                         loading = clearing,
                     )
                 }
-            }
-            items(records, key = { it.id }) { record ->
-                val time = remember(record.time) {
-                    SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date(record.time))
-                }
-                Card(Modifier.fillMaxWidth(), insideMargin = PaddingValues(16.dp)) {
-                    Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text(
-                                if (record.allowed) "允许" else "拒绝",
-                                color = if (record.allowed) Color(0xFF36A866) else Color(0xFFE05252),
-                                style = MiuixTheme.textStyles.title3,
-                            )
-                            Text(time, color = MiuixTheme.colorScheme.onSurfaceVariantSummary)
-                        }
-                        Text("目标应用：" + (record.targetName ?: record.targetPackage ?: "未知应用"))
-                        if (!record.targetPackage.isNullOrBlank()
-                            && record.targetPackage != record.targetName) {
-                            Text(record.targetPackage.orEmpty(),
+                items(records, key = { it.id }) { record ->
+                    val time = remember(record.time) {
+                        SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date(record.time))
+                    }
+                    Card(Modifier.fillMaxWidth(), insideMargin = PaddingValues(16.dp)) {
+                        Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text(
+                                    if (record.allowed) "允许" else "拒绝",
+                                    color = if (record.allowed) Color(0xFF36A866) else Color(0xFFE05252),
+                                    style = MiuixTheme.textStyles.title3,
+                                )
+                                Text(time, color = MiuixTheme.colorScheme.onSurfaceVariantSummary)
+                            }
+                            Text("目标应用：" + (record.targetName ?: record.targetPackage ?: "未知应用"))
+                            if (!record.targetPackage.isNullOrBlank()
+                                && record.targetPackage != record.targetName) {
+                                Text(record.targetPackage.orEmpty(),
+                                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary)
+                            }
+                            Text("发起方：" + (record.callerName ?: "进程") + " (" + record.callerUid + ")")
+                            if (!record.callerPackage.isNullOrBlank()
+                                && record.callerPackage != record.callerName) {
+                                Text(record.callerPackage.orEmpty(),
+                                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary)
+                            }
+                            Text("原因：" + (record.reason ?: "未知"),
                                 color = MiuixTheme.colorScheme.onSurfaceVariantSummary)
                         }
-                        Text("发起方：" + (record.callerName ?: "进程") + " (" + record.callerUid + ")")
-                        if (!record.callerPackage.isNullOrBlank()
-                            && record.callerPackage != record.callerName) {
-                            Text(record.callerPackage.orEmpty(),
-                                color = MiuixTheme.colorScheme.onSurfaceVariantSummary)
-                        }
-                        Text("原因：" + (record.reason ?: "未知"),
-                            color = MiuixTheme.colorScheme.onSurfaceVariantSummary)
                     }
                 }
-            }
-            if (records.isEmpty() && !loading && loadError == null) {
-                item { InfoCard("暂无卸载记录") }
-            }
-            if (loading) {
-                item { LoadingCard("加载记录") }
-            }
-            if (loadError != null) {
-                item { InfoCard("读取失败：" + loadError) }
-            }
-            if (clearError != null) {
-                item { InfoCard("清空失败：" + clearError) }
-            }
-            if (hasMore && !loading && !clearing && loadError == null) {
-                item {
-                    TextButton("加载更多", { request++ }, Modifier.fillMaxWidth())
+                if (records.isEmpty() && !loading && loadError == null) {
+                    item { InfoCard("暂无卸载记录") }
+                }
+                if (loading) {
+                    item { LoadingCard("加载记录") }
+                }
+                if (loadError != null) {
+                    item { InfoCard("读取失败：" + loadError) }
+                }
+                if (clearError != null) {
+                    item { InfoCard("清空失败：" + clearError) }
+                }
+                if (hasMore && !loading && !clearing && loadError == null) {
+                    item {
+                        TextButton("加载更多", { request++ }, Modifier.fillMaxWidth())
+                    }
                 }
             }
         }
