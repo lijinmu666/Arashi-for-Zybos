@@ -1741,34 +1741,25 @@ private fun AboutCard(
     value: String,
     arrow: Boolean = false,
     externalLink: Boolean = false,
-    compactValue: Boolean = false,
     onClick: () -> Unit,
 ) {
-    Card(
-        modifier = Modifier.fillMaxWidth().height(88.dp),
-        insideMargin = PaddingValues(horizontal = 18.dp, vertical = 12.dp),
-        onClick = onClick,
-    ) {
-        Row(Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                Text(title, color = MiuixTheme.colorScheme.onSurfaceVariantSummary)
-                Spacer(Modifier.height(5.dp))
-                Text(
-                    value,
-                    style = if (compactValue) MiuixTheme.textStyles.body1 else MiuixTheme.textStyles.title2,
-                )
-            }
-            if (arrow || externalLink) {
-                Spacer(Modifier.width(12.dp))
-                Icon(
-                    if (externalLink) MiuixIcons.Link else MiuixIcons.Basic.ArrowRight,
-                    contentDescription = null,
-                    modifier = if (externalLink) Modifier.size(22.dp)
-                        else Modifier.size(width = 10.dp, height = 16.dp),
-                    tint = MiuixTheme.colorScheme.onSurfaceVariantActions,
-                )
-            }
-        }
+    Card(Modifier.fillMaxWidth()) {
+        BasicComponent(
+            title = title,
+            summary = value,
+            onClick = onClick,
+            endActions = if (arrow || externalLink) {
+                {
+                    Icon(
+                        if (externalLink) MiuixIcons.Link else MiuixIcons.Basic.ArrowRight,
+                        contentDescription = null,
+                        modifier = if (externalLink) Modifier.size(22.dp)
+                            else Modifier.size(width = 10.dp, height = 16.dp),
+                        tint = MiuixTheme.colorScheme.onSurfaceVariantActions,
+                    )
+                }
+            } else null,
+        )
     }
 }
 
@@ -1789,7 +1780,7 @@ private fun AboutPage(a: About) = Page(a, "关于 Arashi", a::finish) {
     AboutCard("作者", "李瑾沐", arrow = true, onClick = {
         MiuixPages.showMessage(a, "关于作者", "首席开发者 : 李瑾沐 (H…Hey)\n小红书号 : failgach")
     })
-    AboutCard("GitHub 仓库", "lijinmu666/Arashi-for-Zybos", externalLink = true, compactValue = true, onClick = {
+    AboutCard("GitHub 仓库", "lijinmu666/Arashi-for-Zybos", externalLink = true, onClick = {
         val url = "https://github.com/lijinmu666/Arashi-for-Zybos"
         try {
             a.startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse(url)))
@@ -1797,7 +1788,7 @@ private fun AboutPage(a: About) = Page(a, "关于 Arashi", a::finish) {
             MiuixPages.showMessage(a, "无法打开链接", "请先安装可打开网页的应用")
         }
     })
-    AboutCard("QQ 群聊", "加入 Arashi 用户交流与反馈群", externalLink = true, compactValue = true, onClick = {
+    AboutCard("QQ 群聊", "加入 Arashi 用户交流与反馈群", externalLink = true, onClick = {
         val url = "https://qun.qq.com/universal-share/share?ac=1&authKey=i%2Bh3ZyTelsMfhjWvc8srNCHnS4BMGrsr4hj1fDcEXx0fC5ECgHyUjh45kS5qiQ3W&busi_data=eyJncm91cENvZGUiOiIxMTI1MTkwMzUwIiwidG9rZW4iOiIrRFg2KzdBTHhRRlZKODZjUUt2U2gySFRBaHFBeFNIYTdFTFc0emcydXJuTEZsN1dvS3MwT1J4ZFF2dnNJNUhOIiwidWluIjoiODQxNTYzNjAifQ%3D%3D&data=PB0LIOhizgFR_GzQFzdDn6FEbw0rzkzMw5JbqCzMZp0t72lHOOiSfSqMcISpvsGOvjkcACA_44t9aKGSV3GaNQ&svctype=4&tempid=h5_group_info"
         try {
             a.startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse(url)))
