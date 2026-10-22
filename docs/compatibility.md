@@ -12,6 +12,7 @@
 | 桌面图标圆角 | 设备对应桌面 `com.android.launcher3` 或 `com.zuoyebang.iot.pad.launcher14` |
 | 壁纸支持 | 系统框架与对应桌面 |
 | 导航与下拉面板限制拦截 | 系统框架、系统界面、对应桌面 |
+| 始终使用传统电源菜单 | 系统框架与系统界面 `com.android.systemui`，两者均需勾选 |
 | TCP login.fail 拦截 | `com.zuoyebang.iot.zptcpservice` |
 
 完整判定以 `HookScopes.java` 与页面实际提示为准。首次勾选或改变作用域后需重启对应进程；系统框架需重启设备。缺少作用域时保留已有开关值，但相关选项不可用
@@ -50,6 +51,8 @@
 - 非原作者签名的警告关闭后卡顿：用户已反馈，静态检查未发现持续校验或故意降速逻辑，原因尚未定位
 
 ## 日志与验证边界
+
+传统电源菜单已核对两份 SystemUI 样本，并使用对应 AOSP 12／14 的 `GlobalActions` 原源码完成主机路由测试。SystemUI APK 不包含厂商系统框架，实际固件的框架类与传统菜单项目仍需实机验证；缺失预期框架目标时跳过并记录 `[Arashi-LegacyPower]` 日志，详见 [传统电源菜单](legacy-power-menu.md)。
 
 SystemUI 自定义主题色按 Android 12／14 样本匹配快捷设置和厂商密码键盘；主机测试覆盖状态分支、资源归属、Drawable 复制和关闭回退，待设备验证。使用方式及具体着色范围见 [SystemUI 主题色](systemui-theme.md)。
 
