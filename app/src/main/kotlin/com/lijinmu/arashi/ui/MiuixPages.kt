@@ -597,7 +597,7 @@ private fun HookPage(a: HookSettings) {
         OverlayDialog(
             show = true,
             title = "强行停止作用域应用",
-            summary = "是否要杀死所有作用域应用？不会重启系统，也不会杀死系统框架，需要使用 root 权限",
+            summary = "是否要杀死所有作用域应用？不会重启系统，也不会杀死系统框架。需要使用 root 权限",
             onDismissRequest = { confirmStopScopes = false },
         ) {
             Row(
@@ -610,7 +610,7 @@ private fun HookPage(a: HookSettings) {
                     Modifier.weight(1f),
                 )
                 TextButton(
-                    "确认",
+                    "确定",
                     {
                         confirmStopScopes = false
                         if (!stoppingScopes) {
@@ -669,9 +669,9 @@ private fun HookPage(a: HookSettings) {
             HookItem("阻止禁用系统导航与下拉面板", "拦截返回、主页、最近任务及下拉面板的禁用限制，覆盖激活与错误页面等场景。需勾选系统框架、系统界面 和 桌面 作用域", HookConfig.KEY_KEEP_NAVIGATION),
         ),
         "美化" to listOf(
-            HookItem("自定义 SystemUI 主题色", "自定义下拉快捷设置、亮度条、锁屏密码键盘按下效果与密码圆点的强调色", HookConfig.KEY_SYSTEMUI_THEME),
-            HookItem("原版状态栏图标", "将蓝牙已连接、WLAN 和电池图标统一恢复为 AOSP 原版样式，保留状态与深浅色适配", HookConfig.KEY_AOSP_STATUS_ICONS),
-            HookItem("解除通知图标数量限制", "取消普通状态栏通知图标的固定数量上限，按可用宽度显示。空间不足时仍折叠为溢出提示", HookConfig.KEY_UNLIMITED_NOTIFICATION_ICONS),
+            HookItem("自定义 SystemUI 主题色", "自定义下拉面板，锁屏密码键盘按下效果与密码圆点的强调色", HookConfig.KEY_SYSTEMUI_THEME),
+            HookItem("原版状态栏图标", "将 电池、WLAN、蓝牙图标统一恢复为 AOSP 原版样式", HookConfig.KEY_AOSP_STATUS_ICONS),
+            HookItem("解除通知图标数量限制", "取消普通状态栏通知图标的固定数量上限，按可用宽度显示，空间不足时仍折叠为溢出提示", HookConfig.KEY_UNLIMITED_NOTIFICATION_ICONS),
             HookItem("桌面图标圆角", "桌面应用图标与文件夹的改成 iOS 样式的圆角，文件夹使用半透明底色。强行停止桌面后生效", HookConfig.KEY_IOS_ICONS),
             HookItem("状态栏显示日期", "仿 iPadOS 在状态栏左侧时间后显示月日与星期，如 16:40  10月17日周六。开关控制在下次时钟刷新时生效", HookConfig.KEY_STATUS_BAR_DATE),
         ),
