@@ -185,6 +185,10 @@ public final class HookScopes {
             return false;
         }
 
+        public Set<String> getSelectedPackages() {
+            return selected;
+        }
+
         public String unavailableReason(String key) {
             if (HookConfig.KEY_LEGACY_POWER_MENU.equals(key)) {
                 if (!systemActive) return "请勾选系统框架作用域并重启设备";

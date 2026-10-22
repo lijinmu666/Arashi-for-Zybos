@@ -10,6 +10,7 @@ import com.lijinmu.arashi.settings.HookSettings
 import com.lijinmu.arashi.settings.BackgroundWhitelistActivity
 import com.lijinmu.arashi.xposed.BackgroundPolicy
 import com.lijinmu.arashi.tools.QuickCommands
+import com.lijinmu.arashi.tools.ScopedAppStopper
 import com.lijinmu.arashi.tools.ZybosTools
 import com.lijinmu.arashi.tools.ZybosUninstallPickerActivity
 import com.lijinmu.arashi.tcp.TcpHistoryActivity
@@ -51,7 +52,10 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.platform.ComposeView
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -65,6 +69,9 @@ import com.lijinmu.arashi.zybos.SystemToolSupport
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.basic.CardDefaults
+import top.yukonga.miuix.kmp.basic.DropdownDefaults
+import top.yukonga.miuix.kmp.basic.DropdownEntry
+import top.yukonga.miuix.kmp.basic.DropdownItem
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
@@ -85,6 +92,7 @@ import top.yukonga.miuix.kmp.preference.CheckboxLocation
 import top.yukonga.miuix.kmp.preference.CheckboxPreference
 import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
 import top.yukonga.miuix.kmp.preference.SwitchPreference
+import top.yukonga.miuix.kmp.popup.OverlayDropdownPopup
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.theme.darkColorScheme
 import top.yukonga.miuix.kmp.theme.lightColorScheme
@@ -303,6 +311,7 @@ private fun Page(
     activity: Activity,
     title: String,
     back: (() -> Unit)? = null,
+    actions: @Composable RowScope.() -> Unit = {},
     body: @Composable ColumnScope.() -> Unit,
 ) {
     Scaffold(
@@ -318,6 +327,7 @@ private fun Page(
                             Icon(MiuixIcons.Back, contentDescription = "返回")
                         }
                     },
+                    actions = actions,
                 )
             }
         },
@@ -514,7 +524,50 @@ private fun UnsupportedDevicePage(a: Main) = Page(a, "Arashi") {
 private data class HookItem(val title: String, val summary: String, val key: String)
 
 @Composable
-private fun HookPage(a: HookSettings) = Page(a, "Hook 功能设置", a::finish) {
+private fun HookPage(a: HookSettings) {
+    var actionsExpanded by remember { mutableStateOf(false) }
+    var confirmStopScopes by remember { mutableStateOf(false) }
+    var stoppingScopes by remember { mutableStateOf(false) }
+    val coroutineScope = rememberCoroutineScope()
+
+    Page(a, "Hook 功能设置", a::finish, actions = {
+        Box {
+            IconButton(
+                onClick = { actionsExpanded = !actionsExpanded },
+                modifier = Modifier.semantics { contentDescription = "更多操作" },
+            ) {
+                Canvas(Modifier.size(24.dp)) {
+                    val radius = 2.dp.toPx()
+                    val centerX = size.width / 2f
+                    for (index in 0..2) {
+                        drawCircle(
+                            color = MiuixTheme.colorScheme.onSurface,
+                            radius = radius,
+                            center = Offset(centerX, size.height * (0.25f + index * 0.25f)),
+                        )
+                    }
+                }
+            }
+            OverlayDropdownPopup(
+                entry = DropdownEntry(listOf(
+                    DropdownItem(
+                        text = "强行停止作用域应用",
+                        selected = false,
+                        onClick = {
+                            actionsExpanded = false
+                            confirmStopScopes = true
+                        },
+                    ),
+                )),
+                show = actionsExpanded,
+                onDismiss = { actionsExpanded = false },
+                onDismissFinished = {},
+                maxHeight = null,
+                dropdownColors = DropdownDefaults.dropdownColors(),
+                renderInRootScaffold = true,
+            )
+        }
+    }) {
     IntroCard("首次使用请启用模块并勾选推荐作用域并重启系统。修改应用作用域后需重启对应应用，部分需要重启系统")
     val prefs = a.getSharedPreferences(HookConfig.PREF_NAME, Context.MODE_PRIVATE)
     var backgroundSelected by remember {
@@ -538,6 +591,61 @@ private fun HookPage(a: HookSettings) = Page(a, "Hook 功能设置", a::finish) 
                 scopes = withContext(Dispatchers.IO) { HookScopes.read(a) }
             }
             delay(1000)
+        }
+    }
+    if (confirmStopScopes) {
+        OverlayDialog(
+            show = true,
+            title = "强行停止作用域应用",
+            summary = "是否要杀死所有作用域应用？不会重启系统，也不会杀死系统框架，需要使用 root 权限",
+            onDismissRequest = { confirmStopScopes = false },
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                TextButton(
+                    "取消",
+                    { confirmStopScopes = false },
+                    Modifier.weight(1f),
+                )
+                TextButton(
+                    "确认",
+                    {
+                        confirmStopScopes = false
+                        if (!stoppingScopes) {
+                            stoppingScopes = true
+                            MiuixPages.showProgress(a, "强行停止作用域应用", "正在请求 root 权限并停止当前已勾选的 LSPosed 作用域应用")
+                            coroutineScope.launch {
+                                val snapshot = withContext(Dispatchers.IO) { HookScopes.read(a) }
+                                if (!snapshot.scopeKnown) {
+                                    stoppingScopes = false
+                                    MiuixPages.showMessage(a, "无法读取作用域", "无法读取 LSPosed 作用域，请确认模块已启用后重试")
+                                    return@launch
+                                }
+                                val result = withContext(Dispatchers.IO) {
+                                    ScopedAppStopper.stop(snapshot.selectedPackages)
+                                }
+                                stoppingScopes = false
+                                if (result.ok) {
+                                    MiuixPages.showMessage(a, "操作已完成", result.output + "。Arashi 若在作用域中会稍后自行关闭")
+                                } else if (result.output.contains("ROOT_REQUIRED")
+                                    || !result.output.contains("ROOT_GRANTED")
+                                    || result.output.contains("无法执行 su")
+                                    || result.output.contains("Permission denied", ignoreCase = true)
+                                    || result.output.contains("permission denied", ignoreCase = true)
+                                ) {
+                                    MiuixPages.showMessage(a, "没有权限", "未获得 root 权限，请在 root 管理器中允许 Arashi 使用 root 后重试")
+                                } else {
+                                    MiuixPages.showMessage(a, "停止失败", result.output.ifBlank { "root 命令执行失败" })
+                                }
+                            }
+                        }
+                    },
+                    Modifier.weight(1f),
+                    colors = ButtonDefaults.textButtonColorsPrimary(),
+                )
+            }
         }
     }
     val groups = listOf(
@@ -686,6 +794,7 @@ private fun HookPage(a: HookSettings) = Page(a, "Hook 功能设置", a::finish) 
         }
     }
     InfoCard("开关修改后自动保存")
+}
 }
 
 private data class BackgroundChoice(val packageName: String, val label: String, val isSystem: Boolean? = null)
