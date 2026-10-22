@@ -414,7 +414,7 @@ private fun rememberSystemServerActivation(a: androidx.activity.ComponentActivit
 }
 
 @Composable
-private fun HomePage(a: Main) = Page(a, "Arashi") {
+private fun HomePage(a: Main) = Page(a, "Arashi for Zybos") {
     val moduleActive by rememberSystemServerActivation(a)
     val statusColor = if (moduleActive) MiuixTheme.colorScheme.primary
         else MiuixTheme.colorScheme.onSurfaceVariantSummary
