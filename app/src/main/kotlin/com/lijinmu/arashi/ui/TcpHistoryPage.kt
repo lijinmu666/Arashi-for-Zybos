@@ -179,20 +179,21 @@ internal fun TcpHistoryPage(a: TcpHistoryActivity) {
                 TextButton("加载更多", { request++ }, Modifier.fillMaxWidth())
             }
         }
-    }
-    MiuixPages.MessageDialog(a)
-    OverlayDialog(
-        show = confirmClear,
-        title = "清空 TCP 拦截记录",
-        summary = "确定清空全部 TCP 拦截记录吗？",
-        onDismissRequest = { confirmClear = false },
-    ) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            TextButton("取消", { confirmClear = false }, Modifier.weight(1f))
-            TextButton("清空", {
-                confirmClear = false
-                clearRecords()
-            }, Modifier.weight(1f))
+        // Miuix overlays must share the Scaffold's popup host; siblings have no host.
+        MiuixPages.MessageDialog(a)
+        OverlayDialog(
+            show = confirmClear,
+            title = "清空 TCP 拦截记录",
+            summary = "确定清空全部 TCP 拦截记录吗？",
+            onDismissRequest = { confirmClear = false },
+        ) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                TextButton("取消", { confirmClear = false }, Modifier.weight(1f))
+                TextButton("清空", {
+                    confirmClear = false
+                    clearRecords()
+                }, Modifier.weight(1f))
+            }
         }
     }
 }

@@ -1068,25 +1068,26 @@ private fun UninstallHistoryPage(a: UninstallHistoryActivity) {
                 }
             }
         }
-    }
-    MiuixPages.MessageDialog(a)
-    OverlayDialog(
-        show = confirmClear,
-        title = "清空卸载记录",
-        summary = "确定清空全部卸载记录吗？",
-        onDismissRequest = { confirmClear = false },
-    ) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            TextButton("取消", { confirmClear = false }, Modifier.weight(1f))
-            TextButton(
-                "清空",
-                {
-                    confirmClear = false
-                    clearRecords()
-                },
-                Modifier.weight(1f),
-                colors = ButtonDefaults.textButtonColorsPrimary(),
-            )
+        // Miuix overlays must share the Scaffold's popup host; siblings have no host.
+        MiuixPages.MessageDialog(a)
+        OverlayDialog(
+            show = confirmClear,
+            title = "清空卸载记录",
+            summary = "确定清空全部卸载记录吗？",
+            onDismissRequest = { confirmClear = false },
+        ) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                TextButton("取消", { confirmClear = false }, Modifier.weight(1f))
+                TextButton(
+                    "清空",
+                    {
+                        confirmClear = false
+                        clearRecords()
+                    },
+                    Modifier.weight(1f),
+                    colors = ButtonDefaults.textButtonColorsPrimary(),
+                )
+            }
         }
     }
 }
