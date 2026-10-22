@@ -1,0 +1,358 @@
+{
+  "source": "Settings14.apk",
+  "classes": {
+    "androidx.preference.Preference": {
+      "super": "java.lang.Object",
+      "constructors": [
+        "(Landroid/content/Context;)V",
+        "(Landroid/content/Context; Landroid/util/AttributeSet;)V",
+        "(Landroid/content/Context; Landroid/util/AttributeSet; I)V",
+        "(Landroid/content/Context; Landroid/util/AttributeSet; I I)V"
+      ],
+      "setup": {}
+    },
+    "androidx.preference.PreferenceCategory": {
+      "super": "androidx.preference.PreferenceGroup",
+      "constructors": [
+        "(Landroid/content/Context;)V",
+        "(Landroid/content/Context; Landroid/util/AttributeSet;)V",
+        "(Landroid/content/Context; Landroid/util/AttributeSet; I)V",
+        "(Landroid/content/Context; Landroid/util/AttributeSet; I I)V"
+      ],
+      "setup": {}
+    },
+    "androidx.preference.SwitchPreference": {
+      "super": "androidx.preference.TwoStatePreference",
+      "constructors": [
+        "(Landroid/content/Context;)V",
+        "(Landroid/content/Context; Landroid/util/AttributeSet;)V",
+        "(Landroid/content/Context; Landroid/util/AttributeSet; I)V",
+        "(Landroid/content/Context; Landroid/util/AttributeSet; I I)V"
+      ],
+      "setup": {}
+    },
+    "com.android.settings.applications.appinfo.AppBatteryPreferenceController": {
+      "super": "com.android.settings.core.BasePreferenceController",
+      "constructors": [
+        "(Landroid/content/Context; Lcom/android/settings/applications/appinfo/AppInfoDashboardFragment; Ljava/lang/String; I Lcom/android/settingslib/core/lifecycle/Lifecycle;)V"
+      ],
+      "setup": {}
+    },
+    "com.android.settings.applications.appinfo.AppInfoPreferenceControllerBase": {
+      "super": "com.android.settings.core.BasePreferenceController",
+      "constructors": [
+        "(Landroid/content/Context; Ljava/lang/String;)V"
+      ],
+      "setup": {
+        "setParentFragment": "(Lcom/android/settings/applications/appinfo/AppInfoDashboardFragment;)V"
+      }
+    },
+    "com.android.settings.applications.appinfo.AppMemoryPreferenceController": {
+      "super": "com.android.settings.core.BasePreferenceController",
+      "constructors": [
+        "(Landroid/content/Context; Lcom/android/settings/applications/appinfo/AppInfoDashboardFragment; Lcom/android/settingslib/core/lifecycle/Lifecycle;)V"
+      ],
+      "setup": {}
+    },
+    "com.android.settings.applications.appinfo.InstantAppButtonsPreferenceController": {
+      "super": "com.android.settings.core.BasePreferenceController",
+      "constructors": [
+        "(Landroid/content/Context; Lcom/android/settings/applications/appinfo/AppInfoDashboardFragment; Ljava/lang/String; Lcom/android/settingslib/core/lifecycle/Lifecycle;)V"
+      ],
+      "setup": {}
+    },
+    "com.android.settings.applications.appinfo.AdvancedAppInfoPreferenceCategoryController": {
+      "super": "com.android.settings.widget.PreferenceCategoryController",
+      "constructors": [
+        "(Landroid/content/Context; Ljava/lang/String;)V"
+      ],
+      "setup": {
+        "setAppEntry": "(Lcom/android/settingslib/applications/ApplicationsState$AppEntry;)V"
+      }
+    },
+    "com.android.settings.applications.appinfo.AlarmsAndRemindersDetailPreferenceController": {
+      "super": "com.android.settings.applications.appinfo.AppInfoPreferenceControllerBase",
+      "constructors": [
+        "(Landroid/content/Context; Ljava/lang/String;)V"
+      ],
+      "setup": {
+        "setPackageName": "(Ljava/lang/String;)V"
+      }
+    },
+    "com.android.settings.applications.appinfo.AppAllServicesPreferenceController": {
+      "super": "com.android.settings.applications.appinfo.AppInfoPreferenceControllerBase",
+      "constructors": [
+        "(Landroid/content/Context; Ljava/lang/String;)V"
+      ],
+      "setup": {
+        "setPackageName": "(Ljava/lang/String;)V"
+      }
+    },
+    "com.android.settings.applications.appinfo.AppDataUsagePreferenceController": {
+      "super": "com.android.settings.applications.appinfo.AppInfoPreferenceControllerBase",
+      "constructors": [
+        "(Landroid/content/Context; Ljava/lang/String;)V"
+      ],
+      "setup": {}
+    },
+    "com.android.settings.applications.appinfo.AppHibernationPreferenceCategoryController": {
+      "super": "com.android.settings.widget.PreferenceCategoryController",
+      "constructors": [
+        "(Landroid/content/Context; Ljava/lang/String;)V"
+      ],
+      "setup": {}
+    },
+    "com.android.settings.applications.appinfo.AppInstallerInfoPreferenceController": {
+      "super": "com.android.settings.applications.appinfo.AppInfoPreferenceControllerBase",
+      "constructors": [
+        "(Landroid/content/Context; Ljava/lang/String;)V"
+      ],
+      "setup": {
+        "setPackageName": "(Ljava/lang/String;)V"
+      }
+    },
+    "com.android.settings.applications.appinfo.AppInstallerPreferenceCategoryController": {
+      "super": "com.android.settings.widget.PreferenceCategoryController",
+      "constructors": [
+        "(Landroid/content/Context; Ljava/lang/String;)V"
+      ],
+      "setup": {}
+    },
+    "com.android.settings.applications.appinfo.AppLocalePreferenceController": {
+      "super": "com.android.settings.applications.appinfo.AppInfoPreferenceControllerBase",
+      "constructors": [
+        "(Landroid/content/Context; Ljava/lang/String;)V"
+      ],
+      "setup": {}
+    },
+    "com.android.settings.applications.appinfo.AppNotificationPreferenceController": {
+      "super": "com.android.settings.applications.appinfo.AppInfoPreferenceControllerBase",
+      "constructors": [
+        "(Landroid/content/Context; Ljava/lang/String;)V"
+      ],
+      "setup": {
+        "setParentFragment": "(Lcom/android/settings/applications/appinfo/AppInfoDashboardFragment;)V"
+      }
+    },
+    "com.android.settings.applications.appinfo.AppOpenByDefaultPreferenceController": {
+      "super": "com.android.settings.applications.appinfo.AppInfoPreferenceControllerBase",
+      "constructors": [
+        "(Landroid/content/Context; Ljava/lang/String;)V"
+      ],
+      "setup": {
+        "setPackageName": "(Ljava/lang/String;)Lcom/android/settings/applications/appinfo/AppOpenByDefaultPreferenceController;"
+      }
+    },
+    "com.android.settings.applications.appinfo.AppPermissionPreferenceController": {
+      "super": "com.android.settings.applications.appinfo.AppInfoPreferenceControllerBase",
+      "constructors": [
+        "(Landroid/content/Context; Ljava/lang/String;)V"
+      ],
+      "setup": {
+        "setPackageName": "(Ljava/lang/String;)V"
+      }
+    },
+    "com.android.settings.applications.appinfo.AppSettingPreferenceController": {
+      "super": "com.android.settings.applications.appinfo.AppInfoPreferenceControllerBase",
+      "constructors": [
+        "(Landroid/content/Context; Ljava/lang/String;)V"
+      ],
+      "setup": {
+        "setPackageName": "(Ljava/lang/String;)Lcom/android/settings/applications/appinfo/AppSettingPreferenceController;"
+      }
+    },
+    "com.android.settings.applications.appinfo.AppStoragePreferenceController": {
+      "super": "com.android.settings.applications.appinfo.AppInfoPreferenceControllerBase",
+      "constructors": [
+        "(Landroid/content/Context; Ljava/lang/String;)V"
+      ],
+      "setup": {}
+    },
+    "com.android.settings.applications.appinfo.AppVersionPreferenceController": {
+      "super": "com.android.settings.applications.appinfo.AppInfoPreferenceControllerBase",
+      "constructors": [
+        "(Landroid/content/Context; Ljava/lang/String;)V"
+      ],
+      "setup": {}
+    },
+    "com.android.settings.applications.appinfo.DefaultBrowserShortcutPreferenceController": {
+      "super": "com.android.settings.applications.appinfo.DefaultAppShortcutPreferenceControllerBase",
+      "constructors": [
+        "(Landroid/content/Context; Ljava/lang/String;)V"
+      ],
+      "setup": {}
+    },
+    "com.android.settings.applications.appinfo.DefaultEmergencyShortcutPreferenceController": {
+      "super": "com.android.settings.applications.appinfo.DefaultAppShortcutPreferenceControllerBase",
+      "constructors": [
+        "(Landroid/content/Context; Ljava/lang/String;)V"
+      ],
+      "setup": {}
+    },
+    "com.android.settings.applications.appinfo.DefaultHomeShortcutPreferenceController": {
+      "super": "com.android.settings.applications.appinfo.DefaultAppShortcutPreferenceControllerBase",
+      "constructors": [
+        "(Landroid/content/Context; Ljava/lang/String;)V"
+      ],
+      "setup": {}
+    },
+    "com.android.settings.applications.appinfo.DefaultPhoneShortcutPreferenceController": {
+      "super": "com.android.settings.applications.appinfo.DefaultAppShortcutPreferenceControllerBase",
+      "constructors": [
+        "(Landroid/content/Context; Ljava/lang/String;)V"
+      ],
+      "setup": {}
+    },
+    "com.android.settings.applications.appinfo.DefaultSmsShortcutPreferenceController": {
+      "super": "com.android.settings.applications.appinfo.DefaultAppShortcutPreferenceControllerBase",
+      "constructors": [
+        "(Landroid/content/Context; Ljava/lang/String;)V"
+      ],
+      "setup": {}
+    },
+    "com.android.settings.applications.appinfo.DrawOverlayDetailPreferenceController": {
+      "super": "com.android.settings.applications.appinfo.AppInfoPreferenceControllerBase",
+      "constructors": [
+        "(Landroid/content/Context; Ljava/lang/String;)V"
+      ],
+      "setup": {}
+    },
+    "com.android.settings.applications.appinfo.ExternalSourceDetailPreferenceController": {
+      "super": "com.android.settings.applications.appinfo.AppInfoPreferenceControllerBase",
+      "constructors": [
+        "(Landroid/content/Context; Ljava/lang/String;)V"
+      ],
+      "setup": {
+        "setPackageName": "(Ljava/lang/String;)V"
+      }
+    },
+    "com.android.settings.applications.appinfo.HibernationSwitchPreferenceController": {
+      "super": "com.android.settings.applications.appinfo.AppInfoPreferenceControllerBase",
+      "constructors": [
+        "(Landroid/content/Context; Ljava/lang/String;)V"
+      ],
+      "setup": {
+        "setPackage": "(Ljava/lang/String;)V"
+      }
+    },
+    "com.android.settings.applications.appinfo.InstantAppDomainsPreferenceController": {
+      "super": "com.android.settings.applications.appinfo.AppInfoPreferenceControllerBase",
+      "constructors": [
+        "(Landroid/content/Context; Ljava/lang/String;)V"
+      ],
+      "setup": {}
+    },
+    "com.android.settings.applications.appinfo.LongBackgroundTasksDetailsPreferenceController": {
+      "super": "com.android.settings.applications.appinfo.AppInfoPreferenceControllerBase",
+      "constructors": [
+        "(Landroid/content/Context; Ljava/lang/String;)V"
+      ],
+      "setup": {
+        "setPackageName": "(Ljava/lang/String;)V"
+      }
+    },
+    "com.android.settings.applications.appinfo.TimeSpentInAppPreferenceController": {
+      "super": "com.android.settings.core.LiveDataController",
+      "constructors": [
+        "(Landroid/content/Context; Ljava/lang/String;)V"
+      ],
+      "setup": {
+        "setPackageName": "(Ljava/lang/String;)V",
+        "setParentFragment": "(Lcom/android/settings/applications/appinfo/AppInfoDashboardFragment;)V"
+      }
+    },
+    "com.android.settings.applications.appinfo.WriteSystemSettingsPreferenceController": {
+      "super": "com.android.settings.applications.appinfo.AppInfoPreferenceControllerBase",
+      "constructors": [
+        "(Landroid/content/Context; Ljava/lang/String;)V"
+      ],
+      "setup": {}
+    },
+    "com.android.settings.applications.specialaccess.interactacrossprofiles.InteractAcrossProfilesDetailsPreferenceController": {
+      "super": "com.android.settings.applications.appinfo.AppInfoPreferenceControllerBase",
+      "constructors": [
+        "(Landroid/content/Context; Ljava/lang/String;)V"
+      ],
+      "setup": {
+        "setPackageName": "(Ljava/lang/String;)V"
+      }
+    },
+    "com.android.settings.applications.specialaccess.pictureinpicture.PictureInPictureDetailPreferenceController": {
+      "super": "com.android.settings.applications.appinfo.AppInfoPreferenceControllerBase",
+      "constructors": [
+        "(Landroid/content/Context; Ljava/lang/String;)V"
+      ],
+      "setup": {
+        "setPackageName": "(Ljava/lang/String;)V"
+      }
+    },
+    "com.android.settings.applications.AppDomainsPreference": {
+      "super": "com.android.settings.accessibility.ListDialogPreference",
+      "constructors": [
+        "(Landroid/content/Context; Landroid/util/AttributeSet;)V"
+      ],
+      "setup": {}
+    },
+    "com.android.settings.applications.appinfo.AppInfoDashboardFragment": {
+      "super": "com.android.settings.dashboard.DashboardFragment",
+      "constructors": [
+        "()V"
+      ],
+      "setup": {}
+    },
+    "com.android.settings.widget.FixedLineSummaryPreference": {
+      "super": "androidx.preference.Preference",
+      "constructors": [
+        "(Landroid/content/Context; Landroid/util/AttributeSet;)V"
+      ],
+      "setup": {}
+    },
+    "com.android.settings.zyb.widget.ZybAppStoreDetailHeaderPreference": {
+      "super": "androidx.preference.Preference",
+      "constructors": [
+        "(Landroid/content/Context;)V",
+        "(Landroid/content/Context; Landroid/util/AttributeSet;)V",
+        "(Landroid/content/Context; Landroid/util/AttributeSet; I)V"
+      ],
+      "setup": {}
+    }
+  },
+  "resources": {
+    "string/app_settings_link": 2131952221,
+    "string/notifications_label": 2131955325,
+    "string/permissions_label": 2131955400,
+    "string/storage_settings_for_app": 2131956500,
+    "string/app_launch_supported_domain_urls_title": 2131952173,
+    "string/data_usage_app_summary_title": 2131953317,
+    "string/extra_app_info_label": 0,
+    "string/time_spent_in_app_pref_title": 2131956753,
+    "string/power_usage_summary_title": 2131955499,
+    "string/app_locale_preference_title": 2131952189,
+    "string/launch_by_default": 2131954407,
+    "string/memory_settings_title": 2131954830,
+    "string/home_app": 2131954157,
+    "string/default_browser_title": 2131953430,
+    "string/default_phone_title": 2131953446,
+    "string/default_emergency_app": 2131953437,
+    "string/sms_application_title": 2131956355,
+    "string/unused_apps": 2131956954,
+    "string/unused_apps_switch": 2131956957,
+    "string/advanced_apps": 2131952058,
+    "string/draw_overlay": 2131953608,
+    "string/write_settings": 2131957840,
+    "string/picture_in_picture_app_detail_title": 2131955425,
+    "string/install_other_apps": 2131954195,
+    "string/interact_across_profiles_title": 2131954222,
+    "string/alarms_and_reminders_title": 2131952077,
+    "string/long_background_tasks_title": 2131954698,
+    "string/app_install_details_group_title": 2131952162,
+    "string/app_install_details_title": 2131952164,
+    "string/launch_instant_app": 2131954410,
+    "drawable/ic_settings_open": 2131231538,
+    "id/entity_header_icon": 2131362472,
+    "id/entity_header_title": 2131362478,
+    "id/entity_header_summary": 2131362476,
+    "xml/app_info_settings": 2132148265,
+    "string/app_info_all_services_label": 2131952160
+  }
+}

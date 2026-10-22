@@ -1,0 +1,169 @@
+name: 编译 Arashi 1.2.0 Release APK
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'app/**'
+      - 'tests/**'
+      - '*.gradle'
+      - 'gradle.properties'
+      - 'gradle/**'
+      - 'gradlew'
+      - '.github/workflows/build.yml'
+  workflow_dispatch:
+    inputs:
+      unsigned_release:
+        description: 生成未签名 Release APK
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: arashi-build-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      ARASHI_UNSIGNED_RELEASE: ${{ github.event_name == 'push' || inputs.unsigned_release }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
+      - name: 验证失效应用选择清理规则
+        run: python3 tests/check_installed_selections.py
+      - name: 验证 SystemUI 自定义主题色
+        run: python3 tests/check_systemui_theme.py
+      - name: 验证 Android 12 与 14 传统电源菜单
+        run: python3 tests/check_legacy_power_menu.py
+      - name: 验证状态栏通知图标数量限制
+        run: python3 tests/check_notification_icon_limit.py
+      - name: 验证后台保留白名单规则
+        shell: bash
+        run: |
+          set -euo pipefail
+          javac -d "$RUNNER_TEMP/background-tests" app/src/main/java/com/lijinmu/arashi/xposed/BackgroundPolicy.java tests/BackgroundPolicyCheck.java
+          java -cp "$RUNNER_TEMP/background-tests" BackgroundPolicyCheck
+      - name: 验证设置侧栏入口与原版应用通知设置
+        run: python3 tests/check_settings_routes.py
+      - name: 验证 Android 12 和 14 完整应用信息页
+        run: python3 tests/check_full_app_info.py
+      - name: 验证 Android 12 和 14 应用详情操作栏
+        run: python3 tests/check_app_details.py
+      - name: 验证 Android 12 和 14 设置菜单兼容性
+        shell: bash
+        run: |
+          set -euo pipefail
+          javac -d "$RUNNER_TEMP/settings-tests" app/src/main/java/com/lijinmu/arashi/xposed/Reflect.java app/src/main/java/com/lijinmu/arashi/xposed/SettingsHeaderCompat.java tests/SettingsHeaderCompatCheck.java
+          java -cp "$RUNNER_TEMP/settings-tests" SettingsHeaderCompatCheck
+      - name: 验证 AOSP 蓝牙已连接图标
+        run: python3 tests/check_bluetooth_icon.py
+      - name: 验证状态栏日期格式
+        shell: bash
+        run: |
+          set -euo pipefail
+          javac -d "$RUNNER_TEMP/clock-tests" app/src/main/java/com/lijinmu/arashi/xposed/StatusBarClockFormat.java tests/StatusBarClockFormatCheck.java
+          java -cp "$RUNNER_TEMP/clock-tests" StatusBarClockFormatCheck
+      - name: 验证 TCP 登录失败拦截与记录
+        run: python3 tests/check_tcp_login.py
+      - name: 验证 TCP 与卸载验证通知
+        run: python3 tests/check_tcp_notifications.py
+      - name: 验证 Android 12 和 14 息屏拒绝卸载弹窗
+        run: python3 tests/check_uninstall_screen.py
+      - name: 验证 Zybos 环境配置读写
+        run: python3 tests/check_zybos_env.py
+      - name: 验证录屏音源选择与启动请求
+        run: python3 tests/check_screen_recording.py
+      - name: 验证通知快捷回复兼容处理
+        run: python3 tests/check_notification_reply.py
+      - name: 验证导航与下拉面板限制拦截
+        run: python3 tests/check_navigation_access.py
+      - name: 验证 iOS 图标图层缩放与尺寸恢复
+        run: python3 tests/check_ios_icon.py
+      - name: 安装 Android SDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'cmdline-tools;latest'
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --list --channel=3 > "$RUNNER_TEMP/sdk-packages.txt"
+          grep -E 'platforms;android-|build-tools;37|cmdline-tools;' "$RUNNER_TEMP/sdk-packages.txt"
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --channel=3 'platforms;android-37.0' 'build-tools;37.0.0'
+      - name: 准备签名
+        if: env.ARASHI_UNSIGNED_RELEASE != 'true'
+        id: signing
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -n "$KEYSTORE_BASE64" && -n "$STORE_PASSWORD" && -n "$KEY_ALIAS" && -n "$KEY_PASSWORD" ]]; then
+            python3 - <<'PY'
+          import base64, os, pathlib
+          key = pathlib.Path(os.environ['RUNNER_TEMP']) / 'arashi-signing.jks'
+          key.write_bytes(base64.b64decode(os.environ['KEYSTORE_BASE64'], validate=True))
+          key.chmod(0o600)
+          def escape(value):
+              return value.replace('\\', '\\\\').replace('\n', '\\n').replace('\r', '\\r')
+          props = {'storeFile': str(key), 'storePassword': os.environ['STORE_PASSWORD'],
+                   'keyAlias': os.environ['KEY_ALIAS'], 'keyPassword': os.environ['KEY_PASSWORD']}
+          target = pathlib.Path('keystore.properties')
+          target.write_text(''.join(k + '=' + escape(v) + '\n' for k, v in props.items()))
+          target.chmod(0o600)
+          PY
+            echo 'signed=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'signed=false' >> "$GITHUB_OUTPUT"
+            echo '未配置完整正式签名 Secrets，将仅生成未签名 Release APK。'
+          fi
+      - name: 编译 APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          chmod +x gradlew
+          ./gradlew :app:assembleRelease -ParashiUnsignedRelease="$ARASHI_UNSIGNED_RELEASE" --no-daemon --stacktrace
+      - name: 校验并整理 APK
+        env:
+          OFFICIAL_SIGNED: ${{ steps.signing.outputs.signed }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          tools="$ANDROID_HOME/build-tools/37.0.0"
+          if [[ "$OFFICIAL_SIGNED" == 'true' ]]; then
+            cp app/build/outputs/apk/release/app-release.apk dist/Arashi-1.2.0-release.apk
+          else
+            cp app/build/outputs/apk/release/app-release-unsigned.apk dist/Arashi-1.2.0-release-unsigned.apk
+          fi
+          for apk in dist/*.apk; do
+            python3 tests/check_release_apk.py "$apk"
+            "$tools/aapt" dump badging "$apk" > "$RUNNER_TEMP/arashi-badging.txt"
+            grep "package: name='com.lijinmu.arashi' versionCode='47' versionName='v1.2.0'" "$RUNNER_TEMP/arashi-badging.txt"
+            test "$(unzip -p "$apk" META-INF/xposed/java_init.list)" = 'com.lijinmu.arashi.xposed.HookEntry'
+            if [[ "$apk" != *-unsigned.apk ]]; then
+              "$tools/apksigner" verify --verbose --print-certs "$apk"
+            elif "$tools/apksigner" verify "$apk" >/dev/null 2>&1; then
+              echo '预期未签名的 Release APK 包含有效签名'
+              exit 1
+          fi
+          done
+          sha256sum dist/*.apk > dist/SHA256SUMS.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Arashi-1.2.0-Release-APK
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 14
+      - name: 清除临时签名文件
+        if: always()
+        run: rm -f keystore.properties "$RUNNER_TEMP/arashi-signing.jks"
