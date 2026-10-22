@@ -52,7 +52,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -532,6 +531,7 @@ private fun HookPage(a: HookSettings) {
 
     Page(a, "Hook 功能设置", a::finish, actions = {
         Box {
+            val actionIconTint = MiuixTheme.colorScheme.onSurface
             IconButton(
                 onClick = { actionsExpanded = !actionsExpanded },
                 modifier = Modifier.semantics { contentDescription = "更多操作" },
@@ -541,7 +541,7 @@ private fun HookPage(a: HookSettings) {
                     val centerX = size.width / 2f
                     for (index in 0..2) {
                         drawCircle(
-                            color = MiuixTheme.colorScheme.onSurface,
+                            color = actionIconTint,
                             radius = radius,
                             center = Offset(centerX, size.height * (0.25f + index * 0.25f)),
                         )
