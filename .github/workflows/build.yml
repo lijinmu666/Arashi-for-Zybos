@@ -74,7 +74,7 @@ jobs:
           java -cp "$RUNNER_TEMP/clock-tests" StatusBarClockFormatCheck
       - name: 验证 TCP 登录失败拦截与记录
         run: python3 tests/check_tcp_login.py
-      - name: 验证 TCP 与卸载验证通知
+      - name: 验证 TCP 与卸载验证通知响铃和横幅
         run: python3 tests/check_tcp_notifications.py
       - name: 验证 Android 12 和 14 息屏拒绝卸载弹窗
         run: python3 tests/check_uninstall_screen.py
