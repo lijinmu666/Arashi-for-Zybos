@@ -51,7 +51,7 @@ public abstract class Drawable {
 }''',
 'androidx/core/graphics/PathParser.java':'package androidx.core.graphics;public class PathParser {public static android.graphics.Path createPathFromPathData(String s){return new android.graphics.Path(s);}}',
 'com/lijinmu/arashi/xposed/ConfigManager.java':'''package com.lijinmu.arashi.xposed;public class ConfigManager {
- public static boolean enabled;public static boolean isEnabledCached(String k){if(!k.equals(HookConfig.KEY_AOSP_BLUETOOTH))throw new AssertionError();return enabled;}}''',
+ public static boolean enabled;public static boolean isEnabledCached(String k){if(!k.equals(HookConfig.KEY_AOSP_STATUS_ICONS))throw new AssertionError();return enabled;}}''',
 'Check.java':'''package com.lijinmu.arashi.xposed.hooks;
 import java.lang.reflect.*;import android.content.res.*;import android.graphics.*;import com.lijinmu.arashi.xposed.*;import io.github.libxposed.api.*;
 public class Check {
@@ -59,7 +59,17 @@ public class Check {
  static Object call(Method m,Object self,Object...args)throws Throwable{return module.hooks.get(m).intercept(new XposedInterface.Chain(self,args,a->m.invoke(self,a)));}
  static Paint paint(Object d)throws Exception {var f=AospBluetoothDrawable.class.getDeclaredField("paint");f.setAccessible(true);return (Paint)f.get(d);}
  public static void main(String[] args)throws Throwable {
-  check(!HookConfig.defaultEnabled(HookConfig.KEY_AOSP_BLUETOOTH));check(java.util.Arrays.asList(HookConfig.keys()).contains(HookConfig.KEY_AOSP_BLUETOOTH));
+  check(!HookConfig.defaultEnabled(HookConfig.KEY_AOSP_STATUS_ICONS));check(java.util.Arrays.asList(HookConfig.keys()).contains(HookConfig.KEY_AOSP_STATUS_ICONS));
+  for(int mask=0;mask<8;mask++){
+   var values=new java.util.HashMap<String,Object>();
+   values.put(HookConfig.KEY_AOSP_BLUETOOTH,(mask&1)!=0);values.put(HookConfig.KEY_AOSP_WIFI,(mask&2)!=0);values.put(HookConfig.KEY_AOSP_BATTERY,(mask&4)!=0);
+   check(HookConfig.statusBarIconsEnabled(values)==(mask!=0));
+   values.put(HookConfig.KEY_AOSP_STATUS_ICONS,false);check(!HookConfig.statusBarIconsEnabled(values));
+   values.put(HookConfig.KEY_AOSP_STATUS_ICONS,true);check(HookConfig.statusBarIconsEnabled(values));
+  }
+  check(!HookConfig.statusBarIconsEnabled(java.util.Collections.emptyMap()));
+  for(String old:new String[]{HookConfig.KEY_AOSP_BLUETOOTH,HookConfig.KEY_AOSP_WIFI,HookConfig.KEY_AOSP_BATTERY})
+   check(!java.util.Arrays.asList(HookConfig.keys()).contains(old));
   AospBluetoothHooks.hookSystemUI(module);check(module.hooks.size()==4);
   for(Method method:module.hooks.keySet()){
    Object[] params=method.getParameterCount()==1?new Object[]{12}:method.getName().equals("getDrawable")?new Object[]{12,null}:method.getParameterCount()==2?new Object[]{12,320}:new Object[]{12,320,null};

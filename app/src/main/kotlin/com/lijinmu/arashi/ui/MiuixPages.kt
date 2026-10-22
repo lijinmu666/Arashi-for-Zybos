@@ -561,9 +561,7 @@ private fun HookPage(a: HookSettings) = Page(a, "Hook 功能设置", a::finish) 
         "美化" to listOf(
             HookItem("始终使用传统电源菜单", "将长按电源键与下拉面板的电源菜单改为系统传统对话框。需勾选系统框架和系统界面作用域，更新模块后重启设备；开关在下次打开菜单时生效", HookConfig.KEY_LEGACY_POWER_MENU),
             HookItem("自定义 SystemUI 主题色", "自定义下拉快捷设置、亮度条、锁屏密码键盘按下效果与密码圆点的强调色。修改后重启 SystemUI 生效，关闭后重启恢复系统颜色", HookConfig.KEY_SYSTEMUI_THEME),
-            HookItem("原版电池图标", "恢复原版竖向的状态栏电池图标，保留电量百分比、省电模式和充电状态。重启 SystemUI 后生效", HookConfig.KEY_AOSP_BATTERY),
-            HookItem("原版 WLAN 图标", "使用原版 Wi-Fi 信号的状态栏图标，保留信号强度、无网络提示与深浅色适配。重启 SystemUI 后生效", HookConfig.KEY_AOSP_WIFI),
-            HookItem("原版蓝牙图标", "恢复蓝牙已连接时的原版的状态栏图标，保留连接状态与深浅色适配。重启 SystemUI 后生效", HookConfig.KEY_AOSP_BLUETOOTH),
+            HookItem("原版状态栏图标", "将蓝牙已连接、WLAN 和电池图标统一恢复为 AOSP 原版样式，保留状态与深浅色适配。重启 SystemUI 后生效", HookConfig.KEY_AOSP_STATUS_ICONS),
             HookItem("桌面图标圆角", "桌面应用图标与文件夹的改成 iOS 样式的圆角，文件夹使用半透明底色。强行停止桌面后生效", HookConfig.KEY_IOS_ICONS),
             HookItem("状态栏显示日期", "仿 iPadOS 在状态栏左侧时间后显示月日与星期，如 16:40  10月17日周六。开关控制在下次时钟刷新时生效", HookConfig.KEY_STATUS_BAR_DATE),
         ),
@@ -584,7 +582,9 @@ private fun HookPage(a: HookSettings) = Page(a, "Hook 功能设置", a::finish) 
                 val available = scopes.isAvailable(entry.key)
                 var checked by remember(entry.key) {
                     mutableStateOf(
-                        prefs.getBoolean(entry.key, HookConfig.defaultEnabled(entry.key)),
+                        if (entry.key == HookConfig.KEY_AOSP_STATUS_ICONS)
+                            HookConfig.statusBarIconsEnabled(prefs.all)
+                        else prefs.getBoolean(entry.key, HookConfig.defaultEnabled(entry.key)),
                     )
                 }
                 SwitchPreference(
