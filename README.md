@@ -15,6 +15,7 @@ Arashi 是面向作业帮学习机 AIBangOS 的 LSPosed 模块和系统工具，
 - [通知快捷回复修复](docs/notification-reply.md)
 - [桌面壁纸与 iOS 圆角](docs/launcher-compatibility.md)
 - [AOSP 电池、Wi-Fi 与蓝牙图标](docs/aosp-icons.md)
+- [SystemUI 自定义主题色](docs/systemui-theme.md)
 - [导航与下拉面板限制拦截](docs/navigation-access.md)
 - [记录、通知与环境工具](docs/records-and-tools.md)
 
@@ -41,7 +42,7 @@ Actions 提供测试签名 APK 和未签名 release APK。未签名包需自行�
 
 - 安装：外部应用安装支持、Shell 安装支持、清除安装黑名单。
 - 行为：开发者选项支持及设置侧边菜单注入、保留后台进程、USB 文件传输、壁纸设置、WiFi 网页登录、解除应用详情页限制、原版应用详情与通知设置、修复录屏声音选项、修复通知快捷回复、阻止重设默认浏览器、阻止禁用导航与下拉面板
-- 美化：AOSP 电池图标、AOSP Wi-Fi 图标、AOSP 蓝牙已连接图标、iOS 风格桌面图标圆角、文件夹与最近任务图标适配，以及状态栏时间后显示日期
+- 美化：SystemUI 自定义主题色、AOSP 电池图标、AOSP Wi-Fi 图标、AOSP 蓝牙已连接图标、iOS 风格桌面图标圆角、文件夹与最近任务图标适配，以及状态栏时间后显示日期
 - TCP 服务：屏蔽 ZpTcpService 发出的 `login.fail` 广播，保留拦截记录与通知，不改变服务器端设备状态
 
 保留后台进程默认关闭，管控服务类 Hook 默认关闭，默认值不会覆盖已有设置。保留后台进程支持应用白名单，应用列表与卸载黑白名单一样在包名后标注“系统应用”或“用户应用”。开启开关后可在下方选择应用；未选择时默认保留全部，选择后仅保留选中的应用。微信、QQ、护眼、语音助手和时钟沿用固件原有豁免，不显示在选择器中。关闭开关会隐藏入口并保留选择。

@@ -33,6 +33,12 @@ public final class HookSettingsSync {
                 editor.putStringSet(HookConfig.KEY_KEEP_BACKGROUND_WHITELIST, selected);
                 changed = true;
             }
+            int accent = SystemUiThemeColors.opaque(local.getInt(
+                    HookConfig.KEY_SYSTEMUI_THEME_COLOR, SystemUiThemeColors.DEFAULT_COLOR));
+            if (!Integer.valueOf(accent).equals(saved.get(HookConfig.KEY_SYSTEMUI_THEME_COLOR))) {
+                editor.putInt(HookConfig.KEY_SYSTEMUI_THEME_COLOR, accent);
+                changed = true;
+            }
             if (changed) {
                 editor.putBoolean(HookConfig.KEY_REMOTE_READY, true).apply();
             }

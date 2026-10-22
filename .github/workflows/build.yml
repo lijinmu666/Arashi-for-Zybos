@@ -40,6 +40,8 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
       - name: 验证失效应用选择清理规则
         run: python3 tests/check_installed_selections.py
+      - name: 验证 SystemUI 自定义主题色
+        run: python3 tests/check_systemui_theme.py
       - name: 验证后台保留白名单规则
         shell: bash
         run: |

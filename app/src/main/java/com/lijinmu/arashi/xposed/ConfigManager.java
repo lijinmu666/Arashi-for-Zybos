@@ -35,10 +35,12 @@ public final class ConfigManager {
     private static final class Snapshot {
         final Map<String, Boolean> enabled;
         final Set<String> backgroundWhitelist;
+        final int systemUiThemeColor;
 
-        Snapshot(Map<String, Boolean> enabled, Set<String> backgroundWhitelist) {
+        Snapshot(Map<String, Boolean> enabled, Set<String> backgroundWhitelist, int systemUiThemeColor) {
             this.enabled = Collections.unmodifiableMap(new HashMap<>(enabled));
             this.backgroundWhitelist = Collections.unmodifiableSet(new HashSet<>(backgroundWhitelist));
+            this.systemUiThemeColor = SystemUiThemeColors.opaque(systemUiThemeColor);
         }
     }
 
@@ -76,7 +78,9 @@ public final class ConfigManager {
                     if (item instanceof String) selected.add((String) item);
                 }
             }
-            remoteCache = new Snapshot(fresh, selected);
+            Object accent = values.get(HookConfig.KEY_SYSTEMUI_THEME_COLOR);
+            remoteCache = new Snapshot(fresh, selected, accent instanceof Integer
+                    ? (Integer) accent : SystemUiThemeColors.DEFAULT_COLOR);
         } catch (RuntimeException error) {
             remoteCache = null;
             Log.w("[Arashi-Settings]", "Remote settings refresh failed", error);
@@ -120,6 +124,12 @@ public final class ConfigManager {
 
 public static boolean isEnabled(String key) {
         return isEnabled(key, HookConfig.defaultEnabled(key));
+    }
+
+    public static int systemUiThemeColorCached() {
+        Snapshot settings = remoteCache;
+        if (settings == null) settings = cache;
+        return settings == null ? SystemUiThemeColors.DEFAULT_COLOR : settings.systemUiThemeColor;
     }
 
 public static boolean isEnabled(String key, boolean fallback) {
@@ -209,7 +219,8 @@ if (!isSystemServer && cached == null) {
             java.util.ArrayList<String> selected = bundle.getStringArrayList(
                     HookConfig.KEY_KEEP_BACKGROUND_WHITELIST);
             return new Snapshot(settings, selected == null
-                    ? Collections.emptySet() : new HashSet<>(selected));
+                    ? Collections.emptySet() : new HashSet<>(selected), bundle.getInt(
+                            HookConfig.KEY_SYSTEMUI_THEME_COLOR, SystemUiThemeColors.DEFAULT_COLOR));
         } catch (Throwable th) {
             Log.w("[Arashi-Settings]", "Provider settings read failed", th);
             return null;

@@ -103,6 +103,7 @@ public final class HookScopes {
 
     private static boolean usesSystemServer(String key) {
         return !HookConfig.KEY_AOSP_APP_DETAILS.equals(key)
+                && !HookConfig.KEY_SYSTEMUI_THEME.equals(key)
                 && !HookConfig.KEY_AOSP_BLUETOOTH.equals(key)
                 && !HookConfig.KEY_AOSP_WIFI.equals(key)
                 && !HookConfig.KEY_AOSP_BATTERY.equals(key)
@@ -147,6 +148,7 @@ public final class HookScopes {
             return new String[] { "com.zuoyebang.iot.pad.launcher14", "com.android.launcher3" };
         }
         if (HookConfig.KEY_NOTIFICATION_REPLY.equals(key)
+                || HookConfig.KEY_SYSTEMUI_THEME.equals(key)
                 || HookConfig.KEY_BLOCK_DEFAULT_BROWSER.equals(key)
                 || HookConfig.KEY_AOSP_BLUETOOTH.equals(key)
                 || HookConfig.KEY_AOSP_WIFI.equals(key)

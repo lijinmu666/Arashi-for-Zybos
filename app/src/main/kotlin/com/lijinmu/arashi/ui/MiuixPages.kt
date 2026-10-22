@@ -559,6 +559,7 @@ private fun HookPage(a: HookSettings) = Page(a, "Hook 功能设置", a::finish) 
             HookItem("阻止禁用系统导航与下拉面板", "拦截返回、主页、最近任务及下拉面板的禁用限制，覆盖激活与错误页面等场景。需勾选系统框架、系统界面 和 桌面 作用域，开关控制重启系统后生效", HookConfig.KEY_KEEP_NAVIGATION),
         ),
         "美化" to listOf(
+            HookItem("自定义 SystemUI 主题色", "自定义下拉快捷设置、亮度条、锁屏密码键盘按下效果与密码圆点的强调色。修改后重启 SystemUI 生效，关闭后重启恢复系统颜色", HookConfig.KEY_SYSTEMUI_THEME),
             HookItem("原版电池图标", "恢复原版竖向的状态栏电池图标，保留电量百分比、省电模式和充电状态。重启 SystemUI 后生效", HookConfig.KEY_AOSP_BATTERY),
             HookItem("原版 WLAN 图标", "使用原版 Wi-Fi 信号的状态栏图标，保留信号强度、无网络提示与深浅色适配。重启 SystemUI 后生效", HookConfig.KEY_AOSP_WIFI),
             HookItem("原版蓝牙图标", "恢复蓝牙已连接时的原版的状态栏图标，保留连接状态与深浅色适配。重启 SystemUI 后生效", HookConfig.KEY_AOSP_BLUETOOTH),
@@ -602,6 +603,9 @@ private fun HookPage(a: HookSettings) = Page(a, "Hook 功能设置", a::finish) 
                         else entry.summary + "。" + scopes.unavailableReason(entry.key),
                     enabled = available,
                 )
+                if (entry.key == HookConfig.KEY_SYSTEMUI_THEME) {
+                    SystemUiThemeColorPreference(prefs, available && checked)
+                }
                 if (entry.key == HookConfig.KEY_BLOCK_TCP_LOGIN_FAIL) {
                     ArrowPreference(
                         title = "TCP 拦截记录",
