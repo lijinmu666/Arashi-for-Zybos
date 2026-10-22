@@ -2,6 +2,8 @@
 
 应用最低支持 Android 12，当前包名为 `com.lijinmu.arashi`。目标是 AIBangOS 的已分析组件，不以 Android 大版本相同推断所有固件均兼容
 
+模块元数据已启用 `staticScope=true`，使用 `META-INF/xposed/scope.list` 声明固定作用域；其中同时包含 Android 14 桌面 `com.zuoyebang.iot.pad.launcher14` 与 Android 12 桌面 `com.android.launcher3`。
+
 ## 主要作用域
 
 | 功能 | 相关作用域 |
@@ -53,11 +55,11 @@
 
 ## 日志与验证边界
 
-通知图标数量限制已核对两份 SystemUI 样本，并完成主机回调测试，真机布局与动画待验证。解除的是普通状态栏的固定数量，实际可用宽度与系统通知过滤仍影响显示，详见 [通知图标说明](notification-icons.md)。
+通知图标数量限制已核对两份 SystemUI 样本，并完成主机回调测试，用户已反馈当前设备可用；其他固件的布局与动画仍需分别验证。解除的是普通状态栏的固定数量，实际可用宽度与系统通知过滤仍影响显示，详见 [通知图标说明](notification-icons.md)。
 
-传统电源菜单已核对两份 SystemUI 样本，并使用对应 AOSP 12／14 的 `GlobalActions` 原源码完成主机路由测试。SystemUI APK 不包含厂商系统框架，实际固件的框架类与传统菜单项目仍需实机验证；缺失预期框架目标时跳过并记录 `[Arashi-LegacyPower]` 日志，详见 [传统电源菜单](legacy-power-menu.md)。
+传统电源菜单已核对两份 SystemUI 样本，并使用对应 AOSP 12／14 的 `GlobalActions` 原源码完成主机路由测试。SystemUI APK 不包含厂商系统框架，用户已反馈当前设备的传统菜单可用；其他固件的框架类与菜单项目仍需实机验证；缺失预期框架目标时跳过并记录 `[Arashi-LegacyPower]` 日志，详见 [传统电源菜单](legacy-power-menu.md)。
 
-SystemUI 自定义主题色按 Android 12／14 样本匹配快捷设置和厂商密码键盘；主机测试覆盖状态分支、资源归属、Drawable 复制和关闭回退，待设备验证。使用方式及具体着色范围见 [SystemUI 主题色](systemui-theme.md)。
+SystemUI 自定义主题色按 Android 12／14 样本匹配快捷设置和厂商密码键盘；主机测试覆盖状态分支、资源归属、Drawable 复制和关闭回退，用户已反馈当前设备可用，其他固件仍需分别验证。使用方式及具体着色范围见 [SystemUI 主题色](systemui-theme.md)。
 
 主机侧检查覆盖方法匹配、参数与策略分支，不覆盖真实 SystemUI 动画、输入法、厂商 Binder 服务或设备 GPU 性能。缺失目标会记录日志，固件更新后需再次核对类名和方法
 

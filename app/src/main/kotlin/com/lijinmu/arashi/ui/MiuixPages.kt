@@ -722,6 +722,8 @@ private fun BackgroundWhitelistPage(a: BackgroundWhitelistActivity) {
     var selected by remember {
         mutableStateOf(prefs.getStringSet(HookConfig.KEY_KEEP_BACKGROUND_WHITELIST, emptySet()).orEmpty().toSet())
     }
+    // Freeze selected-first ranking for this visit so checkbox changes never move rows.
+    val selectedOnEntry = remember(a) { selected.toSet() }
     var query by remember { mutableStateOf("") }
     var showSystemApps by remember { mutableStateOf(false) }
     val apps = rememberAppPickerData(a) {
@@ -743,7 +745,7 @@ private fun BackgroundWhitelistPage(a: BackgroundWhitelistActivity) {
         val matchesCategory = showSystemApps || it.isSystem == false
         matchesCategory && (query.isBlank() || it.label.contains(query, true) || it.packageName.contains(query, true))
     }.sortedWith(
-        compareBy<BackgroundChoice> { if (it.packageName in selected) 0 else 1 }
+        compareBy<BackgroundChoice> { if (it.packageName in selectedOnEntry) 0 else 1 }
             .thenBy { if (it.isSystem == true) 1 else 0 }
             .thenBy { it.label.lowercase() }
             .thenBy { it.packageName },
@@ -1097,6 +1099,8 @@ private fun UninstallListPage(a: UninstallListActivity, blacklist: Boolean) {
     var selected by remember(prefKey) {
         mutableStateOf(prefs.getStringSet(prefKey, mutableSetOf()).orEmpty().toSet())
     }
+    // Freeze selected-first ranking for this visit so checkbox changes never move rows.
+    val selectedOnEntry = remember(prefKey) { selected.toSet() }
     var query by remember { mutableStateOf("") }
     var showSystemApps by remember { mutableStateOf(false) }
     var manual by remember { mutableStateOf("") }
@@ -1139,7 +1143,7 @@ private fun UninstallListPage(a: UninstallListActivity, blacklist: Boolean) {
         inFilter && (query.isBlank() || choice.title.contains(query, true) ||
             choice.summary.contains(query, true) || choice.key.contains(query, true))
     }.sortedWith(
-        compareBy<UninstallChoice> { if (it.key in selected) 0 else 1 }
+        compareBy<UninstallChoice> { if (it.key in selectedOnEntry) 0 else 1 }
             .thenBy { it.kind }
             .thenBy { it.title.lowercase() }
             .thenBy { it.key },
