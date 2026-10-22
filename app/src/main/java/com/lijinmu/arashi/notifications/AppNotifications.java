@@ -23,14 +23,20 @@ public final class AppNotifications {
         try {
             NotificationManager manager = context.getSystemService(NotificationManager.class);
             if (manager == null) return;
-            manager.createNotificationChannel(new NotificationChannel(
-                    channel, channelName, NotificationManager.IMPORTANCE_DEFAULT));
+            // Channel sound cannot be changed after registration. Use a stable new ID
+            // so upgrades also switch from the old channel to an ordinary audible one.
+            String audibleChannelId = channel + "_audible_v1";
+            NotificationChannel audibleChannel = new NotificationChannel(
+                    audibleChannelId, channelName, NotificationManager.IMPORTANCE_DEFAULT);
+            audibleChannel.setSound(Settings.System.DEFAULT_NOTIFICATION_URI,
+                    Notification.AUDIO_ATTRIBUTES_DEFAULT);
+            manager.createNotificationChannel(audibleChannel);
             if (!manager.areNotificationsEnabled()) return;
             Intent intent = new Intent(context, history)
                     .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
             PendingIntent openHistory = PendingIntent.getActivity(context, 0, intent,
                     PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
-            Notification notification = new Notification.Builder(context, channel)
+            Notification notification = new Notification.Builder(context, audibleChannelId)
                     .setSmallIcon(android.R.drawable.ic_dialog_info)
                     .setContentTitle(title)
                     .setContentText(text)

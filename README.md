@@ -129,3 +129,5 @@ docs/          兼容性、功能说明与提交索引
 ## 许可证
 
 Arashi 版权所有 © 2026 lijinmu666，采用 GNU General Public License v3.0 only（SPDX：`GPL-3.0-only`）授权，详见 [LICENSE](LICENSE)。
+
+卸载验证与 TCP 拦截提醒使用普通响铃通知及系统默认通知声音，遵循系统音量、勿扰和用户的渠道设置。
