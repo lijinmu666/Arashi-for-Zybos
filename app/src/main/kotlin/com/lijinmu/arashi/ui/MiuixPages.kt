@@ -663,6 +663,7 @@ private fun HookPage(a: HookSettings) {
             HookItem("阻止禁用系统导航与下拉面板", "拦截返回、主页、最近任务及下拉面板的禁用限制，覆盖激活与错误页面等场景。需勾选系统框架、系统界面 和 桌面 作用域", HookConfig.KEY_KEEP_NAVIGATION),
         ),
         "美化" to listOf(
+            HookItem("原版下拉面板", "恢复 AOSP 快捷设置布局，二次下拉展开完整磁贴，保留原生分页与编辑", HookConfig.KEY_AOSP_QS),
             HookItem("修复莫奈取色", "恢复基于壁纸的动态配色，适配下拉面板与锁屏密码界面。手动主题色开启时优先使用手动颜色", HookConfig.KEY_SYSTEMUI_MONET),
             HookItem("自定义 SystemUI 主题色", "自定义下拉面板，锁屏密码键盘按下效果与密码圆点的强调色", HookConfig.KEY_SYSTEMUI_THEME),
             HookItem("原版状态栏图标", "将 电池、WLAN、蓝牙图标统一恢复为 AOSP 原版样式", HookConfig.KEY_AOSP_STATUS_ICONS),
