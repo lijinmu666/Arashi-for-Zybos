@@ -85,6 +85,7 @@ import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.basic.ArrowRight
 import top.yukonga.miuix.kmp.icon.extended.Back
 import top.yukonga.miuix.kmp.icon.extended.Link
+import top.yukonga.miuix.kmp.icon.extended.MoreCircle
 import top.yukonga.miuix.kmp.overlay.OverlayDialog
 import top.yukonga.miuix.kmp.preference.ArrowPreference
 import top.yukonga.miuix.kmp.preference.CheckboxLocation
@@ -531,22 +532,15 @@ private fun HookPage(a: HookSettings) {
 
     Page(a, "Hook 功能设置", a::finish, actions = {
         Box {
-            val actionIconTint = MiuixTheme.colorScheme.onSurface
             IconButton(
                 onClick = { actionsExpanded = !actionsExpanded },
                 modifier = Modifier.semantics { contentDescription = "更多操作" },
             ) {
-                Canvas(Modifier.size(24.dp)) {
-                    val radius = 2.dp.toPx()
-                    val centerX = size.width / 2f
-                    for (index in 0..2) {
-                        drawCircle(
-                            color = actionIconTint,
-                            radius = radius,
-                            center = Offset(centerX, size.height * (0.25f + index * 0.25f)),
-                        )
-                    }
-                }
+                Icon(
+                    imageVector = MiuixIcons.MoreCircle,
+                    contentDescription = "更多操作",
+                    tint = MiuixTheme.colorScheme.onSurfaceVariantActions,
+                )
             }
             OverlayDropdownPopup(
                 entry = DropdownEntry(listOf(
