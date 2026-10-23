@@ -25,6 +25,7 @@ public static final String KEY_CAPTIVE_PORTAL = "hook_captive_portal";
     public static final String KEY_AOSP_BLUETOOTH = "hook_aosp_bluetooth";
     public static final String KEY_AOSP_WIFI = "hook_aosp_wifi";
     public static final String KEY_AOSP_BATTERY = "hook_aosp_battery";
+    public static final String KEY_SYSTEMUI_MONET = "hook_systemui_monet";
     public static final String KEY_SYSTEMUI_THEME = "hook_systemui_theme";
     public static final String KEY_LEGACY_POWER_MENU = "hook_legacy_power_menu";
     public static final String KEY_UNLIMITED_NOTIFICATION_ICONS = "hook_unlimited_notification_icons";
@@ -48,6 +49,7 @@ public static final String KEY_BLOCK_SUPERVISE = "hook_block_supervise";
                 && !KEY_AOSP_STATUS_ICONS.equals(key)
                 && !KEY_LEGACY_POWER_MENU.equals(key)
                 && !KEY_SYSTEMUI_THEME.equals(key)
+                && !KEY_SYSTEMUI_MONET.equals(key)
                 && !KEY_AOSP_BLUETOOTH.equals(key)
                 && !KEY_AOSP_WIFI.equals(key)
                 && !KEY_AOSP_BATTERY.equals(key)
@@ -76,7 +78,7 @@ public static final String KEY_NEUTRALIZE_POLICY = "hook_neutralize_policy";
                 KEY_AOSP_APP_DETAILS, KEY_BLOCK_TCP_LOGIN_FAIL, KEY_ANDROID12_BLACKLIST_HOOK, KEY_EXTERNAL_INSTALL, KEY_SHELL_INSTALL,
                 KEY_CLEAR_BLACKLIST, KEY_CAPTIVE_PORTAL,
                 KEY_ALLOW_USB, KEY_LEGACY_POWER_MENU, KEY_UNLIMITED_NOTIFICATION_ICONS,
-                KEY_RECORD_INTERNAL_AUDIO, KEY_NOTIFICATION_REPLY, KEY_KEEP_NAVIGATION, KEY_STATUS_BAR_DATE, KEY_AOSP_STATUS_ICONS, KEY_SYSTEMUI_THEME, KEY_IOS_ICONS, KEY_ALLOW_WALLPAPER, KEY_CLEAR_DETAIL_BLACK, KEY_BLOCK_SUPERVISE,
+                KEY_RECORD_INTERNAL_AUDIO, KEY_NOTIFICATION_REPLY, KEY_KEEP_NAVIGATION, KEY_STATUS_BAR_DATE, KEY_AOSP_STATUS_ICONS, KEY_SYSTEMUI_THEME, KEY_SYSTEMUI_MONET, KEY_IOS_ICONS, KEY_ALLOW_WALLPAPER, KEY_CLEAR_DETAIL_BLACK, KEY_BLOCK_SUPERVISE,
                 KEY_BLOCK_USAGE_REPORT,
                 KEY_DEV_OPTIONS, KEY_DEV_OPTIONS_MENU, KEY_KEEP_BACKGROUND, KEY_NEUTRALIZE_POLICY,
                 KEY_NEUTRALIZE_ADVANCE, KEY_NO_TIMEOUT_LOCK, KEY_BLOCK_DEFAULT_BROWSER

@@ -10,6 +10,7 @@ import android.graphics.drawable.StateListDrawable;
 import android.util.Log;
 import android.view.View;
 import android.widget.ImageView;
+import android.widget.SeekBar;
 import android.widget.TextView;
 
 import com.lijinmu.arashi.xposed.ConfigManager;
@@ -18,6 +19,10 @@ import com.lijinmu.arashi.xposed.Reflect;
 import com.lijinmu.arashi.xposed.SystemUiThemeColors;
 import io.github.libxposed.api.XposedModule;
 import java.lang.reflect.Method;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.WeakHashMap;
 
 /** Scoped to resources/classes present in both supplied Zybos SystemUI 12 and 14 APKs. */
 public final class SystemUiThemeHooks {
@@ -26,6 +31,10 @@ public final class SystemUiThemeHooks {
     private static final ThreadLocal<Boolean> DRAWABLE_BUSY = ThreadLocal.withInitial(() -> false);
     private static final ThreadLocal<Boolean> ACTIVE_ICON = ThreadLocal.withInitial(() -> false);
 
+    private static final Map<View, Object> TILE_STATES = new WeakHashMap<>();
+    private static final Map<View, Boolean> BRIGHTNESS_VIEWS = new WeakHashMap<>();
+    private static final Map<View, Boolean> PASSWORD_VIEWS = new WeakHashMap<>();
+
     private SystemUiThemeHooks() {}
 
     public static void hookSystemUI(XposedModule module, ClassLoader loader) {
@@ -33,14 +42,20 @@ public final class SystemUiThemeHooks {
         hookTiles(module, loader);
         hookIcons(module, loader);
         hookPassword(module, loader);
+        hookBrightness(module, loader);
     }
 
     private static boolean enabled() {
-        return ConfigManager.isEnabledCached(HookConfig.KEY_SYSTEMUI_THEME);
+        return ConfigManager.isEnabledCached(HookConfig.KEY_SYSTEMUI_THEME) || SystemUiMonetHooks.enabled();
     }
 
-    private static int accent() { return ConfigManager.systemUiThemeColorCached(); }
-    private static int foreground() { return SystemUiThemeColors.foreground(accent()); }
+    private static int accent(Resources resources) {
+        return ConfigManager.isEnabledCached(HookConfig.KEY_SYSTEMUI_THEME)
+                ? ConfigManager.systemUiThemeColorCached() : SystemUiMonetHooks.accent(resources);
+    }
+    private static int foreground(Resources resources) {
+        return SystemUiThemeColors.foreground(accent(resources));
+    }
 
     private static String resourceName(Resources resources, int id) {
         try { return resources.getResourceName(id); }
@@ -57,11 +72,12 @@ public final class SystemUiThemeHooks {
                     method.setAccessible(true);
                     module.hook(method).intercept(chain -> {
                         if (enabled()) {
-                            String entry = resourceName((Resources) chain.getThisObject(), (Integer) chain.getArg(0));
+                            Resources resources = (Resources) chain.getThisObject();
+                            String entry = resourceName(resources, (Integer) chain.getArg(0));
                             Integer replacement = null;
-                            if (entry.equals(PREFIX + "color/qs_selected_background")) replacement = accent();
+                            if (entry.equals(PREFIX + "color/qs_selected_background")) replacement = accent(resources);
                             if (ACTIVE_ICON.get() && entry.equals(PREFIX + "color/qs_tile_text_and_icon_color"))
-                                replacement = foreground();
+                                replacement = foreground(resources);
                             if (replacement != null) return name.equals("getColor")
                                     ? replacement : ColorStateList.valueOf(replacement);
                         }
@@ -89,7 +105,7 @@ public final class SystemUiThemeHooks {
                         try {
                             // Never mutate cached firmware ConstantState; disabling + restarting restores it.
                             Drawable copy = state.newDrawable(resources).mutate();
-                            recolor(copy, entry, accent());
+                            recolor(copy, entry, accent(resources));
                             return copy;
                         } catch (RuntimeException error) {
                             Log.w(TAG, "Keeping firmware drawable for " + entry, error);
@@ -138,6 +154,17 @@ public final class SystemUiThemeHooks {
                 String name = method.getName();
                 if (name.equals("handleStateChanged") || name.equals("onStateChanged")) {
                     deoptimize(module, method);
+                    if (name.equals("handleStateChanged") && method.getParameterTypes().length == 1) {
+                        method.setAccessible(true);
+                        module.hook(method).intercept(chain -> {
+                            if (SystemUiMonetHooks.enabled() && chain.getThisObject() instanceof View) {
+                                synchronized (TILE_STATES) {
+                                    TILE_STATES.put((View) chain.getThisObject(), chain.getArg(0));
+                                }
+                            }
+                            return chain.proceed();
+                        });
+                    }
                 }
                 if (!name.equals("getBackgroundColorForState") && !name.equals("getLabelColorForState")
                         && !name.equals("getSecondaryLabelColorForState")) continue;
@@ -149,7 +176,8 @@ public final class SystemUiThemeHooks {
                 module.hook(method).intercept(chain -> {
                     if (enabled() && Integer.valueOf(2).equals(chain.getArg(0))
                             && (args.length == 1 || !Boolean.TRUE.equals(chain.getArg(1)))) {
-                        return name.equals("getBackgroundColorForState") ? accent() : foreground();
+                        Resources resources = ((View) chain.getThisObject()).getResources();
+                        return name.equals("getBackgroundColorForState") ? accent(resources) : foreground(resources);
                     }
                     return chain.proceed();
                 });
@@ -189,32 +217,108 @@ public final class SystemUiThemeHooks {
                 Object result = chain.proceed();
                 if (enabled() && chain.getThisObject() instanceof View) {
                     View root = (View) chain.getThisObject();
-                    try {
-                        for (int digit = 0; digit <= 9; digit++) {
-                            int id = root.getResources().getIdentifier("zyb_keyguard_password_keyboard_" + digit,
-                                    "id", "com.android.systemui");
-                            View key = id == 0 ? null : root.findViewById(id);
-                            recolorViewBackground(key, PREFIX + "drawable/zyb_keyguard_password_keyboard");
-                            if (!(key instanceof TextView)) continue;
-                            TextView label = (TextView) key;
-                            ColorStateList original = label.getTextColors();
-                            label.setTextColor(new ColorStateList(new int[][] {
-                                    { -android.R.attr.state_enabled }, { android.R.attr.state_pressed }, {} },
-                                    new int[] { original.getColorForState(new int[] { -android.R.attr.state_enabled },
-                                            original.getDefaultColor()), foreground(), original.getDefaultColor() }));
-                        }
-                        // Also handle an XML drawable already inflated by an optimized framework path.
-                        for (int digit = 1; digit <= 6; digit++) {
-                            int id = root.getResources().getIdentifier("zyb_keyguard_password_input_" + digit,
-                                    "id", "com.android.systemui");
-                            recolorViewBackground(id == 0 ? null : root.findViewById(id),
-                                    PREFIX + "drawable/zyb_keyguard_password_dot_bg");
-                        }
-                    } catch (RuntimeException error) { Log.w(TAG, "Password key colors unavailable", error); }
+                    if (SystemUiMonetHooks.enabled()) {
+                        synchronized (PASSWORD_VIEWS) { PASSWORD_VIEWS.put(root, true); }
+                    }
+                    applyPasswordColors(root);
                 }
                 return result;
             });
         } catch (Throwable error) { Log.w(TAG, "Vendor password theme hook unavailable", error); }
+    }
+
+    private static void applyPasswordColors(View root) {
+        try {
+            for (int digit = 0; digit <= 9; digit++) {
+                int id = root.getResources().getIdentifier("zyb_keyguard_password_keyboard_" + digit,
+                        "id", "com.android.systemui");
+                View key = id == 0 ? null : root.findViewById(id);
+                recolorViewBackground(key, PREFIX + "drawable/zyb_keyguard_password_keyboard");
+                if (!(key instanceof TextView)) continue;
+                TextView label = (TextView) key;
+                ColorStateList original = label.getTextColors();
+                label.setTextColor(new ColorStateList(new int[][] {
+                        { -android.R.attr.state_enabled }, { android.R.attr.state_pressed }, {} },
+                        new int[] { original.getColorForState(new int[] { -android.R.attr.state_enabled },
+                                original.getDefaultColor()), foreground(root.getResources()), original.getDefaultColor() }));
+            }
+            // Also handle an XML drawable already inflated by an optimized framework path.
+            for (int digit = 1; digit <= 6; digit++) {
+                int id = root.getResources().getIdentifier("zyb_keyguard_password_input_" + digit,
+                        "id", "com.android.systemui");
+                recolorViewBackground(id == 0 ? null : root.findViewById(id),
+                        PREFIX + "drawable/zyb_keyguard_password_dot_bg");
+            }
+        } catch (RuntimeException error) { Log.w(TAG, "Password key colors unavailable", error); }
+    }
+
+    private static void hookBrightness(XposedModule module, ClassLoader loader) {
+        try {
+            Class<?> type = Class.forName("com.android.systemui.settings.brightness.BrightnessSliderView", false, loader);
+            Method inflate = type.getDeclaredMethod("onFinishInflate");
+            inflate.setAccessible(true);
+            module.hook(inflate).intercept(chain -> {
+                Object result = chain.proceed();
+                if (enabled() && chain.getThisObject() instanceof View) {
+                    View root = (View) chain.getThisObject();
+                    if (SystemUiMonetHooks.enabled()) {
+                        synchronized (BRIGHTNESS_VIEWS) { BRIGHTNESS_VIEWS.put(root, true); }
+                    }
+                    applyBrightnessColor(root);
+                }
+                return result;
+            });
+        } catch (Throwable error) { Log.w(TAG, "Brightness refresh hook unavailable", error); }
+    }
+
+    private static void applyBrightnessColor(View root) {
+        try {
+            int id = root.getResources().getIdentifier("slider", "id", "com.android.systemui");
+            View view = id == 0 ? null : root.findViewById(id);
+            if (!(view instanceof SeekBar)) return;
+            SeekBar slider = (SeekBar) view;
+            Drawable original = slider.getProgressDrawable();
+            if (original == null || original.getConstantState() == null) return;
+            Drawable copy = original.getConstantState().newDrawable(root.getResources()).mutate();
+            recolor(copy, PREFIX + "drawable/zzz_brightness_progress_drawable", accent(root.getResources()));
+            slider.setProgressDrawable(copy);
+        } catch (RuntimeException error) { Log.w(TAG, "Brightness color refresh failed", error); }
+    }
+
+    static void refreshDynamicColors() {
+        if (!enabled()) return;
+        Map<View, Object> tiles;
+        ArrayList<View> brightness;
+        ArrayList<View> passwords;
+        synchronized (TILE_STATES) { tiles = new HashMap<>(TILE_STATES); }
+        synchronized (BRIGHTNESS_VIEWS) { brightness = new ArrayList<>(BRIGHTNESS_VIEWS.keySet()); }
+        synchronized (PASSWORD_VIEWS) { passwords = new ArrayList<>(PASSWORD_VIEWS.keySet()); }
+        for (Map.Entry<View, Object> entry : tiles.entrySet()) {
+            View tile = entry.getKey();
+            Object state = entry.getValue();
+            if (tile == null || state == null) continue;
+            try {
+                // Both samples cache icon tint by tile state, not by palette. Invalidate just
+                // that cache so an unchanged active Wi-Fi/Bluetooth tile receives the new tint.
+                Method getIcon = Reflect.findMethodExact(tile.getClass(), "getIcon");
+                if (getIcon != null) SystemUiMonetHooks.setField(getIcon.invoke(tile), "mState", -1);
+                refresh:
+                for (Class<?> owner = tile.getClass(); owner != null; owner = owner.getSuperclass()) {
+                    for (Method method : owner.getDeclaredMethods()) {
+                        if (method.getName().equals("handleStateChanged") && method.getParameterTypes().length == 1
+                                && method.getParameterTypes()[0].isInstance(state)) {
+                            method.setAccessible(true);
+                            method.invoke(tile, state);
+                            break refresh;
+                        }
+                    }
+                }
+            } catch (ReflectiveOperationException | RuntimeException error) {
+                Log.w(TAG, "Tile palette refresh failed", error);
+            }
+        }
+        for (View root : brightness) if (root != null) applyBrightnessColor(root);
+        for (View root : passwords) if (root != null) applyPasswordColors(root);
     }
 
     private static void deoptimize(XposedModule module, Method method) {
@@ -227,7 +331,7 @@ public final class SystemUiThemeHooks {
         Drawable.ConstantState state = view.getBackground().getConstantState();
         if (state == null) return;
         Drawable copy = state.newDrawable(view.getResources()).mutate();
-        recolor(copy, resource, accent());
+        recolor(copy, resource, accent(view.getResources()));
         view.setBackground(copy);
     }
 }
