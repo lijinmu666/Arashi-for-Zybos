@@ -184,6 +184,20 @@ public class PanelViewController {public float mExpandedFraction;public void not
 public class MediaViewHolder {public android.view.View player;public MediaViewHolder(android.view.View v){player=v;}}''',
  'com/android/systemui/qs/footer/ui/binder/FooterActionsViewBinder.java': '''package com.android.systemui.qs.footer.ui.binder;
 public class FooterActionsViewBinder {public static void bind(android.widget.LinearLayout v){}}''',
+ 'com/android/systemui/statusbar/notification/row/ExpandableNotificationRowController.java': '''package com.android.systemui.statusbar.notification.row;
+public class ExpandableNotificationRowController {
+ public boolean mAllowLongPress,listenerInstalled;
+ public ExpandableNotificationRowController(boolean allow){mAllowLongPress=allow;listenerInstalled=allow;}
+ public void initialize(){listenerInstalled=mAllowLongPress;}
+}''',
+ 'com/android/systemui/statusbar/notification/stack/NotificationStackScrollLayoutController.java': '''package com.android.systemui.statusbar.notification.stack;
+public class NotificationStackScrollLayoutController {
+ public boolean mAllowLongPress;
+ public NotificationStackScrollLayoutController(boolean allow){mAllowLongPress=allow;}
+}''',
+ 'com/android/systemui/statusbar/notification/row/NotificationMenuRow.java': '''package com.android.systemui.statusbar.notification.row;
+public class NotificationMenuRow {public boolean mShouldShowMenu;public NotificationMenuRow(){mShouldShowMenu=false;}}
+''',
  'com/android/systemui/util/LargeScreenUtils.java': '''package com.android.systemui.util;
 public class LargeScreenUtils {public static boolean shouldUseSplitNotificationShade(android.content.res.Resources r){return false;}}''',
  'com/android/systemui/qs/QSPanelControllerBase.java': '''package com.android.systemui.qs;
@@ -392,6 +406,28 @@ public class Check {
   FrameLayout.LayoutParams mediaMargins=new FrameLayout.LayoutParams(-1,-2);portraitMedia.setLayoutParams(mediaMargins);
   SystemUiQsHooks.restoreMediaCard(portraitMedia);check(mediaMargins.topMargin==48&&mediaMargins.bottomMargin==48);
   SystemUiQsHooks.restoreMediaCard(portraitMedia);check(mediaMargins.topMargin==48&&mediaMargins.bottomMargin==48);
+  var interactionRow=new com.android.systemui.statusbar.notification.row.ExpandableNotificationRowController(false);
+  var interactionConstructor=interactionRow.getClass().getConstructor(boolean.class);
+  module.hooks.get(interactionConstructor).intercept(new XposedInterface.Chain(interactionRow,new Object[]{false},x->{
+   interactionRow.mAllowLongPress=(Boolean)x[0];interactionRow.initialize();return null;}));
+  check(interactionRow.mAllowLongPress&&interactionRow.listenerInstalled);
+  var interactionStack=new com.android.systemui.statusbar.notification.stack.NotificationStackScrollLayoutController(false);
+  var stackConstructor=interactionStack.getClass().getConstructor(boolean.class);
+  module.hooks.get(stackConstructor).intercept(new XposedInterface.Chain(interactionStack,new Object[]{false},x->{
+   interactionStack.mAllowLongPress=(Boolean)x[0];return null;}));
+  check(interactionStack.mAllowLongPress);
+  var interactionMenu=new com.android.systemui.statusbar.notification.row.NotificationMenuRow();
+  var menuConstructor=interactionMenu.getClass().getConstructor();
+  module.hooks.get(menuConstructor).intercept(new XposedInterface.Chain(interactionMenu,new Object[]{},x->null));
+  check(interactionMenu.mShouldShowMenu);
+  ConfigManager.enabled=false;
+  interactionRow.mAllowLongPress=false;interactionRow.listenerInstalled=false;
+  module.hooks.get(interactionConstructor).intercept(new XposedInterface.Chain(interactionRow,new Object[]{false},x->{
+   interactionRow.mAllowLongPress=(Boolean)x[0];interactionRow.initialize();return null;}));
+  check(!interactionRow.mAllowLongPress&&!interactionRow.listenerInstalled);
+  interactionMenu.mShouldShowMenu=false;
+  module.hooks.get(menuConstructor).intercept(new XposedInterface.Chain(interactionMenu,new Object[]{},x->null));
+  check(!interactionMenu.mShouldShowMenu);ConfigManager.enabled=true;
   Resources r=new Resources();r.names.put(1,"integer/quick_settings_num_columns");r.names.put(2,"dimen/qs_tile_height");
   Method integer=Resources.class.getMethod("getInteger",int.class),dim=Resources.class.getMethod("getDimensionPixelSize",int.class);
   check((int)call(integer,r,1)==2);check((int)call(dim,r,2)==160);
