@@ -25,7 +25,7 @@ public class XposedModule {public Map<Executable,XposedInterface.Hooker> hooks=n
 ''',
 'android/util/DisplayMetrics.java': 'package android.util;public class DisplayMetrics {public float density=2;}',
 'android/content/res/Configuration.java': '''package android.content.res;public class Configuration {
- public static final int UI_MODE_NIGHT_MASK=48,UI_MODE_NIGHT_YES=32;public int uiMode;}
+ public static final int UI_MODE_NIGHT_MASK=48,UI_MODE_NIGHT_YES=32;public int uiMode,screenWidthDp;}
 ''',
 'android/content/res/Resources.java': '''package android.content.res;import java.util.*;
 public class Resources {public static class NotFoundException extends RuntimeException {}public static class Theme {}
@@ -34,7 +34,7 @@ public class Resources {public static class NotFoundException extends RuntimeExc
  public Configuration getConfiguration(){return config;}public android.util.DisplayMetrics getDisplayMetrics(){return metrics;}
  public String getResourceName(int id){if(!names.containsKey(id))throw new NotFoundException();return owner+":"+names.get(id);}
  public int getIdentifier(String name,String kind,String pkg){return name.hashCode();}
- public int getInteger(int id){return 17;}public float getDimension(int id){return 17.5f;}
+ public boolean getBoolean(int id){return false;}public int getInteger(int id){return 17;}public float getDimension(int id){return 17.5f;}
  public int getDimensionPixelSize(int id){return 17;}public int getDimensionPixelOffset(int id){return 17;}
  public int getColor(int id,Theme theme){return id;}}
 ''',
@@ -149,6 +149,8 @@ public class ShadeHeaderController {public View header=new View();public boolean
  public com.android.systemui.shade.carrier.ShadeCarrierGroupController mShadeCarrierGroupController=new com.android.systemui.shade.carrier.ShadeCarrierGroupController();
  public void updateSingleCarrier(boolean b){singleUpdates++;}public void updateVisibility(){original++;header.setVisibility(View.GONE);}}
 ''',
+ 'com/android/systemui/util/LargeScreenUtils.java': '''package com.android.systemui.util;
+public class LargeScreenUtils {public static boolean shouldUseSplitNotificationShade(android.content.res.Resources r){return false;}}''',
  'com/android/systemui/qs/QSPanelControllerBase.java': '''package com.android.systemui.qs;
 public class QSPanelControllerBase {public android.view.View mView;
  public boolean switchTileLayout(boolean force){return force;}}''',
@@ -214,6 +216,18 @@ public class Check {
   header.customizing=true;call(vis,header);check(header.header.visibility==4&&!header.mShadeCarrierGroupController.mListening);
   check(header.mShadeCarrierGroupController.updates==2&&header.mShadeCarrierGroupController.mOnSingleCarrierChangedListener==null);
   header.qsDisabled=true;call(vis,header);check(header.header.visibility==8);
+  Resources split=new Resources();split.names.put(70,"bool/config_use_split_notification_shade");
+  split.names.put(71,"bool/unrelated");Method bool=Resources.class.getMethod("getBoolean",int.class);
+  Method splitDecision=com.android.systemui.util.LargeScreenUtils.class.getMethod("shouldUseSplitNotificationShade",Resources.class);
+  for(int width:new int[]{0,400,599,600,960,1280}) {
+   split.config.screenWidthDp=width;
+   check((boolean)call(bool,split,70)==(width>=600));
+   check((boolean)call(splitDecision,null,split)==(width>=600));
+   check(!(boolean)call(bool,split,71));
+  }
+  split.owner="other";check(!(boolean)call(bool,split,70));
+  split.owner="com.android.systemui";ConfigManager.enabled=false;
+  check(!(boolean)call(bool,split,70));check(!(boolean)call(splitDecision,null,split));ConfigManager.enabled=true;
   Resources r=new Resources();r.names.put(1,"integer/quick_settings_num_columns");r.names.put(2,"dimen/qs_tile_height");
   Method integer=Resources.class.getMethod("getInteger",int.class),dim=Resources.class.getMethod("getDimensionPixelSize",int.class);
   check((int)call(integer,r,1)==2);check((int)call(dim,r,2)==160);

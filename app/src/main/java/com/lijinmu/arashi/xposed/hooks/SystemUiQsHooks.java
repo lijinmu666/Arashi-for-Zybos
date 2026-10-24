@@ -57,6 +57,7 @@ public final class SystemUiQsHooks {
 
     public static void hookSystemUI(XposedModule module, ClassLoader loader) {
         hookResources(module);
+        hookSplitShade(module, loader);
         hookExpansion(module, loader, "com.android.systemui.shade.QuickSettingsController", true);
         hookExpansion(module, loader, "com.android.systemui.statusbar.phone.NotificationPanelViewController", false);
         after(module, loader, "com.android.systemui.qs.QSFragment", "updateQsState", instance -> {
@@ -107,6 +108,25 @@ public final class SystemUiQsHooks {
             }
         });
         hookTileGeometry(module, loader);
+    }
+
+
+    // Use one decision for layout, notification padding, QS expansion and scrim controllers.
+    // Resource interception also covers R8-inlined LargeScreenUtils callers.
+    static boolean splitShade(Resources resources) {
+        return resources.getConfiguration().screenWidthDp >= 600;
+    }
+
+    private static void hookSplitShade(XposedModule module, ClassLoader loader) {
+        try {
+            Class<?> type = Class.forName("com.android.systemui.util.LargeScreenUtils", false, loader);
+            Method method = Reflect.findMethodExact(type, "shouldUseSplitNotificationShade", Resources.class);
+            if (method == null) return;
+            try { module.deoptimize(method); } catch (Throwable ignored) {}
+            module.hook(method).intercept(chain -> enabled()
+                    ? splitShade((Resources) chain.getArg(0)) : chain.proceed());
+        } catch (ClassNotFoundException ignored) {
+        } catch (Throwable error) { Log.w(TAG, "Split shade decision unavailable", error); }
     }
 
     static int neutral(Resources resources, boolean foreground) {
@@ -240,7 +260,7 @@ public final class SystemUiQsHooks {
     private static void hookResources(XposedModule module) {
         for (Method method : Resources.class.getDeclaredMethods()) {
             String name = method.getName();
-            if (!name.equals("getInteger") && !name.equals("getDimension")
+            if (!name.equals("getBoolean") && !name.equals("getInteger") && !name.equals("getDimension")
                     && !name.equals("getDimensionPixelSize") && !name.equals("getDimensionPixelOffset")) continue;
             if (method.getParameterTypes().length != 1 || method.getParameterTypes()[0] != int.class) continue;
             try {
@@ -249,6 +269,11 @@ public final class SystemUiQsHooks {
                         Resources resources = (Resources) chain.getThisObject();
                         try {
                             String entry = resources.getResourceName((Integer) chain.getArg(0));
+                            if (name.equals("getBoolean")) {
+                                if (entry.equals("com.android.systemui:bool/config_use_split_notification_shade"))
+                                    return splitShade(resources);
+                                return chain.proceed();
+                            }
                             Integer value = name.equals("getInteger") ? integer(entry) : dimension(entry);
                             if (value != null) {
                                 if (name.equals("getInteger")) return value;
