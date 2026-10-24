@@ -6,8 +6,6 @@ import io.github.libxposed.api.XposedModuleInterface.ModuleLoadedParam;
 import io.github.libxposed.api.XposedModuleInterface.PackageReadyParam;
 import io.github.libxposed.api.XposedModuleInterface.SystemServerStartingParam;
 
-import com.arashi.xposed.hooks.AdbHideHooks;
-import com.arashi.xposed.hooks.AppStoreHooks;
 import com.arashi.xposed.hooks.CaptivePortalHooks;
 import com.arashi.xposed.hooks.ControlHooks;
 import com.arashi.xposed.hooks.DevOptionsHooks;
@@ -27,10 +25,8 @@ public final class HookEntry extends XposedModule {
     private static final String PKG_INSTALLER = "com.android.packageinstaller";
     private static final String PKG_CAPTIVE = "com.android.captiveportallogin";
     private static final String PKG_SETTINGS = "com.android.settings";
-    private static final String PKG_SETTINGS_PROVIDER = "com.android.providers.settings";
     private static final String PKG_SUPERVISE = "com.zuoyebang.iot.pad.supervise";
     private static final String PKG_SYSTEMUI = "com.android.systemui";
-    private static final String PKG_APPSTORE = "com.zuoyebang.iot.pad.appstore";
 
     @Override
     public void onModuleLoaded(ModuleLoadedParam param) {
@@ -51,7 +47,6 @@ public final class HookEntry extends XposedModule {
         ConfigManager.init("android");
         InstallHooks.hookSystemServer(this, cl);
         UninstallHooks.hookSystemServer(this, cl);
-        AdbHideHooks.hookSystemServer(this, cl);
         RestrictionHooks.hookSystemServer(this, cl);
         ControlHooks.hookSystemServer(this, cl);
         SystemUIHooks.hookSystemServer(this, cl);
@@ -73,18 +68,12 @@ public final class HookEntry extends XposedModule {
         } else if (PKG_SETTINGS.equals(pkg)) {
             ConfigManager.init(pkg);
             DevOptionsHooks.hookSettings(this, param.getClassLoader());
-        } else if (PKG_SETTINGS_PROVIDER.equals(pkg)) {
-            ConfigManager.init(pkg);
-            AdbHideHooks.hookSettingsProvider(this, param.getClassLoader());
         } else if (PKG_SUPERVISE.equals(pkg)) {
             ConfigManager.init(pkg);
             SuperviseHooks.hookSupervise(this, param.getClassLoader());
         } else if (PKG_SYSTEMUI.equals(pkg)) {
             ConfigManager.init(pkg);
             SystemUIHooks.hookSystemUI(this, param.getClassLoader());
-        } else if (PKG_APPSTORE.equals(pkg)) {
-            ConfigManager.init(pkg);
-            AppStoreHooks.hookAppStore(this, param.getClassLoader());
         }
     }
 

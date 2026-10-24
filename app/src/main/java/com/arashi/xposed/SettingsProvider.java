@@ -121,7 +121,6 @@ Log.w(TAG, "reject untrusted caller uid=" + Binder.getCallingUid());
         result.putBoolean(HookConfig.KEY_SHELL_INSTALL, prefs.getBoolean(HookConfig.KEY_SHELL_INSTALL, HookConfig.DEFAULT_ENABLED));
         result.putBoolean(HookConfig.KEY_CLEAR_BLACKLIST, prefs.getBoolean(HookConfig.KEY_CLEAR_BLACKLIST, HookConfig.DEFAULT_ENABLED));
         result.putBoolean(HookConfig.KEY_CAPTIVE_PORTAL, prefs.getBoolean(HookConfig.KEY_CAPTIVE_PORTAL, HookConfig.DEFAULT_ENABLED));
-        result.putBoolean(HookConfig.KEY_HIDE_ADB, prefs.getBoolean(HookConfig.KEY_HIDE_ADB, HookConfig.DEFAULT_ENABLED));
         result.putBoolean(HookConfig.KEY_ALLOW_USB, prefs.getBoolean(HookConfig.KEY_ALLOW_USB, HookConfig.DEFAULT_ENABLED));
         result.putBoolean(HookConfig.KEY_ALLOW_WALLPAPER, prefs.getBoolean(HookConfig.KEY_ALLOW_WALLPAPER, HookConfig.DEFAULT_ENABLED));
         result.putBoolean(HookConfig.KEY_CLEAR_DETAIL_BLACK, prefs.getBoolean(HookConfig.KEY_CLEAR_DETAIL_BLACK, HookConfig.DEFAULT_ENABLED));
@@ -139,9 +138,6 @@ Log.w(TAG, "reject untrusted caller uid=" + Binder.getCallingUid());
         result.putBoolean(HookConfig.KEY_NEUTRALIZE_ADVANCE, prefs.getBoolean(HookConfig.KEY_NEUTRALIZE_ADVANCE, HookConfig.DEFAULT_ENABLED));
         result.putBoolean(HookConfig.KEY_NO_TIMEOUT_LOCK, prefs.getBoolean(HookConfig.KEY_NO_TIMEOUT_LOCK, HookConfig.DEFAULT_ENABLED));
         result.putBoolean(HookConfig.KEY_BLOCK_DEFAULT_BROWSER, prefs.getBoolean(HookConfig.KEY_BLOCK_DEFAULT_BROWSER, HookConfig.DEFAULT_ENABLED));
-        result.putBoolean(HookConfig.KEY_BLOCK_SYSTEM_APP_AUTO_UPDATE,
-                prefs.getBoolean(HookConfig.KEY_BLOCK_SYSTEM_APP_AUTO_UPDATE,
-                        HookConfig.defaultEnabled(HookConfig.KEY_BLOCK_SYSTEM_APP_AUTO_UPDATE)));
         return result;
     }
 

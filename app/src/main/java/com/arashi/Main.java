@@ -6,7 +6,6 @@ import com.arashi.ui.MiuixPages;
 import com.arashi.ui.Ui;
 
 import android.content.Intent;
-import android.content.SharedPreferences;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.util.concurrent.TimeUnit;
@@ -18,6 +17,7 @@ import com.arashi.xposed.SettingsProvider;
 
 public final class Main extends BasePage {
     private TextView lsposedState;
+    private boolean verifySignatureOnLaunch;
 
     @Override protected void onResume() {
         super.onResume();
@@ -26,6 +26,8 @@ public final class Main extends BasePage {
 
     @Override public void onCreate(android.os.Bundle state) {
         super.onCreate(state);
+        // Verify new launches, not a restored page or a return from the background.
+        verifySignatureOnLaunch = state == null;
         new Thread(() -> {
             boolean supported = "ZYB".equals(readSystemBrand());
             runOnUiThread(() -> {
@@ -67,16 +69,12 @@ public final class Main extends BasePage {
 
     private void populateHome() {
         MiuixPages.renderHome(this);
-        showSignatureWarningIfNeeded();
-    }
-
-    private void showSignatureWarningIfNeeded() {
-        SharedPreferences prefs = getSharedPreferences("signature_warning", MODE_PRIVATE);
-        if (prefs.getBoolean("shown", false) || !SignatureVerifier.isMismatched(this)) {
-            return;
+        if (verifySignatureOnLaunch) {
+            verifySignatureOnLaunch = false;
+            if (SignatureVerifier.isMismatched(this)) {
+                MiuixPages.showSignatureWarning(this);
+            }
         }
-        prefs.edit().putBoolean("shown", true).commit();
-        MiuixPages.showSignatureWarning(this);
     }
 
     private void updateModuleStatus() {

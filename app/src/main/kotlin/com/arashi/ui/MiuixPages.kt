@@ -398,6 +398,7 @@ private fun HomePage(a: Main) = Page(a, "Arashi") {
         Link("快捷指令执行", "调整设置、冻结应用等快捷操作") { a.startActivity(Intent(a, QuickCommands::class.java)) }
         Link("系统特权工具", "利用 ZybosSysApiManager 执行系统操作") { a.startActivity(Intent(a, ZybosTools::class.java)) }
         Link("应用偏好设置", "配置外观等") { a.startActivity(Intent(a, ArashiSettings::class.java)) }
+        Link("关于 Arashi", "有关 Arashi 的更多详细信息页") { a.startActivity(Intent(a, About::class.java)) }
     }
 }
 
@@ -460,8 +461,6 @@ private fun HookPage(a: HookSettings) = Page(a, "Hook 功能设置", a::finish) 
             HookItem("认证型 WiFi 登录支持", "允许认证型 WiFi 跳转网页", HookConfig.KEY_CAPTIVE_PORTAL),
             HookItem("解除应用详情页限制", "允许打开 WebView、report服务 和 PadMs 的应用设置详情页", HookConfig.KEY_CLEAR_DETAIL_BLACK),
             HookItem("阻止重设默认浏览器", "拦截 SystemUI 开机时将“学习网站”设为默认浏览器", HookConfig.KEY_BLOCK_DEFAULT_BROWSER),
-            HookItem("阻止系统应用自动更新", "拦截应用商店静默自动下载和更新系统应用", HookConfig.KEY_BLOCK_SYSTEM_APP_AUTO_UPDATE),
-            HookItem("隐藏开发者环境", "向普通应用 (UID ≥ 10000) 返回开发者模式、USB 调试和无线调试已关闭的状态", HookConfig.KEY_HIDE_ADB),
         ),
         "管控" to listOf(
             HookItem("拦截管控强停和任务清理", "从 SystemServer 层拦截管控服务的强杀应用和移除任务行为", HookConfig.KEY_BLOCK_SUPERVISE),
@@ -1220,6 +1219,8 @@ private fun QuickPage(a: QuickCommands) = Page(a, "快捷指令执行", a::finis
     Group("应用相关") {
         Link("禁用 PadMs", "冻结 com.zuoyebang.padms") { a.run("禁用 PadMs", "pm disable com.zuoyebang.padms") }
         Link("禁用 report服务", "冻结 com.zuoyebang.iot.pad.zpreport") { a.run("禁用 report服务", "pm disable com.zuoyebang.iot.pad.zpreport") }
+        Link("禁用 系统升级", "冻结 com.zuoyebang.iot.zp.lib.ota.server") { a.run("禁用 系统升级", "pm disable com.zuoyebang.iot.zp.lib.ota.server") }
+        Link("启用 系统升级", "与上方功能作用排斥") { a.run("启用 系统升级", "pm enable com.zuoyebang.iot.zp.lib.ota.server") }
     }
     Group("设置相关") {
         fun set(title: String, key: String, value: Int) =
@@ -1558,7 +1559,6 @@ private fun SettingsPage(a: ArashiSettings) = Page(a, "应用偏好设置", a::f
             title = "启用 Arashi 安装器",
             summary = "启用后可在打开 APK 文件时选择 Arashi 作为安装器",
         )
-        Link("关于 Arashi", "有关 Arashi 的更多详细信息页") { a.startActivity(Intent(a, About::class.java)) }
     }
 }
 

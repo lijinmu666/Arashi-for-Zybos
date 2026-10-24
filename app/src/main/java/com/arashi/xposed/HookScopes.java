@@ -108,8 +108,7 @@ public final class HookScopes {
                 && !HookConfig.KEY_NEUTRALIZE_POLICY.equals(key)
                 && !HookConfig.KEY_NEUTRALIZE_ADVANCE.equals(key)
                 && !HookConfig.KEY_NO_TIMEOUT_LOCK.equals(key)
-                && !HookConfig.KEY_BLOCK_USAGE_REPORT.equals(key)
-                && !HookConfig.KEY_BLOCK_SYSTEM_APP_AUTO_UPDATE.equals(key);
+                && !HookConfig.KEY_BLOCK_USAGE_REPORT.equals(key);
     }
 
     private static String[] applicationScopes(String key) {
@@ -128,14 +127,8 @@ public final class HookScopes {
                 || HookConfig.KEY_BLOCK_USAGE_REPORT.equals(key)) {
             return new String[] { "com.zuoyebang.iot.pad.supervise" };
         }
-        if (HookConfig.KEY_HIDE_ADB.equals(key)) {
-            return new String[] { "com.android.providers.settings" };
-        }
         if (HookConfig.KEY_BLOCK_DEFAULT_BROWSER.equals(key)) {
             return new String[] { "com.android.systemui" };
-        }
-        if (HookConfig.KEY_BLOCK_SYSTEM_APP_AUTO_UPDATE.equals(key)) {
-            return new String[] { "com.zuoyebang.iot.pad.appstore" };
         }
         return new String[0];
     }

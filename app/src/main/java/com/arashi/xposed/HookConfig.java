@@ -14,7 +14,6 @@ public static final String KEY_EXTERNAL_INSTALL = "hook_external_install";
     public static final String KEY_CLEAR_BLACKLIST = "hook_clear_blacklist";
 
 public static final String KEY_CAPTIVE_PORTAL = "hook_captive_portal";
-    public static final String KEY_HIDE_ADB = "hook_hide_adb";
 
     public static final String KEY_ALLOW_USB = "hook_allow_usb";
     public static final String KEY_ALLOW_WALLPAPER = "hook_allow_wallpaper";
@@ -37,18 +36,16 @@ public static final String KEY_NEUTRALIZE_POLICY = "hook_neutralize_policy";
     public static final String KEY_NEUTRALIZE_ADVANCE = "hook_neutralize_advance";
     public static final String KEY_NO_TIMEOUT_LOCK = "hook_no_timeout_lock";
     public static final String KEY_BLOCK_DEFAULT_BROWSER = "hook_block_default_browser";
-    public static final String KEY_BLOCK_SYSTEM_APP_AUTO_UPDATE = "hook_block_system_app_auto_update";
 
     public static String[] keys() {
         return new String[] {
                 KEY_ANDROID12_BLACKLIST_HOOK, KEY_EXTERNAL_INSTALL, KEY_SHELL_INSTALL,
-                KEY_CLEAR_BLACKLIST, KEY_CAPTIVE_PORTAL, KEY_HIDE_ADB,
+                KEY_CLEAR_BLACKLIST, KEY_CAPTIVE_PORTAL,
                 KEY_ALLOW_USB,
                 KEY_ALLOW_WALLPAPER, KEY_CLEAR_DETAIL_BLACK, KEY_BLOCK_SUPERVISE,
                 KEY_BLOCK_USAGE_REPORT,
                 KEY_DEV_OPTIONS, KEY_DEV_OPTIONS_MENU, KEY_KEEP_BACKGROUND, KEY_NEUTRALIZE_POLICY,
-                KEY_NEUTRALIZE_ADVANCE, KEY_NO_TIMEOUT_LOCK, KEY_BLOCK_DEFAULT_BROWSER,
-                KEY_BLOCK_SYSTEM_APP_AUTO_UPDATE
+                KEY_NEUTRALIZE_ADVANCE, KEY_NO_TIMEOUT_LOCK, KEY_BLOCK_DEFAULT_BROWSER
         };
     }
 }
