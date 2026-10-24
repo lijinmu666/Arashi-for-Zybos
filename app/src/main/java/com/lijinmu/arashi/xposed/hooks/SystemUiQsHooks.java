@@ -406,7 +406,10 @@ public final class SystemUiQsHooks {
         }
         // A pinned banner uses the same stack as the shade: center it while the shade
         // is collapsed. Keep the right-hand stack on the lock screen.
-        boolean banner = Boolean.TRUE.equals(Reflect.getObjectField(notifications, "mInHeadsUpPinnedMode"))
+        // Pinned mode ends before the exit animation finishes. Keep both phases
+        // in the centered banner layout, so the card does not jump to the shade column.
+        boolean banner = (Boolean.TRUE.equals(Reflect.getObjectField(notifications, "mInHeadsUpPinnedMode"))
+                || Boolean.TRUE.equals(Reflect.getObjectField(notifications, "mHeadsUpAnimatingAway")))
                 && Boolean.FALSE.equals(Reflect.getObjectField(notifications, "mIsExpanded"))
                 && !Boolean.TRUE.equals(Reflect.getObjectField(
                         Reflect.getObjectField(notifications, "mAmbientState"), "mOnKeyguard"));

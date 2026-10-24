@@ -298,7 +298,7 @@ public class Check {
   split.owner="com.android.systemui";ConfigManager.enabled=false;
   check(!(boolean)call(bool,split,70));check(!(boolean)call(splitDecision,null,split));ConfigManager.enabled=true;
   var bounds=new com.android.systemui.shade.NotificationsQuickSettingsContainer();View qsBounds=named(new View(),"qs_frame");
-  class Stack extends View {public boolean mInHeadsUpPinnedMode,mIsExpanded=true,keyguard;public Object mAmbientState;public boolean onKeyguard(){return keyguard;}}
+  class Stack extends View {public boolean mInHeadsUpPinnedMode,mHeadsUpAnimatingAway,mIsExpanded=true,keyguard;public Object mAmbientState;public boolean onKeyguard(){return keyguard;}}
   Stack stackBounds=named(new Stack(),"notification_stack_scroller");
   qsBounds.setLayoutParams(new FrameLayout.LayoutParams(960,-1));stackBounds.setLayoutParams(new FrameLayout.LayoutParams(960,-1));
   bounds.addView(qsBounds);bounds.addView(stackBounds);
@@ -319,6 +319,14 @@ public class Check {
   stackBounds.mInHeadsUpPinnedMode=true;stackBounds.mIsExpanded=false;
   SystemUiQsHooks.restoreShadeBounds(bounds,1920);
   check(((FrameLayout.LayoutParams)stackBounds.params).leftMargin==504);
+  stackBounds.mInHeadsUpPinnedMode=false;stackBounds.mHeadsUpAnimatingAway=true;
+  SystemUiQsHooks.restoreShadeBounds(bounds,1920);
+  check(((FrameLayout.LayoutParams)stackBounds.params).leftMargin==504);
+  SystemUiQsHooks.restoreShadeBounds(bounds,1920);
+  check(((FrameLayout.LayoutParams)stackBounds.params).leftMargin==504);
+  stackBounds.mHeadsUpAnimatingAway=false;
+  SystemUiQsHooks.restoreShadeBounds(bounds,1920);
+  check(((FrameLayout.LayoutParams)stackBounds.params).leftMargin==976);
   check(((FrameLayout.LayoutParams)stackBounds.params).topMargin==0);
   bounds.resources.config.orientation=1;bounds.resources.config.screenWidthDp=640;
   SystemUiQsHooks.restoreShadeBounds(bounds,1280);check(qsBounds.params.width==1184&&stackBounds.params.width==1184);
