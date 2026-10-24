@@ -562,6 +562,7 @@ private fun HookPage(a: HookSettings) = Page(a, "Hook 功能设置", a::finish) 
             HookItem("始终使用传统电源菜单", "将长按电源键与下拉面板的电源菜单改为系统传统对话框。需勾选系统框架和系统界面作用域，更新模块后重启设备；开关在下次打开菜单时生效", HookConfig.KEY_LEGACY_POWER_MENU),
             HookItem("自定义 SystemUI 主题色", "自定义下拉快捷设置、亮度条、锁屏密码键盘按下效果与密码圆点的强调色。修改后重启 SystemUI 生效，关闭后重启恢复系统颜色", HookConfig.KEY_SYSTEMUI_THEME),
             HookItem("原版状态栏图标", "将蓝牙已连接、WLAN 和电池图标统一恢复为 AOSP 原版样式，保留状态与深浅色适配。重启 SystemUI 后生效", HookConfig.KEY_AOSP_STATUS_ICONS),
+            HookItem("解除通知图标数量限制", "取消普通状态栏通知图标的固定数量上限，按可用宽度显示；空间不足时仍折叠为溢出提示。重启 SystemUI 后生效", HookConfig.KEY_UNLIMITED_NOTIFICATION_ICONS),
             HookItem("桌面图标圆角", "桌面应用图标与文件夹的改成 iOS 样式的圆角，文件夹使用半透明底色。强行停止桌面后生效", HookConfig.KEY_IOS_ICONS),
             HookItem("状态栏显示日期", "仿 iPadOS 在状态栏左侧时间后显示月日与星期，如 16:40  10月17日周六。开关控制在下次时钟刷新时生效", HookConfig.KEY_STATUS_BAR_DATE),
         ),

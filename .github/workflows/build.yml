@@ -44,6 +44,8 @@ jobs:
         run: python3 tests/check_systemui_theme.py
       - name: 验证 Android 12 与 14 传统电源菜单
         run: python3 tests/check_legacy_power_menu.py
+      - name: 验证状态栏通知图标数量限制
+        run: python3 tests/check_notification_icon_limit.py
       - name: 验证后台保留白名单规则
         shell: bash
         run: |

@@ -32,6 +32,7 @@ public static void hookSystemUI(XposedModule mod, ClassLoader cl) {
         AospBluetoothHooks.hookSystemUI(mod);
         SystemUiThemeHooks.hookSystemUI(mod, cl);
         LegacyPowerMenuHooks.hookSystemUI(mod, cl);
+        NotificationIconLimitHooks.hookSystemUI(mod, cl);
         NotificationReplyHooks.hookSystemUI(mod, cl);
         NavigationAccessHooks.hookSystemUI(mod, cl);
         
