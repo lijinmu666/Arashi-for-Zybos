@@ -14,6 +14,8 @@ import android.util.Log;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.ViewOutlineProvider;
+import android.graphics.Outline;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.RelativeLayout;
@@ -38,6 +40,12 @@ public final class SystemUiQsHooks {
     private static final ThreadLocal<Boolean> APPLYING_BAR_VISIBILITY =
             ThreadLocal.withInitial(() -> false);
     private static boolean shadeOpen;
+    private static final Map<View, NotificationTopInset> NOTIFICATION_TOP_INSETS = new WeakHashMap<>();
+    private static final class NotificationTopInset {
+        int nativeTop;
+        int appliedTop;
+        NotificationTopInset(int top) { nativeTop = appliedTop = top; }
+    }
     private static final Map<String, Integer> DIMENSIONS = new HashMap<>();
     static {
         DIMENSIONS.put("notification_corner_radius", 28);
@@ -68,6 +76,8 @@ public final class SystemUiQsHooks {
         hookShadeBounds(module, loader);
         hookNotificationCorners(module, loader);
         hookGlobalStatusBar(module, loader);
+        hookMediaAndFooter(module, loader);
+        hookNotificationInteractions(module, loader);
         hookExpansion(module, loader, "com.android.systemui.shade.QuickSettingsController", true);
         hookExpansion(module, loader, "com.android.systemui.statusbar.phone.NotificationPanelViewController", false);
         after(module, loader, "com.android.systemui.qs.QSFragment", "updateQsState", instance -> {
@@ -123,6 +133,26 @@ public final class SystemUiQsHooks {
 
     // Use one decision for layout, notification padding, QS expansion and scrim controllers.
     // Resource interception also covers R8-inlined LargeScreenUtils callers.
+    static boolean portrait(Resources resources) {
+        return resources.getConfiguration().orientation
+                == android.content.res.Configuration.ORIENTATION_PORTRAIT;
+    }
+
+    private static boolean isVendorStatusRow(View view) {
+        Object parent = view.getParent();
+        if (!(parent instanceof ViewGroup) || !parent.getClass().getName()
+                .endsWith(".NotificationsQuickSettingsContainer")) return false;
+        int id = view.getResources().getIdentifier("system_icon_area", "id", "com.android.systemui");
+        return id != 0 && view.getId() == id;
+    }
+
+    static void hideVendorStatusRow(ViewGroup root) {
+        View row = find(root, "system_icon_area");
+        // Vendor 14 adds this direct child to status_bar_expanded.xml. Do not match
+        // identically named icon groups nested in the restored AOSP shade header.
+        if (row != null && row.getParent() == root) row.setVisibility(View.GONE);
+    }
+
     static boolean splitShade(Resources resources) {
         return resources.getConfiguration().orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
                 && resources.getConfiguration().screenWidthDp >= 600;
@@ -170,11 +200,12 @@ public final class SystemUiQsHooks {
     // existing views before measuring; do not reparent notification rows or media controls.
     static void restoreShadeBounds(ViewGroup root, int width) throws ReflectiveOperationException {
         if (width <= 0) return;
+        hideVendorStatusRow(root);
         View qs = find(root, "qs_frame");
         View notifications = find(root, "notification_stack_scroller");
         if (qs == null || notifications == null || qs.getParent() != root
                 || notifications.getParent() != root) return;
-        int edge = dp(root, 16);
+        int edge = dp(root, portrait(root.getResources()) ? 24 : 16);
         int gap = dp(root, 16);
         boolean split = splitShade(root.getResources());
         int column = split ? Math.max(1, (width - edge * 2 - gap) / 2)
@@ -199,6 +230,30 @@ public final class SystemUiQsHooks {
         int notificationStart = split ? width - edge - column : edge;
         if (banner) notificationStart = (width - column) / 2;
         boundColumn(notifications, column, notificationStart, bottom);
+        Method onKeyguard = Reflect.findMethodExact(notifications.getClass(), "onKeyguard");
+        boolean keyguard = onKeyguard != null && Boolean.TRUE.equals(onKeyguard.invoke(notifications));
+        boolean expanded = !Boolean.FALSE.equals(Reflect.getObjectField(notifications, "mIsExpanded"));
+        insetNotificationTop(notifications, split && expanded && !banner && !keyguard ? dp(root, 48) : 0);
+    }
+
+
+    static void insetNotificationTop(View notifications, int extra) {
+        ViewGroup.LayoutParams params = notifications.getLayoutParams();
+        if (!(params instanceof ViewGroup.MarginLayoutParams)) return;
+        ViewGroup.MarginLayoutParams margins = (ViewGroup.MarginLayoutParams) params;
+        NotificationTopInset state = NOTIFICATION_TOP_INSETS.get(notifications);
+        if (state == null) {
+            state = new NotificationTopInset(margins.topMargin);
+            NOTIFICATION_TOP_INSETS.put(notifications, state);
+        } else if (margins.topMargin != state.appliedTop) {
+            // The native controller can replace margins on rotation/configuration updates.
+            state.nativeTop = margins.topMargin;
+        }
+        state.appliedTop = state.nativeTop + extra;
+        if (margins.topMargin != state.appliedTop) {
+            margins.topMargin = state.appliedTop;
+            notifications.setLayoutParams(params);
+        }
     }
 
     private static void boundColumn(View view, int width, int left, int bottom)
@@ -353,6 +408,8 @@ public final class SystemUiQsHooks {
             try { module.deoptimize(visibility); } catch (Throwable ignored) {}
             module.hook(visibility).intercept(chain -> {
                 View view = (View) chain.getThisObject();
+                if (enabled() && isVendorStatusRow(view))
+                    return chain.proceed(new Object[] {View.GONE});
                 if (APPLYING_BAR_VISIBILITY.get() || !STATUS_BARS.containsKey(view))
                     return chain.proceed();
                 int wanted = (Integer) chain.getArg(0);
@@ -405,6 +462,137 @@ public final class SystemUiQsHooks {
             });
         } catch (ClassNotFoundException ignored) {
         } catch (Throwable error) { Log.w(TAG, "Status bar observer unavailable", error); }
+    }
+
+
+    private static final ViewOutlineProvider MEDIA_OUTLINE = new ViewOutlineProvider() {
+        @Override public void getOutline(View view, Outline outline) {
+            outline.setRoundRect(0, 0, view.getWidth(), view.getHeight(), dp(view, 28));
+        }
+    };
+
+    static void restoreMediaCard(View player) {
+        player.setOutlineProvider(MEDIA_OUTLINE);
+        player.setClipToOutline(true);
+        player.invalidateOutline();
+        ViewGroup.LayoutParams params = player.getLayoutParams();
+        if (params instanceof ViewGroup.MarginLayoutParams) {
+            ViewGroup.MarginLayoutParams margins = (ViewGroup.MarginLayoutParams) params;
+            int space = dp(player, portrait(player.getResources()) ? 24 : 16);
+            int top = Math.max(margins.topMargin, space);
+            int bottom = Math.max(margins.bottomMargin, space);
+            if (margins.topMargin != top || margins.bottomMargin != bottom) {
+                margins.topMargin = top;
+                margins.bottomMargin = bottom;
+                player.setLayoutParams(params);
+            }
+        }
+    }
+
+    static void restoreFooter(View footer) {
+        // Clear only the outer bar, retaining the chip/button drawables and click targets.
+        footer.setBackground(null);
+        footer.setElevation(0f);
+    }
+
+    private static void hookMediaAndFooter(XposedModule module, ClassLoader loader) {
+        for (String name : new String[] {
+                "com.android.systemui.media.controls.models.player.MediaViewHolder",
+                "com.android.systemui.media.PlayerViewHolder",
+                "com.android.systemui.media.MediaViewHolder"}) {
+            try {
+                Class<?> type = Class.forName(name, false, loader);
+                for (Constructor<?> constructor : type.getDeclaredConstructors()) {
+                    module.hook(constructor).intercept(chain -> {
+                        Object result = chain.proceed();
+                        if (enabled()) {
+                            Object player = Reflect.getObjectField(chain.getThisObject(), "player");
+                            if (player instanceof View) restoreMediaCard((View) player);
+                        }
+                        return result;
+                    });
+                }
+            } catch (ClassNotFoundException ignored) {
+            } catch (Throwable error) { Log.w(TAG, "Media card hook unavailable", error); }
+        }
+        // 14 constructs its footer through a static binder rather than a custom view.
+        try {
+            Class<?> type = Class.forName(
+                    "com.android.systemui.qs.footer.ui.binder.FooterActionsViewBinder", false, loader);
+            for (Method method : type.getDeclaredMethods()) {
+                if (!method.getName().equals("bind") || method.getParameterTypes().length == 0
+                        || !View.class.isAssignableFrom(method.getParameterTypes()[0])) continue;
+                try { module.deoptimize(method); } catch (Throwable ignored) {}
+                module.hook(method).intercept(chain -> {
+                    Object result = chain.proceed();
+                    if (enabled() && chain.getArg(0) instanceof View)
+                        restoreFooter((View) chain.getArg(0));
+                    return result;
+                });
+            }
+        } catch (ClassNotFoundException ignored) {
+        } catch (Throwable error) { Log.w(TAG, "Footer background hook unavailable", error); }
+        after(module, loader, "com.android.systemui.qs.FooterActionsView", "onFinishInflate",
+                footer -> restoreFooter((View) footer));
+        after(module, loader, "com.android.systemui.qs.FooterActionsView", "onConfigurationChanged",
+                footer -> restoreFooter((View) footer));
+    }
+
+
+    private static void hookNotificationInteractions(XposedModule module, ClassLoader loader) {
+        // Restore the gates before native row initialization installs its long-press
+        // listener. R8 inlines that initialization into NotificationRowBinderImpl on 14.
+        restoreNotificationGate(module, loader,
+                "com.android.systemui.statusbar.notification.row.ExpandableNotificationRowController",
+                "mAllowLongPress", true);
+        restoreNotificationGate(module, loader,
+                "com.android.systemui.statusbar.notification.stack.NotificationStackScrollLayoutController",
+                "mAllowLongPress", true);
+        restoreNotificationGate(module, loader,
+                "com.android.systemui.statusbar.notification.row.NotificationMenuRow",
+                "mShouldShowMenu", false);
+    }
+
+    private static void restoreNotificationGate(XposedModule module, ClassLoader loader,
+            String name, String field, boolean constructorFlag) {
+        try {
+            Class<?> type = Class.forName(name, false, loader);
+            java.lang.reflect.Field gate = SystemUiQsExpansion.field(type, field);
+            if (gate == null || gate.getType() != boolean.class) return;
+            for (Constructor<?> constructor : type.getDeclaredConstructors()) {
+                Class<?>[] parameters = constructor.getParameterTypes();
+                int booleanIndex = -1;
+                int booleanCount = 0;
+                for (int i = 0; i < parameters.length; i++) {
+                    if (parameters[i] == boolean.class) {
+                        booleanIndex = i;
+                        booleanCount++;
+                    }
+                }
+                // The supplied 12/14 row and stack controllers have a single boolean
+                // constructor argument for allowLongPress. Do not guess on other builds.
+                final int allowIndex = constructorFlag && booleanCount == 1 ? booleanIndex : -1;
+                module.hook(constructor).intercept(chain -> {
+                    if (!enabled()) return chain.proceed();
+                    Object result;
+                    if (allowIndex >= 0) {
+                        Object[] args = new Object[parameters.length];
+                        for (int i = 0; i < args.length; i++) args[i] = chain.getArg(i);
+                        args[allowIndex] = true;
+                        result = chain.proceed(args);
+                    } else {
+                        result = chain.proceed();
+                    }
+                    try {
+                        gate.setBoolean(chain.getThisObject(), true);
+                    } catch (IllegalAccessException | RuntimeException error) {
+                        Log.w(TAG, "Notification interaction gate unavailable: " + field, error);
+                    }
+                    return result;
+                });
+            }
+        } catch (ClassNotFoundException ignored) {
+        } catch (Throwable error) { Log.w(TAG, "Notification interaction hook unavailable: " + name, error); }
     }
 
     static int neutral(Resources resources, boolean foreground) {
@@ -555,6 +743,15 @@ public final class SystemUiQsHooks {
                                 return chain.proceed();
                             }
                             Integer value = name.equals("getInteger") ? integer(entry) : dimension(entry);
+                            if (!name.equals("getInteger") && portrait(resources)) {
+                                switch (entry) {
+                                    case "com.android.systemui:dimen/qs_tile_margin_vertical": value = 12; break;
+                                    case "com.android.systemui:dimen/qs_tile_margin_top_bottom": value = 6; break;
+                                    case "com.android.systemui:dimen/qqs_layout_margin_top": value = 24; break;
+                                    case "com.android.systemui:dimen/qqs_layout_padding_bottom": value = 32; break;
+                                    default: break;
+                                }
+                            }
                             if (value != null) {
                                 if (name.equals("getInteger")) return value;
                                 float pixels = value * resources.getDisplayMetrics().density;
@@ -633,7 +830,7 @@ public final class SystemUiQsHooks {
         View quick = find(header, "quick_qs_panel");
         if (quick == null) return;
         hideQuickExtras(quick);
-        quick.setPaddingRelative(quick.getPaddingStart(), quick.getPaddingTop(), quick.getPaddingEnd(), dp(quick, 24));
+        quick.setPaddingRelative(quick.getPaddingStart(), quick.getPaddingTop(), quick.getPaddingEnd(), dp(quick, portrait(quick.getResources()) ? 32 : 24));
         View status = find(header, "quick_qs_status_icons");
         if (status != null) {
             // 12: restore the two overlapping native rows and their existing animators.
@@ -656,7 +853,7 @@ public final class SystemUiQsHooks {
             if (quick.getLayoutParams() instanceof RelativeLayout.LayoutParams) {
                 RelativeLayout.LayoutParams params = (RelativeLayout.LayoutParams) quick.getLayoutParams();
                 params.addRule(RelativeLayout.BELOW, status.getId());
-                params.topMargin = dp(header, 16);
+                params.topMargin = dp(header, portrait(header.getResources()) ? 24 : 16);
                 quick.setLayoutParams(params);
             }
         } else {
@@ -665,13 +862,13 @@ public final class SystemUiQsHooks {
             if (quick.getParent() != header) {
                 ((ViewGroup) quick.getParent()).removeView(quick);
                 FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(-1, -2);
-                params.topMargin = dp(header, 16);
+                params.topMargin = dp(header, portrait(header.getResources()) ? 24 : 16);
                 header.addView(quick, params);
                 if (oldParent != null && oldParent.getParent() instanceof View) hide((View) oldParent.getParent());
             }
             if (quick.getLayoutParams() instanceof FrameLayout.LayoutParams) {
                 FrameLayout.LayoutParams params = (FrameLayout.LayoutParams) quick.getLayoutParams();
-                params.topMargin = dp(header, 16);
+                params.topMargin = dp(header, portrait(header.getResources()) ? 24 : 16);
                 quick.setLayoutParams(params);
             }
         }

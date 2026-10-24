@@ -19,13 +19,17 @@ public class XposedModule {public Map<Executable,XposedInterface.Hooker> hooks=n
  public class Builder {Executable m;Builder(Executable x){m=x;}public void intercept(XposedInterface.Hooker h){hooks.put(m,h);}}
  public Builder hook(Executable m){return new Builder(m);}public boolean deoptimize(Executable m){return true;}}
 ''',
+'android/graphics/Outline.java': '''package android.graphics;public class Outline {
+ public float radius;public int width,height;public void setRoundRect(int l,int t,int r,int b,float x){width=r-l;height=b-t;radius=x;}}''',
+'android/view/ViewOutlineProvider.java': '''package android.view;public abstract class ViewOutlineProvider {
+ public abstract void getOutline(View v,android.graphics.Outline o);}''',
 'android/R.java': '''package android;public class R {public static class id {public static int mask=999;}
  public static class color {public static final int system_neutral1_50=50,system_neutral1_100=100,
  system_neutral1_800=800,system_neutral1_900=900;}}
 ''',
 'android/util/DisplayMetrics.java': 'package android.util;public class DisplayMetrics {public float density=2;}',
 'android/content/res/Configuration.java': '''package android.content.res;public class Configuration {
- public static final int UI_MODE_NIGHT_MASK=48,UI_MODE_NIGHT_YES=32;public static final int ORIENTATION_LANDSCAPE=2;public int uiMode,screenWidthDp,orientation=2;}
+ public static final int UI_MODE_NIGHT_MASK=48,UI_MODE_NIGHT_YES=32;public static final int ORIENTATION_LANDSCAPE=2,ORIENTATION_PORTRAIT=1;public int uiMode,screenWidthDp,orientation=2;}
 ''',
 'android/content/res/Resources.java': '''package android.content.res;import java.util.*;
 public class Resources {public static class NotFoundException extends RuntimeException {}public static class Theme {}
@@ -60,6 +64,10 @@ public class View {public static class MeasureSpec {public static final int EXAC
  public static int makeMeasureSpec(int size,int mode){return size|mode;}public static int getSize(int v){return v&0x3fffffff;}}
  public static final int VISIBLE=0,INVISIBLE=4,GONE=8,NO_ID=-1;public int id=NO_ID,visibility,ps,pt,pe,pb,minHeight;
  public Resources resources=new Resources();public ViewGroup parent;public ViewGroup.LayoutParams params=new ViewGroup.LayoutParams(-1,-2);
+ public ViewOutlineProvider outline;public boolean clip;public float elevation;public int width=400,height=160;
+ public void setOutlineProvider(ViewOutlineProvider p){outline=p;}public void setClipToOutline(boolean v){clip=v;}
+ public void invalidateOutline(){}public int getWidth(){return width;}public int getHeight(){return height;}
+ public void setElevation(float v){elevation=v;}
  public android.graphics.drawable.Drawable background;public Resources getResources(){return resources;}
  public void setBackground(android.graphics.drawable.Drawable d){background=d;}public boolean isClickable(){return true;}
  public void setId(int id){this.id=id;}public int getId(){return id;}public ViewGroup getParent(){return parent;}
@@ -73,7 +81,7 @@ public class View {public static class MeasureSpec {public static final int EXAC
 'android/view/ViewGroup.java': '''package android.view;import java.util.*;
 public class ViewGroup extends View {public java.util.List<View> children=new ArrayList<>();
  public static class LayoutParams {public int width,height;public LayoutParams(int w,int h){width=w;height=h;}}
- public static class MarginLayoutParams extends LayoutParams {public int leftMargin,rightMargin,bottomMargin,start,end;
+ public static class MarginLayoutParams extends LayoutParams {public int leftMargin,rightMargin,topMargin,bottomMargin,start,end;
  public MarginLayoutParams(int w,int h){super(w,h);}public void setMarginStart(int v){start=v;}public void setMarginEnd(int v){end=v;}}
  public void addView(View v){if(v.parent!=null)throw new IllegalStateException("double parent");children.add(v);v.parent=this;}
  public void addView(View v,LayoutParams p){v.setLayoutParams(p);addView(v);}
@@ -90,7 +98,7 @@ public class ViewGroup extends View {public java.util.List<View> children=new Ar
  public void setMarginStart(int x){start=x;}}}
 ''',
 'android/widget/FrameLayout.java': '''package android.widget;public class FrameLayout extends android.view.ViewGroup {
- public static class LayoutParams extends android.view.ViewGroup.MarginLayoutParams {public int topMargin,gravity;
+ public static class LayoutParams extends android.view.ViewGroup.MarginLayoutParams {public int gravity;
  public LayoutParams(int w,int h){super(w,h);}}}
 ''',
 'android/widget/RelativeLayout.java': '''package android.widget;public class RelativeLayout extends android.view.ViewGroup {
@@ -171,6 +179,24 @@ public class NotificationPanelViewController {public float mExpandedFraction;pub
 ''',
  'com/android/systemui/statusbar/phone/PanelViewController.java': '''package com.android.systemui.statusbar.phone;
 public class PanelViewController {public float mExpandedFraction;public void notifyBarPanelExpansionChanged(){}}
+''',
+ 'com/android/systemui/media/controls/models/player/MediaViewHolder.java': '''package com.android.systemui.media.controls.models.player;
+public class MediaViewHolder {public android.view.View player;public MediaViewHolder(android.view.View v){player=v;}}''',
+ 'com/android/systemui/qs/footer/ui/binder/FooterActionsViewBinder.java': '''package com.android.systemui.qs.footer.ui.binder;
+public class FooterActionsViewBinder {public static void bind(android.widget.LinearLayout v){}}''',
+ 'com/android/systemui/statusbar/notification/row/ExpandableNotificationRowController.java': '''package com.android.systemui.statusbar.notification.row;
+public class ExpandableNotificationRowController {
+ public boolean mAllowLongPress,listenerInstalled;
+ public ExpandableNotificationRowController(boolean allow){mAllowLongPress=allow;listenerInstalled=allow;}
+ public void initialize(){listenerInstalled=mAllowLongPress;}
+}''',
+ 'com/android/systemui/statusbar/notification/stack/NotificationStackScrollLayoutController.java': '''package com.android.systemui.statusbar.notification.stack;
+public class NotificationStackScrollLayoutController {
+ public boolean mAllowLongPress;
+ public NotificationStackScrollLayoutController(boolean allow){mAllowLongPress=allow;}
+}''',
+ 'com/android/systemui/statusbar/notification/row/NotificationMenuRow.java': '''package com.android.systemui.statusbar.notification.row;
+public class NotificationMenuRow {public boolean mShouldShowMenu;public NotificationMenuRow(){mShouldShowMenu=false;}}
 ''',
  'com/android/systemui/util/LargeScreenUtils.java': '''package com.android.systemui.util;
 public class LargeScreenUtils {public static boolean shouldUseSplitNotificationShade(android.content.res.Resources r){return false;}}''',
@@ -254,7 +280,7 @@ public class Check {
   split.owner="com.android.systemui";ConfigManager.enabled=false;
   check(!(boolean)call(bool,split,70));check(!(boolean)call(splitDecision,null,split));ConfigManager.enabled=true;
   var bounds=new com.android.systemui.shade.NotificationsQuickSettingsContainer();View qsBounds=named(new View(),"qs_frame");
-  class Stack extends View {public boolean mInHeadsUpPinnedMode,mIsExpanded=true;public Object mAmbientState;}
+  class Stack extends View {public boolean mInHeadsUpPinnedMode,mIsExpanded=true,keyguard;public Object mAmbientState;public boolean onKeyguard(){return keyguard;}}
   Stack stackBounds=named(new Stack(),"notification_stack_scroller");
   qsBounds.setLayoutParams(new FrameLayout.LayoutParams(960,-1));stackBounds.setLayoutParams(new FrameLayout.LayoutParams(960,-1));
   bounds.addView(qsBounds);bounds.addView(stackBounds);
@@ -263,14 +289,23 @@ public class Check {
   check(qsBounds.params.width==912&&stackBounds.params.width==912);
   check(((FrameLayout.LayoutParams)qsBounds.params).leftMargin==32);
   check(((FrameLayout.LayoutParams)stackBounds.params).leftMargin==976);
+  check(((FrameLayout.LayoutParams)stackBounds.params).topMargin==96);
+  SystemUiQsHooks.restoreShadeBounds(bounds,1920);
+  check(((FrameLayout.LayoutParams)stackBounds.params).topMargin==96);
+  stackBounds.keyguard=true;SystemUiQsHooks.restoreShadeBounds(bounds,1920);
+  check(((FrameLayout.LayoutParams)stackBounds.params).topMargin==0);
+  stackBounds.keyguard=false;SystemUiQsHooks.restoreShadeBounds(bounds,1920);
+  check(((FrameLayout.LayoutParams)stackBounds.params).topMargin==96);
   check(((FrameLayout.LayoutParams)qsBounds.params).bottomMargin==64);
   stackBounds.mInHeadsUpPinnedMode=true;stackBounds.mIsExpanded=false;
   SystemUiQsHooks.restoreShadeBounds(bounds,1920);
   check(((FrameLayout.LayoutParams)stackBounds.params).leftMargin==504);
+  check(((FrameLayout.LayoutParams)stackBounds.params).topMargin==0);
   bounds.resources.config.orientation=1;bounds.resources.config.screenWidthDp=640;
-  SystemUiQsHooks.restoreShadeBounds(bounds,1280);check(qsBounds.params.width==1216&&stackBounds.params.width==1216);
-  check(((FrameLayout.LayoutParams)qsBounds.params).leftMargin==32);
-  SystemUiQsHooks.restoreShadeBounds(bounds,0);check(qsBounds.params.width==1216);
+  SystemUiQsHooks.restoreShadeBounds(bounds,1280);check(qsBounds.params.width==1184&&stackBounds.params.width==1184);
+  check(((FrameLayout.LayoutParams)qsBounds.params).leftMargin==48);
+  check(((FrameLayout.LayoutParams)stackBounds.params).topMargin==0);
+  SystemUiQsHooks.restoreShadeBounds(bounds,0);check(qsBounds.params.width==1184);
   class Constraints extends ViewGroup.MarginLayoutParams {
    public int startToStart=0,startToEnd=-1,endToStart=-1,endToEnd=0;
    public int leftToLeft=-1,leftToRight=-1,rightToLeft=-1,rightToRight=-1;
@@ -279,6 +314,11 @@ public class Check {
   qsBounds.setLayoutParams(new Constraints());stackBounds.setLayoutParams(new Constraints());
   bounds.resources.config.orientation=2;stackBounds.mIsExpanded=true;SystemUiQsHooks.restoreShadeBounds(bounds,1920);
   Constraints cp=(Constraints)stackBounds.params;
+  check(cp.topMargin==96);
+  cp.topMargin=20;SystemUiQsHooks.restoreShadeBounds(bounds,1920);check(cp.topMargin==116);
+  SystemUiQsHooks.restoreShadeBounds(bounds,1920);check(cp.topMargin==116);
+  bounds.resources.config.orientation=1;SystemUiQsHooks.restoreShadeBounds(bounds,1280);check(cp.topMargin==20);
+  bounds.resources.config.orientation=2;SystemUiQsHooks.restoreShadeBounds(bounds,1920);
   check(cp.width==912&&cp.leftMargin==976&&cp.leftToLeft==0&&cp.startToStart==-1&&cp.endToEnd==-1);
   cp.width=777;ConfigManager.enabled=false;
   call(bounds.getClass().getMethod("onMeasure",int.class,int.class),bounds,1920,1280);
@@ -329,6 +369,65 @@ public class Check {
   call(detach,globalBar);check(globalBar.visibility==0);
   expansion12.mExpandedFraction=0;call(update12,expansion12);check(recreatedBar.visibility==0);
   call(detach,recreatedBar);
+  View player=new View();var mediaHolder=new com.android.systemui.media.controls.models.player.MediaViewHolder(player);
+  var mediaConstructor=mediaHolder.getClass().getConstructor(View.class);
+  module.hooks.get(mediaConstructor).intercept(new XposedInterface.Chain(mediaHolder,new Object[]{player},x->null));
+  check(player.clip&&player.outline!=null);
+  android.graphics.Outline mediaOutline=new android.graphics.Outline();player.outline.getOutline(player,mediaOutline);
+  check(mediaOutline.radius==56f&&mediaOutline.width==400&&mediaOutline.height==160);
+  player.width=600;player.height=200;player.outline.getOutline(player,mediaOutline);
+  check(mediaOutline.width==600&&mediaOutline.height==200);
+  LinearLayout footerBar=new LinearLayout();View activityChip=new View(),settingsButton=new View(),powerButton=new View();
+  Drawable chipBackground=new GradientDrawable();activityChip.setBackground(chipBackground);
+  footerBar.addView(activityChip);footerBar.addView(settingsButton);footerBar.addView(powerButton);
+  footerBar.setBackground(new GradientDrawable());footerBar.setElevation(8f);
+  Method bindFooter=com.android.systemui.qs.footer.ui.binder.FooterActionsViewBinder.class.getMethod("bind",LinearLayout.class);
+  call(bindFooter,null,footerBar);
+  check(footerBar.background==null&&footerBar.elevation==0f&&footerBar.getChildCount()==3&&activityChip.background==chipBackground);
+  ConfigManager.enabled=false;View unchangedMedia=new View();
+  var unchangedHolder=new com.android.systemui.media.controls.models.player.MediaViewHolder(unchangedMedia);
+  module.hooks.get(mediaConstructor).intercept(new XposedInterface.Chain(unchangedHolder,new Object[]{unchangedMedia},x->null));
+  check(!unchangedMedia.clip&&unchangedMedia.outline==null);
+  Drawable outerBackground=new GradientDrawable();footerBar.setBackground(outerBackground);
+  call(bindFooter,null,footerBar);check(footerBar.background==outerBackground);ConfigManager.enabled=true;
+  var vendorRoot=new com.android.systemui.shade.NotificationsQuickSettingsContainer();View duplicate=named(new View(),"system_icon_area");vendorRoot.addView(duplicate);
+  SystemUiQsHooks.hideVendorStatusRow(vendorRoot);check(duplicate.visibility==View.GONE);
+  call(setVisible,duplicate,View.VISIBLE);check(duplicate.visibility==View.GONE);
+  ConfigManager.enabled=false;call(setVisible,duplicate,View.VISIBLE);check(duplicate.visibility==View.VISIBLE);
+  ConfigManager.enabled=true;call(setVisible,duplicate,View.VISIBLE);check(duplicate.visibility==View.GONE);
+  FrameLayout nestedRoot=new FrameLayout(),nativeHeader=new FrameLayout();View nativeIcons=named(new View(),"system_icon_area");
+  nativeHeader.addView(nativeIcons);nestedRoot.addView(nativeHeader);
+  SystemUiQsHooks.hideVendorStatusRow(nestedRoot);check(nativeIcons.visibility==View.VISIBLE);
+  Resources portraitResources=new Resources();portraitResources.config.orientation=1;
+  portraitResources.names.put(1,"dimen/qs_tile_margin_vertical");
+  check((int)call(Resources.class.getMethod("getDimensionPixelSize",int.class),portraitResources,1)==24);
+  portraitResources.config.orientation=2;check((int)call(Resources.class.getMethod("getDimensionPixelSize",int.class),portraitResources,1)==16);
+  View portraitMedia=new View();portraitMedia.resources.config.orientation=1;
+  FrameLayout.LayoutParams mediaMargins=new FrameLayout.LayoutParams(-1,-2);portraitMedia.setLayoutParams(mediaMargins);
+  SystemUiQsHooks.restoreMediaCard(portraitMedia);check(mediaMargins.topMargin==48&&mediaMargins.bottomMargin==48);
+  SystemUiQsHooks.restoreMediaCard(portraitMedia);check(mediaMargins.topMargin==48&&mediaMargins.bottomMargin==48);
+  var interactionRow=new com.android.systemui.statusbar.notification.row.ExpandableNotificationRowController(false);
+  var interactionConstructor=interactionRow.getClass().getConstructor(boolean.class);
+  module.hooks.get(interactionConstructor).intercept(new XposedInterface.Chain(interactionRow,new Object[]{false},x->{
+   interactionRow.mAllowLongPress=(Boolean)x[0];interactionRow.initialize();return null;}));
+  check(interactionRow.mAllowLongPress&&interactionRow.listenerInstalled);
+  var interactionStack=new com.android.systemui.statusbar.notification.stack.NotificationStackScrollLayoutController(false);
+  var stackConstructor=interactionStack.getClass().getConstructor(boolean.class);
+  module.hooks.get(stackConstructor).intercept(new XposedInterface.Chain(interactionStack,new Object[]{false},x->{
+   interactionStack.mAllowLongPress=(Boolean)x[0];return null;}));
+  check(interactionStack.mAllowLongPress);
+  var interactionMenu=new com.android.systemui.statusbar.notification.row.NotificationMenuRow();
+  var menuConstructor=interactionMenu.getClass().getConstructor();
+  module.hooks.get(menuConstructor).intercept(new XposedInterface.Chain(interactionMenu,new Object[]{},x->null));
+  check(interactionMenu.mShouldShowMenu);
+  ConfigManager.enabled=false;
+  interactionRow.mAllowLongPress=false;interactionRow.listenerInstalled=false;
+  module.hooks.get(interactionConstructor).intercept(new XposedInterface.Chain(interactionRow,new Object[]{false},x->{
+   interactionRow.mAllowLongPress=(Boolean)x[0];interactionRow.initialize();return null;}));
+  check(!interactionRow.mAllowLongPress&&!interactionRow.listenerInstalled);
+  interactionMenu.mShouldShowMenu=false;
+  module.hooks.get(menuConstructor).intercept(new XposedInterface.Chain(interactionMenu,new Object[]{},x->null));
+  check(!interactionMenu.mShouldShowMenu);ConfigManager.enabled=true;
   Resources r=new Resources();r.names.put(1,"integer/quick_settings_num_columns");r.names.put(2,"dimen/qs_tile_height");
   Method integer=Resources.class.getMethod("getInteger",int.class),dim=Resources.class.getMethod("getDimensionPixelSize",int.class);
   check((int)call(integer,r,1)==2);check((int)call(dim,r,2)==160);
