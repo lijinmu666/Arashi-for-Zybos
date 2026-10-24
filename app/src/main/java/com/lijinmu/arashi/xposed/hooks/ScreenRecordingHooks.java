@@ -2,6 +2,7 @@ package com.lijinmu.arashi.xposed.hooks;
 
 import android.app.Activity;
 import android.app.Dialog;
+import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
@@ -48,7 +49,12 @@ public final class ScreenRecordingHooks {
                 });
                 intentHooked = true;
             }
-            if (!intentHooked) return;
+            // Android 12 may inline getStartIntent into requestScreenCapture.
+            // Patch at the final PendingIntent boundary as well, before its immutable
+            // extras are captured. Thread-local scope excludes all unrelated callers.
+            boolean pendingIntentHooked = hookPendingIntent(module);
+            if (!intentHooked && !pendingIntentHooked) return;
+            hookRecordingDiagnostics(module, loader, service);
             boolean requestHooked = false;
             for (Method method : dialog.getDeclaredMethods()) {
                 if (!method.getName().equals("requestScreenCapture")) continue;
@@ -75,6 +81,12 @@ public final class ScreenRecordingHooks {
                         if (previous == null) REQUESTED_SOURCE.remove(); else REQUESTED_SOURCE.set(previous);
                     }
                 });
+                try {
+                    module.deoptimize(method);
+                    Log.i(TAG, "Deoptimized audio request: " + method);
+                } catch (Throwable error) {
+                    Log.w(TAG, "Unable to deoptimize audio request", error);
+                }
                 requestHooked = true;
             }
             if (!requestHooked) return;
@@ -110,4 +122,80 @@ public final class ScreenRecordingHooks {
             Log.w(TAG, "Recording audio-source hooks unavailable", error);
         }
     }
+    private static boolean hookPendingIntent(XposedModule module) {
+        try {
+            Method create = PendingIntent.class.getDeclaredMethod("getForegroundService",
+                    Context.class, int.class, Intent.class, int.class);
+            module.hook(create).intercept(chain -> {
+                Integer source = REQUESTED_SOURCE.get();
+                Object arg = chain.getArg(2);
+                if (source != null && arg instanceof Intent) {
+                    Intent intent = (Intent) arg;
+                    if (isRecordingStart(intent)) {
+                        // This request is still local: preserve resultCode, taps,
+                        // flags, component and user context; update only the audio extra.
+                        intent.putExtra("extra_useAudio", source);
+                        Log.i(TAG, "PendingIntent recording audio source=" + source);
+                    }
+                }
+                return chain.proceed();
+            });
+            return true;
+        } catch (Throwable error) {
+            Log.w(TAG, "Recording PendingIntent hook unavailable", error);
+            return false;
+        }
+    }
+
+    static boolean isRecordingStart(Intent intent) {
+        return "com.android.systemui.screenrecord.START".equals(intent.getAction())
+                && intent.getComponent() != null
+                && "com.android.systemui.screenrecord.RecordingService".equals(
+                        intent.getComponent().getClassName());
+    }
+
+    private static void hookRecordingDiagnostics(XposedModule module, ClassLoader loader,
+                                                  Class<?> service) {
+        try {
+            Method command = Reflect.findMethodExact(service, "onStartCommand",
+                    Intent.class, int.class, int.class);
+            if (command != null) module.hook(command).intercept(chain -> {
+                if (ConfigManager.isEnabled(HookConfig.KEY_RECORD_INTERNAL_AUDIO)) {
+                    Object value = chain.getArg(0);
+                    if (value instanceof Intent && isRecordingStart((Intent) value)) {
+                        Log.i(TAG, "Service received audio source="
+                                + ((Intent) value).getIntExtra("extra_useAudio", -1));
+                    }
+                }
+                return chain.proceed();
+            });
+        } catch (Throwable error) {
+            Log.w(TAG, "Recording service diagnostics unavailable", error);
+        }
+        try {
+            Class<?> recorder = Class.forName(
+                    "com.android.systemui.screenrecord.ScreenMediaRecorder", false, loader);
+            for (String name : new String[] { "prepare", "start", "end", "save" }) {
+                Method target = Reflect.findMethodExact(recorder, name);
+                if (target == null) continue;
+                module.hook(target).intercept(chain -> {
+                    if (!ConfigManager.isEnabled(HookConfig.KEY_RECORD_INTERNAL_AUDIO))
+                        return chain.proceed();
+                    Object source = Reflect.getObjectField(chain.getThisObject(), "mAudioSource");
+                    try {
+                        Object result = chain.proceed();
+                        Log.i(TAG, "Recorder " + name + " succeeded, source=" + source);
+                        return result;
+                    } catch (Throwable error) {
+                        Log.e(TAG, "Recorder " + name + " failed, source=" + source, error);
+                        // Preserve native cleanup/toast handling instead of hiding errors.
+                        throw error;
+                    }
+                });
+            }
+        } catch (Throwable error) {
+            Log.w(TAG, "Recording backend diagnostics unavailable", error);
+        }
+    }
+
 }
