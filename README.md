@@ -1,12 +1,17 @@
 # Arashi
 
-Arashi 是面向作业帮学习机 AIBangOS 的 LSPosed 模块和系统工具，界面使用 Miuix。目前版本为 `v0.9.2`，版本号为 `33`。
+Arashi 是面向作业帮学习机 AIBangOS 的 LSPosed 模块和系统工具，界面使用 Miuix。目前版本为 `v0.9.3`，版本号为 `34`。
 
 系统内部相关组件使用 Zybos 命名。安装、卸载等特权工具依赖设备提供的 `ZybosSysApiManager`；不同固件的接口和限制可能存在差异。
 
+## 版本记录
+
+- [更新记录](CHANGELOG.md)
+- [提交与版本索引](docs/HISTORY.md)
+
 ## 下载与使用
 
-签名 APK 放在 [GitHub Releases](https://github.com/lijinmu666/Arashi/releases)，源码分支只保留项目文件。
+下载入口：[GitHub Releases](https://github.com/lijinmu666/Arashi/releases) · [GitHub Actions](https://github.com/lijinmu666/Arashi/actions)。主分支保留项目源码。Actions 未配置正式签名时，提供测试签名 APK 和未签名 Release APK；未签名包需要签名后安装，测试签名包不能直接覆盖不同签名的已安装版本。
 
 1. 安装 Arashi，在支持 libxposed API 102 的 LSPosed 管理器中启用模块。
 2. 按需要勾选系统框架及对应应用作用域，然后重启设备。
@@ -40,7 +45,7 @@ Arashi 是面向作业帮学习机 AIBangOS 的 LSPosed 模块和系统工具，
 
 通过 Zybos 系统接口安装 APK、按包名卸载或使用应用选择器卸载，并显示执行结果。选择器支持图标、搜索和分类；卸载选择器过滤未安装更新的系统应用。
 
-快捷指令提供冻结应用、打开设置，以及开发者选项、ADB 等设置的开启和关闭操作。
+快捷指令提供冻结应用、打开设置，以及开发者选项、ADB 等设置的开启和关闭操作。新增投屏开启、关闭指令，通过 root 切换无线显示并请求 SystemUI 添加或移除投屏磁贴。
 
 ### 应用安装器
 

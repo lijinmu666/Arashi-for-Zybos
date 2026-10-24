@@ -1023,7 +1023,15 @@ private fun QuickPage(a: QuickCommands) = Page(a, "快捷指令执行", a::finis
         Link("打开 special_enable_adb_debug", "打开 AIBangOS 的售后后门设置") { set("打开 special_enable_adb_debug", "special_enable_adb_debug", 1) }
         Link("关闭 special_enable_adb_debug", "与上方设置排斥") { set("关闭 special_enable_adb_debug", "special_enable_adb_debug", 0) }
     }
-    InfoCard("KSU 请手动授权，Magisk 弹窗时请允许授权。Arashi 不会执行危险指令，请确保文件来自正规渠道！")
+    Group("投屏") {
+        Link("开启投屏", "启用 SystemUI 的无线显示并添加投屏磁贴") {
+            a.run("开启投屏", "settings put global wifi_display_on 1 && am broadcast --user current -a com.android.systemui.cast.Add -p com.android.systemui")
+        }
+        Link("关闭投屏", "与上方设置排斥") {
+            a.run("关闭投屏", "settings put global wifi_display_on 0 && am broadcast --user current -a com.android.systemui.cast.Remove -p com.android.systemui")
+        }
+    }
+    InfoCard("KSU 请手动授权，Magisk 弹窗时请允许授权。官方版 Arashi 不会执行危险指令")
 }
 
 @Composable
@@ -1408,7 +1416,7 @@ private fun InstallerPage(
     packageName: String?,
     label: String,
     icon: Drawable,
-) = Page(a, "确认安装", a::finish) {
+) = Page(a, "安装应用", a::finish) {
     Card(Modifier.fillMaxWidth(), insideMargin = PaddingValues(18.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             AndroidView(
@@ -1478,7 +1486,7 @@ private fun InstallerProgressPage(
             Text("正在安装，请稍候", style = MiuixTheme.textStyles.title3)
             LinearProgressIndicator(modifier = Modifier.fillMaxWidth(), height = 8.dp)
             Text(
-                "安装包较大时可能需要一些时间，完成后会自动显示结果。",
+                "安装包较大时可能需要一些时间",
                 color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
             )
         }

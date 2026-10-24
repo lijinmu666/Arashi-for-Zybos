@@ -17,8 +17,8 @@ android {
         applicationId 'com.arashi'
         minSdk = 31
         targetSdk = 34
-        versionCode = 33
-        versionName = 'v0.9.2'
+        versionCode = 34
+        versionName = 'v0.9.3'
     }
     if (hasSigningConfig) {
         signingConfigs {

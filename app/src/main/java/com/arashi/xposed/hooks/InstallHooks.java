@@ -124,10 +124,12 @@ hookZybosServiceCtor(mod, cl);
                 return;
             }
             mod.hook(m).intercept(chain -> {
+                if (!"sys.allow.install.package".equals(chain.getArg(0))) {
+                    return chain.proceed();
+                }
                 clearBlacklistsIfEnabled();
                 try {
-                    if (ConfigManager.isEnabled(HookConfig.KEY_SHELL_INSTALL)
-                            && "sys.allow.install.package".equals(chain.getArg(0))) {
+                    if (ConfigManager.isEnabled(HookConfig.KEY_SHELL_INSTALL)) {
                         Log.i(TAG, "sys.allow.install.package -> true");
                         return true;
                     }
@@ -207,10 +209,10 @@ hookZybosServiceCtor(mod, cl);
         try {
             Class<?> clazz = Class.forName(
                     "com.android.server.pm.InstallPackageHelper", false, cl);
-            installPkgHelperClass = clazz;
             for (Constructor<?> ctor : Reflect.getDeclaredConstructors(clazz)) {
                 mod.hook(ctor).intercept(chain -> {
                     Object result = chain.proceed();
+                    installPkgHelperClass = clazz;
                     if (ConfigManager.isEnabled(HookConfig.KEY_CLEAR_BLACKLIST)
                             && !useAndroid12BlacklistHook()) {
                         clearBlacklistField(clazz, "mZybBlacklistApp");
@@ -236,11 +238,10 @@ hookZybosServiceCtor(mod, cl);
                     || !ArraySet.class.isAssignableFrom(field.getType())) {
                 return;
             }
-            legacyPackageManagerClass = clazz;
             for (Constructor<?> ctor : Reflect.getDeclaredConstructors(clazz)) {
                 mod.hook(ctor).intercept(chain -> {
-                    clearLegacyBlacklistIfEnabled();
                     Object result = chain.proceed();
+                    legacyPackageManagerClass = clazz;
                     clearLegacyBlacklistIfEnabled();
                     return result;
                 });
