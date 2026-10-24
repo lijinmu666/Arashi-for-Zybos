@@ -42,6 +42,7 @@ public final class SystemUiQsHooks {
     private static final String TAG = "[Arashi-AospQs]";
     private static final Map<View, Integer> STATUS_BARS = new WeakHashMap<>();
     private static boolean shadeOpen;
+    private static int statusBarState;
     private static boolean lastBarEnabled;
     private static final Map<View, NativeBounds> NATIVE_BOUNDS = new WeakHashMap<>();
     private static final Map<View, Boolean> MEDIA_PLAYERS = new WeakHashMap<>();
@@ -267,8 +268,19 @@ public final class SystemUiQsHooks {
     }
 
     private static void applyTopStatusVisibility() {
-        int visibility = enabled() && shadeOpen ? View.VISIBLE : View.INVISIBLE;
-        for (ViewGroup row : TOP_CLOCKS.keySet()) applyBarVisibility(row, visibility);
+        boolean keyguard = statusBarState == 1;
+        int visibility = enabled() && (shadeOpen || keyguard) ? View.VISIBLE : View.INVISIBLE;
+        for (Map.Entry<ViewGroup, WeakReference<TextClock>> entry : TOP_CLOCKS.entrySet()) {
+            ViewGroup row = entry.getKey();
+            TextClock clock = entry.getValue().get();
+            if (clock != null) applyBarVisibility(clock, keyguard ? View.GONE : View.VISIBLE);
+            if (row.getLayoutParams() instanceof ViewGroup.MarginLayoutParams) {
+                ViewGroup.MarginLayoutParams params = (ViewGroup.MarginLayoutParams) row.getLayoutParams();
+                int top = keyguard ? 0 : dp(row, 48);
+                if (params.topMargin != top) { params.topMargin = top; row.setLayoutParams(params); }
+            }
+            applyBarVisibility(row, visibility);
+        }
     }
 
     private static final String[] BOUND_FIELDS = {"width", "height", "leftMargin", "rightMargin",
@@ -374,7 +386,8 @@ public final class SystemUiQsHooks {
         observeNativeBounds(qs);
         observeNativeBounds(notifications);
         Method onKeyguard = Reflect.findMethodExact(notifications.getClass(), "onKeyguard");
-        boolean keyguard = onKeyguard != null && Boolean.TRUE.equals(onKeyguard.invoke(notifications));
+        boolean keyguard = statusBarState == 1
+                || (onKeyguard != null && Boolean.TRUE.equals(onKeyguard.invoke(notifications)));
         if (keyguard) {
             restoreNativeBounds(qs);
             restoreNativeBounds(notifications);
@@ -572,6 +585,12 @@ public final class SystemUiQsHooks {
 
 
     private static void hookGlobalStatusBar(XposedModule module, ClassLoader loader) {
+        // Locking can keep the panel fraction at 1 without another expansion callback.
+        // Observe the state transition itself, after all native listeners have run.
+        after(module, loader, "com.android.systemui.statusbar.StatusBarStateControllerImpl", "setState", controller -> {
+            Object state = Reflect.getObjectField(controller, "mState");
+            if (state instanceof Number) onStatusBarState(((Number) state).intValue());
+        });
         String bar = "com.android.systemui.statusbar.phone.PhoneStatusBarView";
         observeAlways(module, loader, bar, "onAttachedToWindow", instance -> {
             View view = (View) instance;
@@ -589,18 +608,19 @@ public final class SystemUiQsHooks {
                 "notifyBarPanelExpansionChanged", SystemUiQsHooks::onShadeExpansion);
     }
 
-    static void onShadeExpansion(Object controller) {
+    static void onShadeExpansion(Object controller) throws ReflectiveOperationException {
         Object fraction = Reflect.getObjectField(controller, "mExpandedFraction");
         if (!(fraction instanceof Number)) return;
         float value = ((Number) fraction).floatValue();
         Object barState = Reflect.getObjectField(controller, "mBarState");
-        boolean keyguard = barState instanceof Number && ((Number) barState).intValue() != 0;
+        if (barState instanceof Number) onStatusBarState(((Number) barState).intValue());
+        boolean keyguard = statusBarState == 1;
         Object qs = Reflect.getObjectField(controller, "mQsController");
         boolean qsExpanded = SystemUiQsExpansion.flag(qs, "mExpanded")
                 || SystemUiQsExpansion.flag(controller, "mQsExpanded");
         boolean pinned = SystemUiQsExpansion.flag(controller, "mHeadsUpPinnedMode");
         boolean tracking = SystemUiQsExpansion.flag(controller, "mTracking");
-        boolean open = Float.isFinite(value) && value > 0f && (!keyguard || qsExpanded)
+        boolean open = Float.isFinite(value) && value > 0f && !keyguard
                 && (!pinned || tracking || qsExpanded || value >= 1f);
         if (open == shadeOpen && lastBarEnabled == enabled()) return;
         if (open && !shadeOpen) {
@@ -609,6 +629,25 @@ public final class SystemUiQsHooks {
         }
         shadeOpen = open;
         lastBarEnabled = enabled();
+        refreshGlobalStatusBars();
+        applyTopStatusVisibility();
+    }
+
+    static void onStatusBarState(int state) throws ReflectiveOperationException {
+        if (statusBarState == state) return;
+        statusBarState = state;
+        if (state == 1) {
+            shadeOpen = false;
+            // Restore before the lockscreen animation, rather than waiting for a measure.
+            for (ViewGroup row : TOP_CLOCKS.keySet()) {
+                Object parent = row.getParent();
+                if (!(parent instanceof View)) continue;
+                View root = (View) parent;
+                View qs = find(root, "qs_frame"), stack = find(root, "notification_stack_scroller");
+                if (qs != null) restoreNativeBounds(qs);
+                if (stack != null) restoreNativeBounds(stack);
+            }
+        }
         refreshGlobalStatusBars();
         applyTopStatusVisibility();
     }
