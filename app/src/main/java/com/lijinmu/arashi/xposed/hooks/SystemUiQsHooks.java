@@ -58,6 +58,7 @@ public final class SystemUiQsHooks {
     public static void hookSystemUI(XposedModule module, ClassLoader loader) {
         hookResources(module);
         hookSplitShade(module, loader);
+        hookShadeBounds(module, loader);
         hookExpansion(module, loader, "com.android.systemui.shade.QuickSettingsController", true);
         hookExpansion(module, loader, "com.android.systemui.statusbar.phone.NotificationPanelViewController", false);
         after(module, loader, "com.android.systemui.qs.QSFragment", "updateQsState", instance -> {
@@ -114,7 +115,8 @@ public final class SystemUiQsHooks {
     // Use one decision for layout, notification padding, QS expansion and scrim controllers.
     // Resource interception also covers R8-inlined LargeScreenUtils callers.
     static boolean splitShade(Resources resources) {
-        return resources.getConfiguration().screenWidthDp >= 600;
+        return resources.getConfiguration().orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
+                && resources.getConfiguration().screenWidthDp >= 600;
     }
 
     private static void hookSplitShade(XposedModule module, ClassLoader loader) {
@@ -127,6 +129,114 @@ public final class SystemUiQsHooks {
                     ? splitShade((Resources) chain.getArg(0)) : chain.proceed());
         } catch (ClassNotFoundException ignored) {
         } catch (Throwable error) { Log.w(TAG, "Split shade decision unavailable", error); }
+    }
+
+
+    private static void hookShadeBounds(XposedModule module, ClassLoader loader) {
+        for (String name : new String[] {
+                "com.android.systemui.shade.NotificationsQuickSettingsContainer",
+                "com.android.systemui.statusbar.phone.NotificationsQuickSettingsContainer"}) {
+            try {
+                Class<?> type = Class.forName(name, false, loader);
+                Method measure = Reflect.findMethodExact(type, "onMeasure", int.class, int.class);
+                if (measure == null) continue;
+                try { module.deoptimize(measure); } catch (Throwable ignored) {}
+                module.hook(measure).intercept(chain -> {
+                    if (enabled()) {
+                        try {
+                            restoreShadeBounds((ViewGroup) chain.getThisObject(),
+                                    View.MeasureSpec.getSize((Integer) chain.getArg(0)));
+                        } catch (ReflectiveOperationException | RuntimeException error) {
+                            Log.w(TAG, "Shade bounds unavailable", error);
+                        }
+                    }
+                    return chain.proceed();
+                });
+            } catch (ClassNotFoundException ignored) {
+            } catch (Throwable error) { Log.w(TAG, "Shade bounds hook unavailable", error); }
+        }
+    }
+
+    // Vendor XML keeps a landscape-sized, centered QS frame after rotation. Bound the
+    // existing views before measuring; do not reparent notification rows or media controls.
+    static void restoreShadeBounds(ViewGroup root, int width) throws ReflectiveOperationException {
+        if (width <= 0) return;
+        View qs = find(root, "qs_frame");
+        View notifications = find(root, "notification_stack_scroller");
+        if (qs == null || notifications == null || qs.getParent() != root
+                || notifications.getParent() != root) return;
+        int edge = dp(root, 16);
+        int gap = dp(root, 16);
+        boolean split = splitShade(root.getResources());
+        int column = split ? Math.max(1, (width - edge * 2 - gap) / 2)
+                : Math.max(1, width - edge * 2);
+        int bottom = dp(root, 32);
+        // Includes the gesture/navigation inset and still leaves breathing room above it.
+        Method insetsMethod = Reflect.findMethodExact(root.getClass(), "getRootWindowInsets");
+        if (insetsMethod != null) {
+            Object insets = insetsMethod.invoke(root);
+            if (insets != null) {
+                Method stable = Reflect.findMethodExact(insets.getClass(), "getStableInsetBottom");
+                if (stable != null) bottom = Math.max(bottom, ((Number) stable.invoke(insets)).intValue() + edge);
+            }
+        }
+        boundColumn(qs, column, edge, bottom);
+        // A pinned banner uses the same stack as the shade: center it while the shade
+        // is collapsed. Keep the right-hand stack on the lock screen.
+        boolean banner = Boolean.TRUE.equals(Reflect.getObjectField(notifications, "mInHeadsUpPinnedMode"))
+                && Boolean.FALSE.equals(Reflect.getObjectField(notifications, "mIsExpanded"))
+                && !Boolean.TRUE.equals(Reflect.getObjectField(
+                        Reflect.getObjectField(notifications, "mAmbientState"), "mOnKeyguard"));
+        int notificationStart = split ? width - edge - column : edge;
+        if (banner) notificationStart = (width - column) / 2;
+        boundColumn(notifications, column, notificationStart, bottom);
+    }
+
+    private static void boundColumn(View view, int width, int left, int bottom)
+            throws ReflectiveOperationException {
+        ViewGroup.LayoutParams params = view.getLayoutParams();
+        if (params == null) return;
+        // Retain all native vertical constraints, expansion heights and animation state.
+        // Both FrameLayout (vendor) and ConstraintLayout (AOSP) are supported.
+        boolean frame = params instanceof FrameLayout.LayoutParams;
+        boolean constraint = SystemUiQsExpansion.field(params.getClass(), "startToStart") != null;
+        if (!frame && !constraint) return;
+        String previous = layoutBoundsKey(params);
+        params.width = width;
+        setLayoutField(params, "leftMargin", left);
+        setLayoutField(params, "rightMargin", 0);
+        Object previousBottom = Reflect.getObjectField(params, "bottomMargin");
+        if (previousBottom instanceof Integer)
+            setLayoutField(params, "bottomMargin", Math.max(bottom, (Integer) previousBottom));
+        if (frame) setLayoutField(params, "gravity", Gravity.TOP | Gravity.LEFT);
+        else {
+            for (String field : new String[] {"leftToLeft", "leftToRight", "rightToLeft",
+                    "rightToRight", "startToStart", "startToEnd", "endToStart", "endToEnd"})
+                setLayoutField(params, field, -1);
+            setLayoutField(params, "leftToLeft", 0);
+        }
+        // Clear resolved relative margins left by the vendor's centered/RTL layout.
+        if (params instanceof ViewGroup.MarginLayoutParams) {
+            ((ViewGroup.MarginLayoutParams) params).setMarginStart(Integer.MIN_VALUE);
+            ((ViewGroup.MarginLayoutParams) params).setMarginEnd(Integer.MIN_VALUE);
+        }
+        // Rebuild ConstraintLayout's solver only when bounds actually change.
+        if (!previous.equals(layoutBoundsKey(params))) view.setLayoutParams(params);
+    }
+
+    private static String layoutBoundsKey(Object params) {
+        StringBuilder key = new StringBuilder();
+        for (String field : new String[] {"width", "leftMargin", "rightMargin", "bottomMargin",
+                "gravity", "leftToLeft", "leftToRight", "rightToLeft", "rightToRight",
+                "startToStart", "startToEnd", "endToStart", "endToEnd"})
+            key.append(Reflect.getObjectField(params, field)).append(';');
+        return key.toString();
+    }
+
+    private static void setLayoutField(Object target, String name, int value)
+            throws ReflectiveOperationException {
+        if (SystemUiQsExpansion.field(target.getClass(), name) != null)
+            SystemUiQsExpansion.set(target, name, value);
     }
 
     static int neutral(Resources resources, boolean foreground) {

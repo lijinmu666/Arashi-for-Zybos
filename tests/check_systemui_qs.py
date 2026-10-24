@@ -25,7 +25,7 @@ public class XposedModule {public Map<Executable,XposedInterface.Hooker> hooks=n
 ''',
 'android/util/DisplayMetrics.java': 'package android.util;public class DisplayMetrics {public float density=2;}',
 'android/content/res/Configuration.java': '''package android.content.res;public class Configuration {
- public static final int UI_MODE_NIGHT_MASK=48,UI_MODE_NIGHT_YES=32;public int uiMode,screenWidthDp;}
+ public static final int UI_MODE_NIGHT_MASK=48,UI_MODE_NIGHT_YES=32;public static final int ORIENTATION_LANDSCAPE=2;public int uiMode,screenWidthDp,orientation=2;}
 ''',
 'android/content/res/Resources.java': '''package android.content.res;import java.util.*;
 public class Resources {public static class NotFoundException extends RuntimeException {}public static class Theme {}
@@ -53,11 +53,11 @@ public class RippleDrawable extends Drawable {public GradientDrawable fill=new G
  public Drawable findDrawableByLayerId(int id){return id==android.R.id.mask?mask:fill;}
  public ConstantState getConstantState(){return new ConstantState(){public Drawable newDrawable(Resources r){return new RippleDrawable();}};}}
 ''',
-'android/view/Gravity.java': '''package android.view;public class Gravity {public static final int START=8388611,CENTER_VERTICAL=16;}
+'android/view/Gravity.java': '''package android.view;public class Gravity {public static final int START=8388611,CENTER_VERTICAL=16,TOP=48,LEFT=3,END=8388613,FILL_HORIZONTAL=7;}
 ''',
 'android/view/View.java': '''package android.view;import android.content.res.Resources;
 public class View {public static class MeasureSpec {public static final int EXACTLY=1073741824;
- public static int makeMeasureSpec(int size,int mode){return size|mode;}}
+ public static int makeMeasureSpec(int size,int mode){return size|mode;}public static int getSize(int v){return v&0x3fffffff;}}
  public static final int VISIBLE=0,INVISIBLE=4,GONE=8,NO_ID=-1;public int id=NO_ID,visibility,ps,pt,pe,pb,minHeight;
  public Resources resources=new Resources();public ViewGroup parent;public ViewGroup.LayoutParams params=new ViewGroup.LayoutParams(-1,-2);
  public android.graphics.drawable.Drawable background;public Resources getResources(){return resources;}
@@ -73,6 +73,8 @@ public class View {public static class MeasureSpec {public static final int EXAC
 'android/view/ViewGroup.java': '''package android.view;import java.util.*;
 public class ViewGroup extends View {public java.util.List<View> children=new ArrayList<>();
  public static class LayoutParams {public int width,height;public LayoutParams(int w,int h){width=w;height=h;}}
+ public static class MarginLayoutParams extends LayoutParams {public int leftMargin,rightMargin,bottomMargin,start,end;
+ public MarginLayoutParams(int w,int h){super(w,h);}public void setMarginStart(int v){start=v;}public void setMarginEnd(int v){end=v;}}
  public void addView(View v){if(v.parent!=null)throw new IllegalStateException("double parent");children.add(v);v.parent=this;}
  public void addView(View v,LayoutParams p){v.setLayoutParams(p);addView(v);}
  public void addView(View v,int index,LayoutParams p){v.setLayoutParams(p);if(v.parent!=null)throw new IllegalStateException();children.add(index,v);v.parent=this;}
@@ -88,7 +90,7 @@ public class ViewGroup extends View {public java.util.List<View> children=new Ar
  public void setMarginStart(int x){start=x;}}}
 ''',
 'android/widget/FrameLayout.java': '''package android.widget;public class FrameLayout extends android.view.ViewGroup {
- public static class LayoutParams extends android.view.ViewGroup.LayoutParams {public int topMargin;
+ public static class LayoutParams extends android.view.ViewGroup.MarginLayoutParams {public int topMargin,gravity;
  public LayoutParams(int w,int h){super(w,h);}}}
 ''',
 'android/widget/RelativeLayout.java': '''package android.widget;public class RelativeLayout extends android.view.ViewGroup {
@@ -149,6 +151,9 @@ public class ShadeHeaderController {public View header=new View();public boolean
  public com.android.systemui.shade.carrier.ShadeCarrierGroupController mShadeCarrierGroupController=new com.android.systemui.shade.carrier.ShadeCarrierGroupController();
  public void updateSingleCarrier(boolean b){singleUpdates++;}public void updateVisibility(){original++;header.setVisibility(View.GONE);}}
 ''',
+ 'com/android/systemui/shade/NotificationsQuickSettingsContainer.java': '''package com.android.systemui.shade;
+public class NotificationsQuickSettingsContainer extends android.widget.FrameLayout {
+ public int measures;public void onMeasure(int w,int h){measures++;}}''',
  'com/android/systemui/util/LargeScreenUtils.java': '''package com.android.systemui.util;
 public class LargeScreenUtils {public static boolean shouldUseSplitNotificationShade(android.content.res.Resources r){return false;}}''',
  'com/android/systemui/qs/QSPanelControllerBase.java': '''package com.android.systemui.qs;
@@ -225,9 +230,41 @@ public class Check {
    check((boolean)call(splitDecision,null,split)==(width>=600));
    check(!(boolean)call(bool,split,71));
   }
+  split.config.orientation=1;check(!(boolean)call(bool,split,70));check(!(boolean)call(splitDecision,null,split));
+  split.config.orientation=2;
   split.owner="other";check(!(boolean)call(bool,split,70));
   split.owner="com.android.systemui";ConfigManager.enabled=false;
   check(!(boolean)call(bool,split,70));check(!(boolean)call(splitDecision,null,split));ConfigManager.enabled=true;
+  var bounds=new com.android.systemui.shade.NotificationsQuickSettingsContainer();View qsBounds=named(new View(),"qs_frame");
+  class Stack extends View {public boolean mInHeadsUpPinnedMode,mIsExpanded=true;public Object mAmbientState;}
+  Stack stackBounds=named(new Stack(),"notification_stack_scroller");
+  qsBounds.setLayoutParams(new FrameLayout.LayoutParams(960,-1));stackBounds.setLayoutParams(new FrameLayout.LayoutParams(960,-1));
+  bounds.addView(qsBounds);bounds.addView(stackBounds);
+  bounds.resources.config.screenWidthDp=960;bounds.resources.config.orientation=2;
+  call(bounds.getClass().getMethod("onMeasure",int.class,int.class),bounds,1920,1280);
+  check(qsBounds.params.width==912&&stackBounds.params.width==912);
+  check(((FrameLayout.LayoutParams)qsBounds.params).leftMargin==32);
+  check(((FrameLayout.LayoutParams)stackBounds.params).leftMargin==976);
+  check(((FrameLayout.LayoutParams)qsBounds.params).bottomMargin==64);
+  stackBounds.mInHeadsUpPinnedMode=true;stackBounds.mIsExpanded=false;
+  SystemUiQsHooks.restoreShadeBounds(bounds,1920);
+  check(((FrameLayout.LayoutParams)stackBounds.params).leftMargin==504);
+  bounds.resources.config.orientation=1;bounds.resources.config.screenWidthDp=640;
+  SystemUiQsHooks.restoreShadeBounds(bounds,1280);check(qsBounds.params.width==1216&&stackBounds.params.width==1216);
+  check(((FrameLayout.LayoutParams)qsBounds.params).leftMargin==32);
+  SystemUiQsHooks.restoreShadeBounds(bounds,0);check(qsBounds.params.width==1216);
+  class Constraints extends ViewGroup.MarginLayoutParams {
+   public int startToStart=0,startToEnd=-1,endToStart=-1,endToEnd=0;
+   public int leftToLeft=-1,leftToRight=-1,rightToLeft=-1,rightToRight=-1;
+   Constraints(){super(0,-1);}
+  }
+  qsBounds.setLayoutParams(new Constraints());stackBounds.setLayoutParams(new Constraints());
+  bounds.resources.config.orientation=2;stackBounds.mIsExpanded=true;SystemUiQsHooks.restoreShadeBounds(bounds,1920);
+  Constraints cp=(Constraints)stackBounds.params;
+  check(cp.width==912&&cp.leftMargin==976&&cp.leftToLeft==0&&cp.startToStart==-1&&cp.endToEnd==-1);
+  cp.width=777;ConfigManager.enabled=false;
+  call(bounds.getClass().getMethod("onMeasure",int.class,int.class),bounds,1920,1280);
+  check(cp.width==777);ConfigManager.enabled=true;
   Resources r=new Resources();r.names.put(1,"integer/quick_settings_num_columns");r.names.put(2,"dimen/qs_tile_height");
   Method integer=Resources.class.getMethod("getInteger",int.class),dim=Resources.class.getMethod("getDimensionPixelSize",int.class);
   check((int)call(integer,r,1)==2);check((int)call(dim,r,2)==160);
