@@ -104,9 +104,7 @@ public final class HookScopes {
     private static boolean usesSystemServer(String key) {
         return !HookConfig.KEY_AOSP_APP_DETAILS.equals(key)
                 && !HookConfig.KEY_SYSTEMUI_THEME.equals(key)
-                && !HookConfig.KEY_AOSP_BLUETOOTH.equals(key)
-                && !HookConfig.KEY_AOSP_WIFI.equals(key)
-                && !HookConfig.KEY_AOSP_BATTERY.equals(key)
+                && !HookConfig.KEY_AOSP_STATUS_ICONS.equals(key)
                 && !HookConfig.KEY_NOTIFICATION_REPLY.equals(key)
                 && !HookConfig.KEY_BLOCK_TCP_LOGIN_FAIL.equals(key)
                 && !HookConfig.KEY_RECORD_INTERNAL_AUDIO.equals(key)
@@ -153,9 +151,7 @@ public final class HookScopes {
         if (HookConfig.KEY_NOTIFICATION_REPLY.equals(key)
                 || HookConfig.KEY_SYSTEMUI_THEME.equals(key)
                 || HookConfig.KEY_BLOCK_DEFAULT_BROWSER.equals(key)
-                || HookConfig.KEY_AOSP_BLUETOOTH.equals(key)
-                || HookConfig.KEY_AOSP_WIFI.equals(key)
-                || HookConfig.KEY_AOSP_BATTERY.equals(key)
+                || HookConfig.KEY_AOSP_STATUS_ICONS.equals(key)
                 || HookConfig.KEY_STATUS_BAR_DATE.equals(key)
                 || HookConfig.KEY_RECORD_INTERNAL_AUDIO.equals(key)) {
             return new String[] { "com.android.systemui" };

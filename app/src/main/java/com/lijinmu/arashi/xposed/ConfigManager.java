@@ -68,7 +68,8 @@ public final class ConfigManager {
             Map<String, Boolean> fresh = new HashMap<>();
             for (String key : HookConfig.keys()) {
                 Object value = values.get(key);
-                fresh.put(key, value instanceof Boolean
+                fresh.put(key, HookConfig.KEY_AOSP_STATUS_ICONS.equals(key)
+                        ? HookConfig.statusBarIconsEnabled(values) : value instanceof Boolean
                         ? (Boolean) value : HookConfig.defaultEnabled(key));
             }
             Set<String> selected = new HashSet<>();

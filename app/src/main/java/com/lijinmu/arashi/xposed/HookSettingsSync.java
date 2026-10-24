@@ -21,7 +21,9 @@ public final class HookSettingsSync {
             SharedPreferences.Editor editor = remote.edit();
             boolean changed = !Boolean.TRUE.equals(saved.get(HookConfig.KEY_REMOTE_READY));
             for (String key : HookConfig.keys()) {
-                boolean value = local.getBoolean(key, HookConfig.defaultEnabled(key));
+                boolean value = HookConfig.KEY_AOSP_STATUS_ICONS.equals(key)
+                        ? HookConfig.statusBarIconsEnabled(local.getAll())
+                        : local.getBoolean(key, HookConfig.defaultEnabled(key));
                 if (!Boolean.valueOf(value).equals(saved.get(key))) {
                     editor.putBoolean(key, value);
                     changed = true;

@@ -93,7 +93,7 @@ public final class AospBatteryHooks {
     private static void sync(LinearLayout meter) {
         State state = STATES.get(meter);
         if (state != null && state.failed) return;
-        boolean enabled = ConfigManager.isEnabledCached(HookConfig.KEY_AOSP_BATTERY);
+        boolean enabled = ConfigManager.isEnabledCached(HookConfig.KEY_AOSP_STATUS_ICONS);
         if (state == null && !enabled) return;
         try {
             if (state == null) {

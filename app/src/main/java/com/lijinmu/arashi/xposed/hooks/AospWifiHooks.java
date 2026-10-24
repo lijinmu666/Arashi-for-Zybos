@@ -25,7 +25,7 @@ public final class AospWifiHooks {
             if (method.getParameterCount() == 0 || method.getParameterTypes()[0] != int.class) continue;
             try {
                 module.hook(method).intercept(chain -> {
-                    if (BUSY.get() || !ConfigManager.isEnabledCached(HookConfig.KEY_AOSP_WIFI))
+                    if (BUSY.get() || !ConfigManager.isEnabledCached(HookConfig.KEY_AOSP_STATUS_ICONS))
                         return chain.proceed();
                     BUSY.set(true);
                     try {

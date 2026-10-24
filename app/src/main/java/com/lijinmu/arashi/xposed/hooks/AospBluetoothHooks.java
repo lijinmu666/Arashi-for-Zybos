@@ -24,7 +24,7 @@ public final class AospBluetoothHooks {
                     || method.getParameterCount() == 0 || method.getParameterTypes()[0] != int.class) continue;
             try {
                 module.hook(method).intercept(chain -> {
-                    if (BUSY.get() || !ConfigManager.isEnabledCached(HookConfig.KEY_AOSP_BLUETOOTH)) {
+                    if (BUSY.get() || !ConfigManager.isEnabledCached(HookConfig.KEY_AOSP_STATUS_ICONS)) {
                         return chain.proceed();
                     }
                     BUSY.set(true);
