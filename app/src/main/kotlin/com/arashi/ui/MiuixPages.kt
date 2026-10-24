@@ -474,6 +474,7 @@ private fun HookPage(a: HookSettings) = Page(a, "Hook 功能设置", a::finish) 
             HookItem("解除安装黑名单限制", "允许安装被硬编码在 mZybBlacklistApp 中的包名。开关控制重启系统后生效", HookConfig.KEY_CLEAR_BLACKLIST),
         ),
         "行为" to listOf(
+            HookItem("阻止禁用系统导航与下拉面板", "拦截返回、主页、最近任务及下拉面板的禁用限制，覆盖激活与错误页面场景。需勾选系统框架、系统界面与对应桌面作用域，开关控制重启系统后生效", HookConfig.KEY_KEEP_NAVIGATION),
             HookItem("允许打开开发者选项", "绕过系统设置检查，允许打开开发者选项的 Activity", HookConfig.KEY_DEV_OPTIONS),
             HookItem("保留后台进程", "拦截划卡后强杀应用进程。开关控制立即生效", HookConfig.KEY_KEEP_BACKGROUND),
             HookItem("允许 USB 文件传输", "允许挂载外部 USB 设备和使用数据传输。开关控制立即生效", HookConfig.KEY_ALLOW_USB),
@@ -1246,6 +1247,7 @@ private fun UninstallPrompt(
 private fun QuickPage(a: QuickCommands) = Page(a, "快捷指令执行", a::finish) {
     IntroCard("以下功能使用 root 权限执行，第一次使用请授予 Arashi 权限")
     Group("应用相关") {
+        Link("冻结桌面 ErrorActivity", "仅冻结桌面的 ErrorActivity 组件，保留桌面其他功能") { a.freezeLauncherErrorActivity() }
         Link("禁用 PadMs", "冻结 com.zuoyebang.padms") { a.run("禁用 PadMs", "pm disable com.zuoyebang.padms") }
         Link("禁用 report服务", "冻结 com.zuoyebang.iot.pad.zpreport") { a.run("禁用 report服务", "pm disable com.zuoyebang.iot.pad.zpreport") }
         Link("禁用 系统升级", "冻结 com.zuoyebang.iot.zp.lib.ota.server") { a.run("禁用 系统升级", "pm disable com.zuoyebang.iot.zp.lib.ota.server") }

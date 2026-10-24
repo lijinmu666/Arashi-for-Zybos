@@ -19,6 +19,7 @@ import com.arashi.xposed.hooks.SuperviseHooks;
 import com.arashi.xposed.hooks.SystemUIHooks;
 import com.arashi.xposed.hooks.UninstallHooks;
 import com.arashi.xposed.hooks.TcpLoginHooks;
+import com.arashi.xposed.hooks.NavigationAccessHooks;
 
 import java.lang.reflect.Method;
 
@@ -83,6 +84,7 @@ public final class HookEntry extends XposedModule {
             LauncherIconHooks.hookLauncher(this, param.getClassLoader(), "com.android.launcher3".equals(pkg));
             LauncherFolderHooks.hookLauncher(this, param.getClassLoader(), "com.android.launcher3".equals(pkg));
             LauncherUninstallHooks.hookLauncher(this, param.getClassLoader());
+            NavigationAccessHooks.hookLauncher(this, param.getClassLoader(), "com.android.launcher3".equals(pkg));
         } else if ("com.zuoyebang.iot.zptcpservice".equals(pkg)) {
             ConfigManager.init(pkg);
             TcpLoginHooks.hookTcpService(this, param.getClassLoader());

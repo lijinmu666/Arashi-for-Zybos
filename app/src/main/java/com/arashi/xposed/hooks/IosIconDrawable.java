@@ -108,24 +108,33 @@ final class IosIconDrawable extends Drawable implements Drawable.Callback {
         drawing = true;
         try {
             canvas.translate(bounds.left, bounds.top);
-            canvas.scale(bounds.width() / 100f, bounds.height() / 100f);
-            canvas.clipPath(MASK);
+            Rect viewport = new Rect(0, 0, bounds.width(), bounds.height());
+            canvas.clipPath(maskFor(new RectF(viewport)));
             if (artwork instanceof AdaptiveIconDrawable) {
                 AdaptiveIconDrawable adaptive = (AdaptiveIconDrawable) artwork;
-                drawLayer(canvas, adaptive.getBackground(), 0, 100);
-                drawLayer(canvas, adaptive.getForeground(), -25, 125);
+                // Android expands BOTH layers into the same viewport. Artwork
+                // can live in the background too; scaling only the foreground
+                // makes background logos smaller and splits aligned artwork.
+                float halfScale = .5f + AdaptiveIconDrawable.getExtraInsetFraction();
+                int halfWidth = (int) (viewport.width() * halfScale);
+                int halfHeight = (int) (viewport.height() * halfScale);
+                int cx = viewport.width() / 2, cy = viewport.height() / 2;
+                Rect layers = new Rect(cx - halfWidth, cy - halfHeight,
+                        cx + halfWidth, cy + halfHeight);
+                drawLayer(canvas, adaptive.getBackground(), layers);
+                drawLayer(canvas, adaptive.getForeground(), layers);
             } else {
-                drawLayer(canvas, artwork, 0, 100);
+                drawLayer(canvas, artwork, viewport);
             }
         } finally {
             drawing = false;
             canvas.restoreToCount(save);
         }
     }
-    private static void drawLayer(Canvas canvas, Drawable layer, int start, int end) {
+    private static void drawLayer(Canvas canvas, Drawable layer, Rect bounds) {
         if (layer == null) return;
         Rect old = new Rect(layer.getBounds());
-        try { layer.setBounds(start, start, end, end); layer.draw(canvas); }
+        try { layer.setBounds(bounds); layer.draw(canvas); }
         finally { layer.setBounds(old); }
     }
     @Override public int getIntrinsicWidth() { return original.getIntrinsicWidth(); }

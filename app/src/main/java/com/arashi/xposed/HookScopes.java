@@ -116,6 +116,9 @@ public final class HookScopes {
     }
 
     private static String[] applicationScopes(String key) {
+        if (HookConfig.KEY_KEEP_NAVIGATION.equals(key)) {
+            return new String[] { "com.android.systemui", "com.zuoyebang.iot.pad.launcher14", "com.android.launcher3" };
+        }
         if (HookConfig.KEY_BLOCK_TCP_LOGIN_FAIL.equals(key)) {
             return new String[] { "com.zuoyebang.iot.zptcpservice" };
         }
