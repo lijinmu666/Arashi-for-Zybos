@@ -46,6 +46,12 @@ jobs:
           set -euo pipefail
           javac -d "$RUNNER_TEMP/background-tests" app/src/main/java/com/lijinmu/arashi/xposed/BackgroundPolicy.java tests/BackgroundPolicyCheck.java
           java -cp "$RUNNER_TEMP/background-tests" BackgroundPolicyCheck
+      - name: 验证设置侧栏入口与原版应用通知设置
+        run: python3 tests/check_settings_routes.py
+      - name: 验证 Android 12 和 14 完整应用信息页
+        run: python3 tests/check_full_app_info.py
+      - name: 验证 Android 12 和 14 应用详情操作栏
+        run: python3 tests/check_app_details.py
       - name: 验证 Android 12 和 14 设置菜单兼容性
         shell: bash
         run: |
@@ -135,7 +141,7 @@ jobs:
           for apk in dist/*.apk; do
             python3 tests/check_release_apk.py "$apk"
             "$tools/aapt" dump badging "$apk" > "$RUNNER_TEMP/arashi-badging.txt"
-            grep "package: name='com.lijinmu.arashi' versionCode='41' versionName='v1.0.0'" "$RUNNER_TEMP/arashi-badging.txt"
+            grep "package: name='com.lijinmu.arashi' versionCode='44' versionName='v1.0.0'" "$RUNNER_TEMP/arashi-badging.txt"
             test "$(unzip -p "$apk" META-INF/xposed/java_init.list)" = 'com.lijinmu.arashi.xposed.HookEntry'
             if [[ "$apk" != *-unsigned.apk ]]; then
               "$tools/apksigner" verify --verbose --print-certs "$apk"

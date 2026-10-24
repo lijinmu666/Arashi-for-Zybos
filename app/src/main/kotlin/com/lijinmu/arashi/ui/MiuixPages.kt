@@ -68,7 +68,6 @@ import top.yukonga.miuix.kmp.basic.CardDefaults
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
-import top.yukonga.miuix.kmp.basic.LinearProgressIndicator
 import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.SmallTopAppBar
 import top.yukonga.miuix.kmp.basic.Text
@@ -104,7 +103,12 @@ import kotlinx.coroutines.withContext
 import com.lijinmu.arashi.uninstall.UninstallConfig
 
 object MiuixPages {
-    private data class Message(val title: String, val body: String, val buttonLabel: String = "知道了")
+    private data class Message(
+        val title: String,
+        val body: String,
+        val buttonLabel: String = "知道了",
+        val loading: Boolean = false,
+    )
     private val messages = WeakHashMap<Activity, MutableState<Message?>>()
 
     @JvmStatic fun renderHome(a: Main) = render(a) { HomePage(a) }
@@ -165,6 +169,10 @@ object MiuixPages {
 
     @JvmStatic fun showMessage(a: Activity, title: String, body: String) {
         a.runOnUiThread { messageState(a).value = Message(title, body) }
+    }
+
+    @JvmStatic fun showProgress(a: Activity, title: String, detail: String) {
+        a.runOnUiThread { messageState(a).value = Message(title, detail, loading = true) }
     }
 
     @JvmStatic fun showSignatureWarning(a: Activity) {
@@ -274,6 +282,11 @@ object MiuixPages {
             summary = displayed?.body,
             onDismissRequest = { message.value = null },
         ) {
+            if (displayed?.loading == true) {
+                Box(Modifier.fillMaxWidth().padding(bottom = 16.dp), contentAlignment = Alignment.Center) {
+                    LoadingIndicator(displayed.title)
+                }
+            }
             TextButton(
                 displayed?.buttonLabel ?: "知道了",
                 { message.value = null },
@@ -538,6 +551,7 @@ private fun HookPage(a: HookSettings) = Page(a, "Hook 功能设置", a::finish) 
             HookItem("允许 USB 文件传输", "允许挂载外部 USB 设备和使用数据传输。开关控制立即生效", HookConfig.KEY_ALLOW_USB),
             HookItem("允许任意应用设置壁纸", "允许任意应用设置壁纸，并移除新版桌面覆盖系统壁纸的静态背景。需勾选系统框架与作业帮桌面作用域，开关控制立即生效", HookConfig.KEY_ALLOW_WALLPAPER),
             HookItem("允许 WiFi 网页登录", "允许连接到认证型 WiFi 正常跳转到 “登录到网络” 登录验证网页", HookConfig.KEY_CAPTIVE_PORTAL),
+            HookItem("原版应用详情与通知设置", "恢复完整原版应用信息页及应用通知设置，沿用系统控制器；更改后重新打开页面", HookConfig.KEY_AOSP_APP_DETAILS),
             HookItem("解除应用详情页限制", "允许打开 WebView、report服务 和 PadMs 的应用设置详情页。开关控制立即生效", HookConfig.KEY_CLEAR_DETAIL_BLACK),
             HookItem("修复录屏的声音选项", "恢复 SystemUI 录屏菜单的设备声音、麦克风及混合音源选择选项", HookConfig.KEY_RECORD_INTERNAL_AUDIO),
 						HookItem("修复通知快捷回复", "尝试修复 SystemUI 通知回复框出现后立即关闭的问题。开关控制立即生效", HookConfig.KEY_NOTIFICATION_REPLY),
@@ -785,7 +799,7 @@ private fun BackgroundWhitelistPage(a: BackgroundWhitelistActivity) {
                 )
             }
             if (loading) {
-                item { InfoCard("正在加载应用…") }
+                item { LoadingCard("加载应用") }
             } else if (error != null) {
                 item { InfoCard("加载失败：" + error.orEmpty()) }
             } else {
@@ -1006,11 +1020,12 @@ private fun UninstallHistoryPage(a: UninstallHistoryActivity) {
                         Modifier.weight(1f),
                         enabled = !loading && !clearing,
                     )
-                    TextButton(
-                        if (clearing) "正在清空" else "清空记录",
+                    LoadingTextButton(
+                        "清空记录",
                         { confirmClear = true },
                         Modifier.weight(1f),
                         enabled = records.isNotEmpty() && !loading && !clearing,
+                        loading = clearing,
                     )
                 }
             }
@@ -1049,7 +1064,7 @@ private fun UninstallHistoryPage(a: UninstallHistoryActivity) {
                 item { InfoCard("暂无卸载记录") }
             }
             if (loading) {
-                item { InfoCard("正在加载记录…") }
+                item { LoadingCard("加载记录") }
             }
             if (loadError != null) {
                 item { InfoCard("读取失败：" + loadError) }
@@ -1829,7 +1844,7 @@ private fun InstallerProgressPage(
     label: String,
     packageName: String?,
     icon: Drawable?,
-) = Page(a, "正在安装") {
+) = Page(a, "安装应用") {
     Card(Modifier.fillMaxWidth(), insideMargin = PaddingValues(18.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             if (icon != null) {
@@ -1856,8 +1871,7 @@ private fun InstallerProgressPage(
     }
     Card(Modifier.fillMaxWidth(), insideMargin = PaddingValues(18.dp)) {
         Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-            Text("正在安装…", style = MiuixTheme.textStyles.title3)
-            LinearProgressIndicator(modifier = Modifier.fillMaxWidth(), height = 8.dp)
+            LoadingIndicator("安装应用", Modifier.align(Alignment.CenterHorizontally))
             Text(
                 "安装包较大时可能需要一些时间",
                 color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
@@ -1940,7 +1954,7 @@ private fun ZybosEnvPage(a: com.lijinmu.arashi.tools.ZybosEnvController) = Page(
         }
     }
     IntroCard("这些开关很危险，请谨慎使用，更改环境可能影响登录与激活。重启后写入生效")
-    if (busy) InfoCard("正在读取或写入环境配置…")
+    if (busy) LoadingCard("读取或写入环境配置")
     if (error != null) InfoCard("操作失败：${error.orEmpty()}")
     Group("环境配置") {
         OverlayDropdownPreference(
