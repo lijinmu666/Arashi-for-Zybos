@@ -695,6 +695,7 @@ private fun PruneMissingAppSelections(
     selected: Set<String>,
     prefixed: Boolean,
     onPruned: (Set<String>) -> Unit,
+    refreshKey: Any? = null,
 ) {
     var revision by remember { mutableIntStateOf(0) }
     DisposableEffect(a) {
@@ -704,7 +705,7 @@ private fun PruneMissingAppSelections(
         a.lifecycle.addObserver(observer)
         onDispose { a.lifecycle.removeObserver(observer) }
     }
-    LaunchedEffect(a, selected, prefixed, revision) {
+    LaunchedEffect(a, selected, prefixed, revision, refreshKey) {
         val missing = withContext(Dispatchers.IO) {
             com.lijinmu.arashi.settings.InstalledAppSelections.findMissing(
                 a.packageManager, selected, prefixed)
@@ -722,40 +723,24 @@ private fun BackgroundWhitelistPage(a: BackgroundWhitelistActivity) {
         mutableStateOf(prefs.getStringSet(HookConfig.KEY_KEEP_BACKGROUND_WHITELIST, emptySet()).orEmpty().toSet())
     }
     var query by remember { mutableStateOf("") }
-    var filter by remember { mutableIntStateOf(0) }
-    var choices by remember { mutableStateOf(emptyList<BackgroundChoice>()) }
-    var loading by remember { mutableStateOf(true) }
-    var error by remember { mutableStateOf<String?>(null) }
-    LaunchedEffect(a) {
-        try {
-            choices = withContext(Dispatchers.IO) {
-                val manager = a.packageManager
-                manager.getInstalledApplications(0)
-                    .filterNot { BackgroundPolicy.isExempt(it.packageName) }
-                    .map { info ->
-                        BackgroundChoice(info.packageName,
-                            runCatching { info.loadLabel(manager).toString() }.getOrDefault(info.packageName),
-                            (info.flags and (ApplicationInfo.FLAG_SYSTEM or ApplicationInfo.FLAG_UPDATED_SYSTEM_APP)) != 0)
-                    }
-                    .sortedWith(compareBy<BackgroundChoice> { it.label.lowercase() }.thenBy { it.packageName })
+    var showSystemApps by remember { mutableStateOf(false) }
+    val apps = rememberAppPickerData(a) {
+        val manager = a.packageManager
+        manager.getInstalledApplications(0)
+            .filterNot { BackgroundPolicy.isExempt(it.packageName) }
+            .map { info ->
+                BackgroundChoice(info.packageName,
+                    runCatching { info.loadLabel(manager).toString() }.getOrDefault(info.packageName),
+                    (info.flags and (ApplicationInfo.FLAG_SYSTEM or ApplicationInfo.FLAG_UPDATED_SYSTEM_APP)) != 0)
             }
-        } catch (cancelled: CancellationException) {
-            throw cancelled
-        } catch (failure: Exception) {
-            error = failure.message ?: "无法读取应用列表"
-        } finally {
-            loading = false
-        }
+            .sortedWith(compareBy<BackgroundChoice> { it.label.lowercase() }.thenBy { it.packageName })
     }
+    val choices = apps.choices
     val knownPackages = remember(choices) { choices.mapTo(HashSet<String>()) { it.packageName } }
     val missing = selected.filterNot { it in knownPackages || BackgroundPolicy.isExempt(it) }
         .sorted().map { BackgroundChoice(it, "未安装或不可见的应用") }
     val visible = (missing + choices).filter {
-        val matchesCategory = when (filter) {
-            1 -> it.isSystem == false
-            2 -> it.isSystem == true
-            else -> true
-        }
+        val matchesCategory = showSystemApps || it.isSystem == false
         matchesCategory && (query.isBlank() || it.label.contains(query, true) || it.packageName.contains(query, true))
     }.sortedWith(
         compareBy<BackgroundChoice> { if (it.packageName in selected) 0 else 1 }
@@ -767,7 +752,7 @@ private fun BackgroundWhitelistPage(a: BackgroundWhitelistActivity) {
         selected = next
         prefs.edit().putStringSet(HookConfig.KEY_KEEP_BACKGROUND_WHITELIST, next).apply()
     }
-    PruneMissingAppSelections(a, selected, prefixed = false, onPruned = ::save)
+    PruneMissingAppSelections(a, selected, prefixed = false, onPruned = ::save, refreshKey = apps.generation)
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         topBar = {
@@ -778,13 +763,15 @@ private fun BackgroundWhitelistPage(a: BackgroundWhitelistActivity) {
                         Icon(MiuixIcons.Back, contentDescription = "返回")
                     }
                 },
+                actions = {
+                    AppPickerFilterMenu(showSystemApps, onShowSystemAppsChange = { showSystemApps = it })
+                },
             )
         },
     ) { innerPadding ->
-        LazyColumn(
+        AppPickerRefreshList(
+            data = apps,
             modifier = Modifier.fillMaxSize().padding(innerPadding).consumeWindowInsets(innerPadding),
-            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 28.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             item {
                 IntroCard(
@@ -798,53 +785,42 @@ private fun BackgroundWhitelistPage(a: BackgroundWhitelistActivity) {
                 )
             }
             item {
-                AppPickerFilterRow(
-                    status = if (selected.isEmpty()) "当前保留全部应用" else "已选择 ${selected.size} 个应用",
-                    categories = listOf("默认", "用户应用", "系统应用"),
-                    selectedIndex = filter,
-                    onSelectedIndexChange = { filter = it },
-                )
+                AppPickerStatus(if (selected.isEmpty()) "当前保留全部应用" else "已选择 ${selected.size} 个应用")
             }
-            if (loading) {
-                item { LoadingCard("加载应用") }
-            } else if (error != null) {
-                item { InfoCard("加载失败：" + error.orEmpty()) }
-            } else {
-                items(visible, key = { it.packageName }) { choice ->
-                    val icon = remember(choice.packageName) {
-                        runCatching { a.packageManager.getApplicationIcon(choice.packageName) }
-                            .getOrElse { a.packageManager.defaultActivityIcon }
-                    }
-                    Card(Modifier.fillMaxWidth()) {
-                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                            AndroidView(
-                                factory = { context ->
-                                    ImageView(context).apply { scaleType = ImageView.ScaleType.FIT_CENTER }
+            items(visible, key = { it.packageName }) { choice ->
+                val icon = remember(choice.packageName, apps.generation) {
+                    runCatching { a.packageManager.getApplicationIcon(choice.packageName) }
+                        .getOrElse { a.packageManager.defaultActivityIcon }
+                }
+                Card(Modifier.fillMaxWidth()) {
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        AndroidView(
+                            factory = { context ->
+                                ImageView(context).apply { scaleType = ImageView.ScaleType.FIT_CENTER }
+                            },
+                            update = { it.setImageDrawable(icon) },
+                            modifier = Modifier.padding(start = 16.dp).size(40.dp),
+                        )
+                        Box(Modifier.weight(1f)) {
+                            CheckboxPreference(
+                                checked = choice.packageName in selected,
+                                onCheckedChange = { checked ->
+                                    save(if (checked) selected + choice.packageName else selected - choice.packageName)
                                 },
-                                update = { it.setImageDrawable(icon) },
-                                modifier = Modifier.padding(start = 16.dp).size(40.dp),
+                                title = choice.label,
+                                summary = choice.packageName + when (choice.isSystem) {
+                                    true -> " · 系统应用"
+                                    false -> " · 用户应用"
+                                    null -> ""
+                                },
+                                checkboxLocation = CheckboxLocation.End,
                             )
-                            Box(Modifier.weight(1f)) {
-                                CheckboxPreference(
-                                    checked = choice.packageName in selected,
-                                    onCheckedChange = { checked ->
-                                        save(if (checked) selected + choice.packageName else selected - choice.packageName)
-                                    },
-                                    title = choice.label,
-                                    summary = choice.packageName + when (choice.isSystem) {
-                                        true -> " · 系统应用"
-                                        false -> " · 用户应用"
-                                        null -> ""
-                                    },
-                                    checkboxLocation = CheckboxLocation.End,
-                                )
-                            }
                         }
                     }
                 }
-                if (visible.isEmpty()) {
-                    item { InfoCard("没有匹配的应用") }
-                }
+            }
+            if (!apps.loading && visible.isEmpty()) {
+                item { InfoCard("没有匹配的应用") }
             }
         }
     }
@@ -1122,12 +1098,12 @@ private fun UninstallListPage(a: UninstallListActivity, blacklist: Boolean) {
         mutableStateOf(prefs.getStringSet(prefKey, mutableSetOf()).orEmpty().toSet())
     }
     var query by remember { mutableStateOf("") }
-    var filter by remember { mutableIntStateOf(0) }
+    var showSystemApps by remember { mutableStateOf(false) }
     var manual by remember { mutableStateOf("") }
     var inputError by remember { mutableStateOf<String?>(null) }
-    val choices = remember {
+    val apps = rememberAppPickerData(a) {
         val manager = a.packageManager
-        val installed = runCatching { manager.getInstalledApplications(0) }.getOrDefault(emptyList())
+        val installed = manager.getInstalledApplications(0)
         val applications = installed.map { info ->
             val label = runCatching { info.loadLabel(manager).toString() }.getOrDefault(info.packageName)
             val isSystem = (info.flags and
@@ -1149,6 +1125,7 @@ private fun UninstallListPage(a: UninstallListActivity, blacklist: Boolean) {
         }
         applications + uids
     }
+    val choices = apps.choices
     val knownKeys = remember(choices) { choices.mapTo(HashSet<String>()) { it.key } }
     val manualChoices = selected.filterNot { it in knownKeys }.sorted().map { key ->
         if (key.startsWith("uid:")) {
@@ -1158,12 +1135,7 @@ private fun UninstallListPage(a: UninstallListActivity, blacklist: Boolean) {
         }
     }
     val visible = (manualChoices + choices).filter { choice ->
-        val inFilter = when (filter) {
-            1 -> choice.kind == 1
-            2 -> choice.kind == 2
-            3 -> choice.kind == 3
-            else -> true
-        }
+        val inFilter = showSystemApps || choice.kind == 1
         inFilter && (query.isBlank() || choice.title.contains(query, true) ||
             choice.summary.contains(query, true) || choice.key.contains(query, true))
     }.sortedWith(
@@ -1176,7 +1148,7 @@ private fun UninstallListPage(a: UninstallListActivity, blacklist: Boolean) {
         selected = next
         prefs.edit().putStringSet(prefKey, next).apply()
     }
-    PruneMissingAppSelections(a, selected, prefixed = true, onPruned = ::save)
+    PruneMissingAppSelections(a, selected, prefixed = true, onPruned = ::save, refreshKey = apps.generation)
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         topBar = {
@@ -1187,13 +1159,15 @@ private fun UninstallListPage(a: UninstallListActivity, blacklist: Boolean) {
                         Icon(MiuixIcons.Back, contentDescription = "返回")
                     }
                 },
+                actions = {
+                    AppPickerFilterMenu(showSystemApps, onShowSystemAppsChange = { showSystemApps = it })
+                },
             )
         },
     ) { innerPadding ->
-        LazyColumn(
+        AppPickerRefreshList(
+            data = apps,
             modifier = Modifier.fillMaxSize().padding(innerPadding).consumeWindowInsets(innerPadding),
-            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 28.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             item {
                 IntroCard(
@@ -1235,7 +1209,10 @@ private fun UninstallListPage(a: UninstallListActivity, blacklist: Boolean) {
                                 save(selected + entry)
                                 manual = ""
                                 query = ""
-                                filter = 0
+                                // Keep a manually added system/UID entry visible without clearing selections.
+                                if (choices.firstOrNull { it.key == entry }?.kind != 1) {
+                                    showSystemApps = true
+                                }
                             }
                         },
                         colors = ButtonDefaults.textButtonColorsPrimary(),
@@ -1246,12 +1223,7 @@ private fun UninstallListPage(a: UninstallListActivity, blacklist: Boolean) {
                 item { Text(inputError.orEmpty(), color = Color(0xFFE05252)) }
             }
             item {
-                AppPickerFilterRow(
-                    status = "已选择 " + selected.size + " 项 · 当前显示 " + visible.size + " 项",
-                    categories = listOf("默认", "用户应用", "系统应用", "UID"),
-                    selectedIndex = filter,
-                    onSelectedIndexChange = { filter = it },
-                )
+                AppPickerStatus("已选择 " + selected.size + " 项 · 当前显示 " + visible.size + " 项")
             }
             items(visible, key = { it.key }) { choice ->
                 Card(Modifier.fillMaxWidth()) {
@@ -1267,7 +1239,7 @@ private fun UninstallListPage(a: UninstallListActivity, blacklist: Boolean) {
                         )
                     }
                     if (choice.key.startsWith("pkg:")) {
-                        val icon = remember(choice.key) {
+                        val icon = remember(choice.key, apps.generation) {
                             runCatching {
                                 a.packageManager.getApplicationIcon(choice.key.removePrefix("pkg:"))
                             }.getOrElse { a.packageManager.defaultActivityIcon }
@@ -1293,7 +1265,7 @@ private fun UninstallListPage(a: UninstallListActivity, blacklist: Boolean) {
                     }
                 }
             }
-            if (visible.isEmpty()) {
+            if (!apps.loading && visible.isEmpty()) {
                 item { InfoCard("没有匹配的项目") }
             }
         }
@@ -1493,11 +1465,11 @@ private fun ZybosPage(a: ZybosTools) = Page(a, "系统特权工具", a::finish) 
 @Composable
 private fun ZybosUninstallPickerPage(a: ZybosUninstallPickerActivity) {
     var query by remember { mutableStateOf("") }
-    var filter by remember { mutableIntStateOf(0) }
+    var showSystemApps by remember { mutableStateOf(false) }
     var pending by remember { mutableStateOf<UninstallChoice?>(null) }
-    val choices = remember {
+    val apps = rememberAppPickerData(a) {
         val manager = a.packageManager
-        runCatching { manager.getInstalledApplications(0) }.getOrDefault(emptyList())
+        manager.getInstalledApplications(0)
             .mapNotNull { info ->
                 val updatedSystem = (info.flags and ApplicationInfo.FLAG_UPDATED_SYSTEM_APP) != 0
                 val system = (info.flags and ApplicationInfo.FLAG_SYSTEM) != 0
@@ -1516,8 +1488,9 @@ private fun ZybosUninstallPickerPage(a: ZybosUninstallPickerActivity) {
                 }
             }.sortedWith(compareBy<UninstallChoice> { it.kind }.thenBy { it.title.lowercase() })
     }
+    val choices = apps.choices
     val visible = choices.filter { choice ->
-        (filter == 0 || choice.kind == filter) &&
+        (showSystemApps || choice.kind == 1) &&
             (query.isBlank() || choice.title.contains(query, true) ||
                 choice.key.contains(query, true) || choice.summary.contains(query, true))
     }
@@ -1531,14 +1504,16 @@ private fun ZybosUninstallPickerPage(a: ZybosUninstallPickerActivity) {
                         Icon(MiuixIcons.Back, contentDescription = "返回")
                     }
                 },
+                actions = {
+                    AppPickerFilterMenu(showSystemApps, onShowSystemAppsChange = { showSystemApps = it })
+                },
             )
         },
     ) { innerPadding ->
         Box(Modifier.fillMaxSize().padding(innerPadding).consumeWindowInsets(innerPadding)) {
-            LazyColumn(
+            AppPickerRefreshList(
+                data = apps,
                 modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 28.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 item {
                     IntroCard("可选择用户应用或已更新的系统应用执行卸载")
@@ -1551,15 +1526,10 @@ private fun ZybosUninstallPickerPage(a: ZybosUninstallPickerActivity) {
                     )
                 }
                 item {
-                    AppPickerFilterRow(
-                        status = "当前显示 " + visible.size + " 项",
-                        categories = listOf("默认", "用户应用", "已更新的系统应用"),
-                        selectedIndex = filter,
-                        onSelectedIndexChange = { filter = it },
-                    )
+                    AppPickerStatus("当前显示 " + visible.size + " 项")
                 }
                 items(visible, key = { it.key }) { choice ->
-                    val icon = remember(choice.key) {
+                    val icon = remember(choice.key, apps.generation) {
                         runCatching { a.packageManager.getApplicationIcon(choice.key) }
                             .getOrElse { a.packageManager.defaultActivityIcon }
                     }
@@ -1593,7 +1563,7 @@ private fun ZybosUninstallPickerPage(a: ZybosUninstallPickerActivity) {
                         }
                     }
                 }
-                if (visible.isEmpty()) {
+                if (!apps.loading && visible.isEmpty()) {
                     item { InfoCard("没有匹配的应用") }
                 }
             }

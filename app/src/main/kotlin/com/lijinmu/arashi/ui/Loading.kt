@@ -10,7 +10,6 @@ import androidx.compose.ui.semantics.ProgressBarRangeInfo
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.progressBarRangeInfo
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import top.yukonga.miuix.kmp.basic.Button
 import top.yukonga.miuix.kmp.basic.Card
@@ -22,14 +21,12 @@ import top.yukonga.miuix.kmp.basic.TextButton
 internal fun LoadingIndicator(
     description: String,
     modifier: Modifier = Modifier,
-    size: Dp = 32.dp,
 ) {
     InfiniteProgressIndicator(
         modifier = modifier.semantics {
             contentDescription = description
             progressBarRangeInfo = ProgressBarRangeInfo.Indeterminate
         },
-        size = size,
     )
 }
 
@@ -52,7 +49,7 @@ internal fun LoadingTextButton(
 ) {
     if (loading) {
         Button(onClick = {}, modifier = modifier, enabled = false) {
-            LoadingIndicator(text, size = 20.dp)
+            LoadingIndicator(text)
         }
     } else {
         TextButton(text, onClick, modifier, enabled = enabled)
