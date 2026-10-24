@@ -13,6 +13,7 @@ import com.arashi.xposed.hooks.InstallHooks;
 import com.arashi.xposed.hooks.LauncherWallpaperHooks;
 import com.arashi.xposed.hooks.LauncherIconHooks;
 import com.arashi.xposed.hooks.LauncherFolderHooks;
+import com.arashi.xposed.hooks.LauncherUninstallHooks;
 import com.arashi.xposed.hooks.RestrictionHooks;
 import com.arashi.xposed.hooks.SuperviseHooks;
 import com.arashi.xposed.hooks.SystemUIHooks;
@@ -80,6 +81,7 @@ public final class HookEntry extends XposedModule {
             LauncherWallpaperHooks.hookLauncher(this, param.getClassLoader(), "com.android.launcher3".equals(pkg));
             LauncherIconHooks.hookLauncher(this, param.getClassLoader(), "com.android.launcher3".equals(pkg));
             LauncherFolderHooks.hookLauncher(this, param.getClassLoader(), "com.android.launcher3".equals(pkg));
+            LauncherUninstallHooks.hookLauncher(this, param.getClassLoader());
         } else if (PKG_SYSTEMUI.equals(pkg)) {
             ConfigManager.init(pkg);
             SystemUIHooks.hookSystemUI(this, param.getClassLoader());
