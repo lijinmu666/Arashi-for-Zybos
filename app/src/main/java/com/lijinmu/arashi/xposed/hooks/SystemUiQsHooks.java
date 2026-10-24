@@ -43,6 +43,7 @@ public final class SystemUiQsHooks {
     private static final Map<View, Integer> STATUS_BARS = new WeakHashMap<>();
     private static boolean shadeOpen;
     private static boolean lastBarEnabled;
+    private static final Map<View, NativeBounds> NATIVE_BOUNDS = new WeakHashMap<>();
     private static final Map<View, Boolean> MEDIA_PLAYERS = new WeakHashMap<>();
     private static final Map<ViewGroup, WeakReference<TextClock>> TOP_CLOCKS = new WeakHashMap<>();
     private static final Map<View, NotificationTopInset> NOTIFICATION_TOP_INSETS = new WeakHashMap<>();
@@ -207,7 +208,7 @@ public final class SystemUiQsHooks {
         if (clock == null) {
             clock = new TextClock(bar.getContext());
             clock.setSingleLine(true);
-            clock.setTextSize(12);
+            clock.setTextSize(14);
             clock.setGravity(Gravity.START | Gravity.CENTER_VERTICAL);
             bar.addView(clock, 0, new LinearLayout.LayoutParams(0, -1, 1f));
             TOP_CLOCKS.put(bar, new WeakReference<>(clock));
@@ -238,9 +239,85 @@ public final class SystemUiQsHooks {
             bar.setLayoutParams(params);
         }
         hideVendorStatusRow(root);
-        bar.setVisibility(View.VISIBLE);
+        normalizeTopStatusSize(bar);
+        if (bar.getLayoutParams() instanceof ViewGroup.MarginLayoutParams) {
+            ViewGroup.MarginLayoutParams margins = (ViewGroup.MarginLayoutParams) bar.getLayoutParams();
+            margins.topMargin = dp(bar, 48);
+            bar.setLayoutParams(margins);
+        }
+        applyTopStatusVisibility();
         View lowerHeader = find(root, "split_shade_status_bar");
         if (lowerHeader != null) lowerHeader.setVisibility(View.INVISIBLE);
+    }
+
+
+    private static void normalizeTopStatusSize(ViewGroup row) {
+        for (int i = 0; i < row.getChildCount(); i++) {
+            View child = row.getChildAt(i);
+            if (child instanceof TextView) ((TextView) child).setTextSize(14);
+            if (child instanceof ViewGroup) normalizeTopStatusSize((ViewGroup) child);
+        }
+        for (String name : new String[] {"battery", "statusIcons"}) {
+            View icons = find(row, name);
+            if (icons == null || icons.getLayoutParams() == null) continue;
+            ViewGroup.LayoutParams params = icons.getLayoutParams();
+            params.height = dp(row, 20);
+            icons.setLayoutParams(params);
+        }
+    }
+
+    private static void applyTopStatusVisibility() {
+        int visibility = enabled() && shadeOpen ? View.VISIBLE : View.INVISIBLE;
+        for (ViewGroup row : TOP_CLOCKS.keySet()) applyBarVisibility(row, visibility);
+    }
+
+    private static final String[] BOUND_FIELDS = {"width", "height", "leftMargin", "rightMargin",
+            "topMargin", "bottomMargin", "gravity", "leftToLeft", "leftToRight", "rightToLeft",
+            "rightToRight", "startToStart", "startToEnd", "endToStart", "endToEnd"};
+
+    private static final class NativeBounds {
+        final Class<?> paramsType;
+        final java.lang.reflect.Field[] fields = new java.lang.reflect.Field[BOUND_FIELDS.length];
+        final int[] nativeValues = new int[BOUND_FIELDS.length], applied = new int[BOUND_FIELDS.length];
+        NativeBounds(Object params) throws ReflectiveOperationException {
+            paramsType = params.getClass();
+            for (int i = 0; i < fields.length; i++) {
+                fields[i] = SystemUiQsExpansion.field(params.getClass(), BOUND_FIELDS[i]);
+                if (fields[i] != null) nativeValues[i] = applied[i] = fields[i].getInt(params);
+            }
+        }
+        void observe(Object params) throws ReflectiveOperationException {
+            for (int i = 0; i < fields.length; i++) if (fields[i] != null) {
+                int value = fields[i].getInt(params);
+                if (value != applied[i]) nativeValues[i] = value;
+            }
+        }
+        void remember(Object params) throws ReflectiveOperationException {
+            for (int i = 0; i < fields.length; i++)
+                if (fields[i] != null) applied[i] = fields[i].getInt(params);
+        }
+        void restore(View view) throws ReflectiveOperationException {
+            Object params = view.getLayoutParams();
+            boolean changed = false;
+            for (int i = 0; i < fields.length; i++) if (fields[i] != null
+                    && fields[i].getInt(params) != nativeValues[i]) {
+                fields[i].setInt(params, nativeValues[i]); changed = true;
+            }
+            if (changed) view.setLayoutParams((ViewGroup.LayoutParams) params);
+        }
+    }
+
+    private static void observeNativeBounds(View view) throws ReflectiveOperationException {
+        if (view.getLayoutParams() == null) return;
+        NativeBounds state = NATIVE_BOUNDS.get(view);
+        if (state == null || state.paramsType != view.getLayoutParams().getClass()) NATIVE_BOUNDS.put(view, new NativeBounds(view.getLayoutParams()));
+        else state.observe(view.getLayoutParams());
+    }
+
+    private static void restoreNativeBounds(View view) throws ReflectiveOperationException {
+        NativeBounds state = NATIVE_BOUNDS.remove(view);
+        if (state != null) state.restore(view);
+        NOTIFICATION_TOP_INSETS.remove(view);
     }
 
     static boolean splitShade(Resources resources) {
@@ -294,6 +371,15 @@ public final class SystemUiQsHooks {
         View notifications = find(root, "notification_stack_scroller");
         if (qs == null || notifications == null || qs.getParent() != root
                 || notifications.getParent() != root) return;
+        observeNativeBounds(qs);
+        observeNativeBounds(notifications);
+        Method onKeyguard = Reflect.findMethodExact(notifications.getClass(), "onKeyguard");
+        boolean keyguard = onKeyguard != null && Boolean.TRUE.equals(onKeyguard.invoke(notifications));
+        if (keyguard) {
+            restoreNativeBounds(qs);
+            restoreNativeBounds(notifications);
+            return;
+        }
         int edge = dp(root, portrait(root.getResources()) ? 24 : 16);
         int gap = dp(root, 16);
         boolean split = splitShade(root.getResources());
@@ -327,10 +413,10 @@ public final class SystemUiQsHooks {
         int notificationStart = split ? width - edge - column : edge;
         if (banner) notificationStart = (width - column) / 2;
         boundColumn(notifications, column, notificationStart, bottom);
-        Method onKeyguard = Reflect.findMethodExact(notifications.getClass(), "onKeyguard");
-        boolean keyguard = onKeyguard != null && Boolean.TRUE.equals(onKeyguard.invoke(notifications));
         boolean expanded = !Boolean.FALSE.equals(Reflect.getObjectField(notifications, "mIsExpanded"));
-        insetNotificationTop(notifications, split && expanded && !banner && !keyguard ? dp(root, 64) : 0);
+        insetNotificationTop(notifications, split && expanded && !banner ? dp(root, 64) : 0);
+        NATIVE_BOUNDS.get(qs).remember(qs.getLayoutParams());
+        NATIVE_BOUNDS.get(notifications).remember(notifications.getLayoutParams());
     }
 
 
@@ -504,7 +590,15 @@ public final class SystemUiQsHooks {
         Object fraction = Reflect.getObjectField(controller, "mExpandedFraction");
         if (!(fraction instanceof Number)) return;
         float value = ((Number) fraction).floatValue();
-        boolean open = Float.isFinite(value) && value > 0f;
+        Object barState = Reflect.getObjectField(controller, "mBarState");
+        boolean keyguard = barState instanceof Number && ((Number) barState).intValue() != 0;
+        Object qs = Reflect.getObjectField(controller, "mQsController");
+        boolean qsExpanded = SystemUiQsExpansion.flag(qs, "mExpanded")
+                || SystemUiQsExpansion.flag(controller, "mQsExpanded");
+        boolean pinned = SystemUiQsExpansion.flag(controller, "mHeadsUpPinnedMode");
+        boolean tracking = SystemUiQsExpansion.flag(controller, "mTracking");
+        boolean open = Float.isFinite(value) && value > 0f && (!keyguard || qsExpanded)
+                && (!pinned || tracking || qsExpanded || value >= 1f);
         if (open == shadeOpen && lastBarEnabled == enabled()) return;
         if (open && !shadeOpen) {
             for (Map.Entry<View, Integer> entry : STATUS_BARS.entrySet())
@@ -513,6 +607,7 @@ public final class SystemUiQsHooks {
         shadeOpen = open;
         lastBarEnabled = enabled();
         refreshGlobalStatusBars();
+        applyTopStatusVisibility();
     }
 
     private static void refreshGlobalStatusBars() {

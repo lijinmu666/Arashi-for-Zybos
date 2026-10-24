@@ -184,7 +184,7 @@ public class PhoneStatusBarView extends android.view.View {
  public void onAttachedToWindow(){}public void onDetachedFromWindow(){}
 }''',
  'com/android/systemui/shade/NotificationPanelViewController.java': '''package com.android.systemui.shade;
-public class NotificationPanelViewController {public float mExpandedFraction;public void updateExpansionAndVisibility(){}}
+public class NotificationPanelViewController {public float mExpandedFraction;public int mBarState;public boolean mHeadsUpPinnedMode,mTracking,mQsExpanded;public Object mQsController;public void updateExpansionAndVisibility(){}}
 ''',
  'com/android/systemui/statusbar/phone/PanelViewController.java': '''package com.android.systemui.statusbar.phone;
 public class PanelViewController {public float mExpandedFraction;public void notifyBarPanelExpansionChanged(){}}
@@ -311,6 +311,7 @@ public class Check {
   SystemUiQsHooks.restoreShadeBounds(bounds,1920);
   check(((FrameLayout.LayoutParams)stackBounds.params).topMargin==128);
   stackBounds.keyguard=true;SystemUiQsHooks.restoreShadeBounds(bounds,1920);
+  check(stackBounds.params.width==960&&qsBounds.params.width==960);
   check(((FrameLayout.LayoutParams)stackBounds.params).topMargin==0);
   stackBounds.keyguard=false;SystemUiQsHooks.restoreShadeBounds(bounds,1920);
   check(((FrameLayout.LayoutParams)stackBounds.params).topMargin==128);
@@ -410,16 +411,26 @@ public class Check {
   check(!unchangedMedia.clip&&unchangedMedia.outline==null);
   Drawable outerBackground=new GradientDrawable();footerBar.setBackground(outerBackground);
   call(bindFooter,null,footerBar);check(footerBar.background==outerBackground);ConfigManager.enabled=true;
+  expansion14.mExpandedFraction=1;call(expansionUpdate,expansion14);
   var vendorRoot=new com.android.systemui.shade.NotificationsQuickSettingsContainer();
   FrameLayout misleadingHeader=new FrameLayout();misleadingHeader.addView(named(new View(),"system_icon_area"));
   vendorRoot.addView(misleadingHeader);
-  LinearLayout duplicate=named(new LinearLayout(),"system_icon_area");View topBattery=new View();duplicate.addView(topBattery);vendorRoot.addView(duplicate);
+  LinearLayout duplicate=named(new LinearLayout(),"system_icon_area");View topBattery=new View();duplicate.addView(topBattery);duplicate.setLayoutParams(new FrameLayout.LayoutParams(-1,-2));vendorRoot.addView(duplicate);
   call(vendorRoot.getClass().getMethod("onFinishInflate"),vendorRoot);check(duplicate.visibility==View.VISIBLE);
   check(duplicate.getChildCount()==2&&duplicate.getChildAt(1)==topBattery);
   check(duplicate.getChildAt(0) instanceof TextClock);
   TextClock topClock=(TextClock)duplicate.getChildAt(0);
   check(topClock.format12.toString().contains("hm")&&topClock.format24.toString().contains("Hm")&&topClock.format24.toString().contains("MMMdEEE"));
   SystemUiQsHooks.restoreTopStatusRow(vendorRoot);check(duplicate.getChildCount()==2);
+  check(((ViewGroup.MarginLayoutParams)duplicate.params).topMargin==96);
+  check(topClock.size==14f);
+  expansion14.mHeadsUpPinnedMode=true;expansion14.mExpandedFraction=.1f;
+  call(expansionUpdate,expansion14);check(duplicate.visibility==View.INVISIBLE);
+  expansion14.mTracking=true;call(expansionUpdate,expansion14);check(duplicate.visibility==View.VISIBLE);
+  expansion14.mTracking=false;expansion14.mHeadsUpPinnedMode=false;expansion14.mBarState=1;
+  call(expansionUpdate,expansion14);check(duplicate.visibility==View.INVISIBLE);
+  expansion14.mBarState=0;expansion14.mExpandedFraction=0;call(expansionUpdate,expansion14);check(duplicate.visibility==View.INVISIBLE);
+  expansion14.mExpandedFraction=1;call(expansionUpdate,expansion14);check(duplicate.visibility==View.VISIBLE);
   View stableQs=named(new View(),"qs_frame"),stableNotifications=named(new View(),"notification_stack_scroller");
   stableQs.setLayoutParams(new FrameLayout.LayoutParams(-1,-1));stableNotifications.setLayoutParams(new FrameLayout.LayoutParams(-1,-1));
   vendorRoot.addView(stableQs);vendorRoot.addView(stableNotifications);
