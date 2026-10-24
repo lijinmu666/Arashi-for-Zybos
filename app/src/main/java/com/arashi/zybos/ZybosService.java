@@ -27,6 +27,11 @@ private static Object proxy;
     private ZybosService() {}
 
 public static synchronized boolean detect(Context context) {
+        if (SystemToolSupport.isBlocked()) {
+            SystemToolSupport.enforceInstallerState(context);
+            lastError = SystemToolSupport.MESSAGE;
+            return false;
+        }
         if (detected && (proxy != null || rawBinder != null)) return true;
         String binderError = "未尝试";
 
@@ -136,11 +141,17 @@ try {
         try { return Class.forName(name); } catch (Throwable t) { return null; }
     }
 
-    public static boolean isAvailable() { return proxy != null || rawBinder != null; }
+    public static boolean isAvailable() {
+        return !SystemToolSupport.isBlocked() && (proxy != null || rawBinder != null);
+    }
     public static String getLastError() { return lastError; }
 
 public static boolean silentInstallApk(String apkPath, boolean isSdcard,
                                            String packageName) {
+        if (SystemToolSupport.isBlocked()) {
+            lastError = SystemToolSupport.MESSAGE;
+            return false;
+        }
         if (rawBinder != null && proxy == null) {
             return transactInstall(rawBinder, apkPath, isSdcard, packageName);
         }
@@ -177,6 +188,10 @@ public static boolean silentInstallApk(String apkPath, boolean isSdcard,
     }
 
 public static boolean silentUninstallApk(String packageName, boolean isKeepData) {
+        if (SystemToolSupport.isBlocked()) {
+            lastError = SystemToolSupport.MESSAGE;
+            return false;
+        }
         if (rawBinder != null && proxy == null) {
             return transactUninstall(rawBinder, packageName, isKeepData);
         }
@@ -213,6 +228,10 @@ public static boolean silentUninstallApk(String packageName, boolean isKeepData)
 
     private static boolean transactInstall(IBinder binder, String path, boolean sdcard,
                                             String packageName) {
+        if (SystemToolSupport.isBlocked()) {
+            lastError = SystemToolSupport.MESSAGE;
+            return false;
+        }
         android.os.Parcel data = android.os.Parcel.obtain();
         android.os.Parcel reply = android.os.Parcel.obtain();
         try {

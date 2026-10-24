@@ -62,9 +62,9 @@ public final class Main extends BasePage {
         
     }
 
-    public void continueAfterCompatibilityWarning() {
-        if (isFinishing() || isDestroyed()) return;
-        populateHome();
+    public void exitUnsupportedDevice() {
+        finishAffinity();
+        android.os.Process.killProcess(android.os.Process.myPid());
     }
 
     private void populateHome() {

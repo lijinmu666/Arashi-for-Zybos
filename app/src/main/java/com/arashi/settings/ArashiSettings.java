@@ -27,12 +27,18 @@ public final class ArashiSettings extends BasePage {
     }
 
     public boolean isInstallerEnabled() {
+        if (com.arashi.zybos.SystemToolSupport.isBlocked()) return false;
         ComponentName installer = new ComponentName(this, ApkInstallerActivity.class);
         return getPackageManager().getComponentEnabledSetting(installer)
                 != PackageManager.COMPONENT_ENABLED_STATE_DISABLED;
     }
 
     public void setInstallerEnabled(boolean enabled) {
+        if (com.arashi.zybos.SystemToolSupport.isBlocked()) {
+            com.arashi.zybos.SystemToolSupport.enforceInstallerState(this);
+            MiuixPages.showMessage(this, "暂不可用", com.arashi.zybos.SystemToolSupport.MESSAGE);
+            return;
+        }
         ComponentName installer = new ComponentName(this, ApkInstallerActivity.class);
         getPackageManager().setComponentEnabledSetting(installer,
                 enabled ? PackageManager.COMPONENT_ENABLED_STATE_ENABLED

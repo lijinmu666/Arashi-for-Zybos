@@ -25,6 +25,12 @@ public final class UninstallPromptActivity extends ComponentActivity {
             finish();
             return;
         }
+        // A queued request may arrive after the user has switched validation off.
+        if (!getSharedPreferences(com.arashi.uninstall.UninstallConfig.PREF_NAME, MODE_PRIVATE)
+                .getBoolean(com.arashi.uninstall.UninstallConfig.ENABLED, false)) {
+            decide(true);
+            return;
+        }
         setShowWhenLocked(true);
         setTurnScreenOn(true);
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
@@ -36,7 +42,6 @@ public final class UninstallPromptActivity extends ComponentActivity {
                 getIntent().getStringExtra("target"),
                 getIntent().getIntExtra("caller_uid", -1),
                 getIntent().getStringArrayExtra("caller_packages"),
-                getIntent().getBooleanExtra("countdown", true),
                 getIntent().getLongExtra("deadline_elapsed", android.os.SystemClock.elapsedRealtime()));
     }
 

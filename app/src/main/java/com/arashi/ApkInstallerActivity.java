@@ -69,6 +69,11 @@ public final class ApkInstallerActivity extends ComponentActivity {
     }
 
     private void inspect(Uri uri) {
+        if (com.arashi.zybos.SystemToolSupport.isBlocked()) {
+            com.arashi.zybos.SystemToolSupport.enforceInstallerState(this);
+            fail(com.arashi.zybos.SystemToolSupport.MESSAGE);
+            return;
+        }
         if (uri == null) {
             fail("未收到 APK 文件地址");
             return;
@@ -189,6 +194,9 @@ public final class ApkInstallerActivity extends ComponentActivity {
                     showResult("未检测到安装", "请求已发送，但尚未检测到 "
                             + apk.packageName + " 安装到当前用户");
                 }
+            } catch (RuntimeException error) {
+                Log.e(TAG, "Install submission or verification failed", error);
+                fail("安装处理失败：" + error.getMessage());
             } finally {
                 cleanupStagedApk();
                 installing = false;
@@ -367,6 +375,7 @@ public final class ApkInstallerActivity extends ComponentActivity {
     }
 
     private void showResult(String title, String message) {
+        Log.i(TAG, "Install result: " + title + ", " + message);
         runOnUiThread(() -> {
             if (!destroyed && !isFinishing()) {
                 MiuixPages.renderInstallerResult(this, title, message);

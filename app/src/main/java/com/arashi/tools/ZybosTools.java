@@ -51,6 +51,10 @@ public final class ZybosTools extends BasePage {
             });
 
     @Override protected void populate() {
+        if (com.arashi.zybos.SystemToolSupport.isBlocked()) {
+            MiuixPages.renderSystemToolsUnavailable(this);
+            return;
+        }
         MiuixPages.renderZybosTools(this);
 
 }

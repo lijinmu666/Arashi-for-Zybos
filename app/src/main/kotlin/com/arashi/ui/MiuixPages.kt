@@ -53,7 +53,7 @@ import com.arashi.xposed.HookConfig
 import com.arashi.xposed.HookScopes
 import com.arashi.xposed.SettingsProvider
 import com.arashi.uninstall.UninstallHistoryStore
-import com.arashi.zybos.ZybosService
+import com.arashi.zybos.SystemToolSupport
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.CardDefaults
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
@@ -106,9 +106,8 @@ object MiuixPages {
         target: String?,
         uid: Int,
         packages: Array<String>?,
-        countdown: Boolean,
         deadline: Long,
-    ) = render(a) { UninstallPrompt(a, target, uid, packages, countdown, deadline) }
+    ) = render(a) { UninstallPrompt(a, target, uid, packages, deadline) }
     @JvmStatic fun renderQuickCommands(a: QuickCommands) = render(a) { QuickPage(a) }
     @JvmStatic fun renderZybosTools(a: ZybosTools) = render(a) { ZybosPage(a) }
     @JvmStatic fun renderZybosUninstallPicker(a: ZybosUninstallPickerActivity) =
@@ -123,6 +122,9 @@ object MiuixPages {
         label: String,
         icon: Drawable,
     ) = render(a) { InstallerPage(a, path, packageName, label, icon) }
+    @JvmStatic fun renderSystemToolsUnavailable(a: ZybosTools) = render(a) {
+        Page(a, "系统特权工具", a::finish) { InfoCard(SystemToolSupport.MESSAGE) }
+    }
     @JvmStatic fun renderInstallerProgress(
         a: ApkInstallerActivity,
         label: String,
@@ -238,14 +240,23 @@ object MiuixPages {
     @Composable
     fun MessageDialog(a: Activity) {
         val message = messageState(a)
+        val current = message.value
+        // Visibility can change immediately, but the overlay still draws its
+        // content during the exit animation. Retain the last displayed message
+        // until replacement or composition disposal rather than blanking it.
+        var retained by remember(a) { mutableStateOf(current) }
+        SideEffect {
+            if (current != null) retained = current
+        }
+        val displayed = current ?: retained
         OverlayDialog(
-            show = message.value != null,
-            title = message.value?.title,
-            summary = message.value?.body,
+            show = current != null,
+            title = displayed?.title,
+            summary = displayed?.body,
             onDismissRequest = { message.value = null },
         ) {
             TextButton(
-                message.value?.buttonLabel ?: "知道了",
+                displayed?.buttonLabel ?: "知道了",
                 { message.value = null },
                 Modifier.fillMaxWidth(),
                 colors = ButtonDefaults.textButtonColorsPrimary(),
@@ -388,15 +399,22 @@ private fun HomePage(a: Main) = Page(a, "Arashi") {
         Spacer(Modifier.height(18.dp))
         val moduleActive by rememberSystemServerActivation(a)
         StatusLine("LSPosed", if (moduleActive) "已激活" else "未激活", moduleActive)
-        Spacer(Modifier.height(14.dp))
-        val zybosAvailable = ZybosService.detect(a)
-        StatusLine("ZybosSysApiManager", if (zybosAvailable) "可用" else "不可用", zybosAvailable)
     }
     Group("功能") {
         Link("Hook 功能设置", "控制 Hook 是否启用") { a.startActivity(Intent(a, HookSettings::class.java)) }
         Link("卸载验证设置", "验证发起的卸载请求") { a.startActivity(Intent(a, UninstallSettings::class.java)) }
         Link("快捷指令执行", "调整设置、冻结应用等快捷操作") { a.startActivity(Intent(a, QuickCommands::class.java)) }
-        Link("系统特权工具", "利用 ZybosSysApiManager 执行系统操作") { a.startActivity(Intent(a, ZybosTools::class.java)) }
+        val toolsBlocked = SystemToolSupport.isBlocked()
+        Box(Modifier.fillMaxWidth().clickable(enabled = toolsBlocked) {
+            MiuixPages.showMessage(a, "暂不可用", SystemToolSupport.MESSAGE)
+        }) {
+            ArrowPreference(
+                title = "系统特权工具",
+                summary = "利用 ZybosSysApiManager 执行系统操作",
+                enabled = !toolsBlocked,
+                onClick = { a.startActivity(Intent(a, ZybosTools::class.java)) },
+            )
+        }
         Link("应用偏好设置", "配置外观等") { a.startActivity(Intent(a, ArashiSettings::class.java)) }
         Link("关于 Arashi", "有关 Arashi 的更多详细信息页") { a.startActivity(Intent(a, About::class.java)) }
     }
@@ -407,11 +425,11 @@ private fun UnsupportedDevicePage(a: Main) = Page(a, "Arashi") {
     OverlayDialog(
         show = true,
         summary = "当前系统可能无法正常使用 Arashi 功能",
-        onDismissRequest = a::continueAfterCompatibilityWarning,
+        onDismissRequest = a::exitUnsupportedDevice,
     ) {
         TextButton(
-            "哦",
-            a::continueAfterCompatibilityWarning,
+            "确认",
+            a::exitUnsupportedDevice,
             Modifier.fillMaxWidth(),
             colors = ButtonDefaults.textButtonColorsPrimary(),
         )
@@ -449,25 +467,25 @@ private fun HookPage(a: HookSettings) = Page(a, "Hook 功能设置", a::finish) 
     }
     val groups = listOf(
         "安装" to listOf(
-            HookItem("外部应用安装支持", "跳过 PackageInstaller 的安装检查，允许安装外部 APK", HookConfig.KEY_EXTERNAL_INSTALL),
-            HookItem("Shell 安装支持", "放行 ADB 和 pm install 安装，允许使用 Shell 安装应用", HookConfig.KEY_SHELL_INSTALL),
-            HookItem("清除安装黑名单", "允许安装被硬编码在系统中的5个包名。开关控制重启系统后生效", HookConfig.KEY_CLEAR_BLACKLIST),
+            HookItem("允许外部应用安装", "禁止 PackageInstaller 的安装检查，允许安装外部 APK", HookConfig.KEY_EXTERNAL_INSTALL),
+            HookItem("允许 Shell 安装", "放行 ADB 和 pm install 安装指令，允许 Shell 安装应用", HookConfig.KEY_SHELL_INSTALL),
+            HookItem("解除安装黑名单限制", "允许安装被硬编码在 mZybBlacklistApp 中的包名。开关控制重启系统后生效", HookConfig.KEY_CLEAR_BLACKLIST),
         ),
         "行为" to listOf(
-            HookItem("开发者选项支持", "放行开发者选项的开启状态检查，允许打开开发者选项的 Activity", HookConfig.KEY_DEV_OPTIONS),
+            HookItem("允许打开开发者选项", "绕过系统设置检查，允许打开开发者选项的 Activity", HookConfig.KEY_DEV_OPTIONS),
             HookItem("保留后台进程", "拦截划卡后强杀应用进程。开关控制立即生效", HookConfig.KEY_KEEP_BACKGROUND),
-            HookItem("USB 文件传输支持", "允许连接挂载外部 USB 设备", HookConfig.KEY_ALLOW_USB),
-            HookItem("壁纸设置支持", "允许任意应用修改系统壁纸", HookConfig.KEY_ALLOW_WALLPAPER),
-            HookItem("认证型 WiFi 登录支持", "允许认证型 WiFi 跳转网页", HookConfig.KEY_CAPTIVE_PORTAL),
-            HookItem("解除应用详情页限制", "允许打开 WebView、report服务 和 PadMs 的应用设置详情页", HookConfig.KEY_CLEAR_DETAIL_BLACK),
-            HookItem("阻止重设默认浏览器", "拦截 SystemUI 开机时将“学习网站”设为默认浏览器", HookConfig.KEY_BLOCK_DEFAULT_BROWSER),
+            HookItem("允许 USB 文件传输", "允许挂载外部 USB 设备和使用数据传输。开关控制立即生效", HookConfig.KEY_ALLOW_USB),
+            HookItem("允许任意应用设置壁纸", "系统本只允许 设置 和 桌面 设置壁纸，允许任意应用（例如壁纸引擎）设置壁纸", HookConfig.KEY_ALLOW_WALLPAPER),
+            HookItem("允许 WiFi 网页登录", "允许连接到认证型 WiFi 跳转到登录验证网页", HookConfig.KEY_CAPTIVE_PORTAL),
+            HookItem("解除应用详情页限制", "允许打开 WebView、report服务 和 PadMs 的应用设置详情页。开关控制立即生效", HookConfig.KEY_CLEAR_DETAIL_BLACK),
+            HookItem("阻止重设默认浏览器", "拦截 SystemUI 开机时将 “学习网站” 设为默认浏览器", HookConfig.KEY_BLOCK_DEFAULT_BROWSER),
         ),
-        "管控" to listOf(
-            HookItem("拦截管控强停和任务清理", "从 SystemServer 层拦截管控服务的强杀应用和移除任务行为", HookConfig.KEY_BLOCK_SUPERVISE),
+        "管控服务" to listOf(
+            HookItem("拦截管控服务行为", "从 SystemServer 层拦截管控服务的强杀应用和移除任务行为", HookConfig.KEY_BLOCK_SUPERVISE),
             HookItem("阻止时长上报", "拦截管控服务的使用时长上传", HookConfig.KEY_BLOCK_USAGE_REPORT),
             HookItem("解除应用禁用", "将应用可用查询结果改为允许，绕过应用禁用和时长限制。已禁用的应用要先从其他应用打开一次才能从桌面启动", HookConfig.KEY_NEUTRALIZE_POLICY),
             HookItem("解除页面屏蔽", "将受限页面查询结果置空，允许打开被管控规则屏蔽的应用页面", HookConfig.KEY_NEUTRALIZE_ADVANCE),
-            HookItem("拦截超时锁屏", "拦截管控服务的超时处理，达到整机时长限制或超出可用时段后不锁屏", HookConfig.KEY_NO_TIMEOUT_LOCK),
+            HookItem("阻止超时锁屏", "拦截管控服务的超时处理，达到整机时长限制或超出可用时段后不锁屏", HookConfig.KEY_NO_TIMEOUT_LOCK),
         ),
     )
     groups.forEach { (name, entries) ->
@@ -711,10 +729,11 @@ private fun UninstallPage(a: UninstallSettings) = Page(a, "卸载验证", a::fin
             a.lifecycle.removeObserver(observer)
         }
     }
-    var timeoutEnabled by remember { mutableStateOf(prefs.getBoolean(UninstallConfig.TIMEOUT_ENABLED, true)) }
+    var spoofResult by remember { mutableStateOf(prefs.getBoolean(UninstallConfig.SPOOF_RESULT, false)) }
     val durations = listOf(5, 10, 15, 30)
     var duration by remember {
-        mutableIntStateOf(durations.indexOf(prefs.getInt(UninstallConfig.TIMEOUT_SECONDS, 10)).coerceAtLeast(0))
+        mutableIntStateOf(durations.indexOf(UninstallConfig.normalizeTimeoutSeconds(
+            prefs.getInt(UninstallConfig.TIMEOUT_SECONDS, UninstallConfig.DEFAULT_TIMEOUT))))
     }
     IntroCard("细化并管理每一次卸载请求。当系统尝试卸载应用时，会向你询问是否允许")
     Group("验证") {
@@ -731,37 +750,26 @@ private fun UninstallPage(a: UninstallSettings) = Page(a, "卸载验证", a::fin
                 else "未检测到 system_server Hook，卸载验证暂时关闭；激活后会恢复此前的开启状态",
             enabled = moduleActive,
         )
-        SwitchPreference(
-            checked = timeoutEnabled,
-            onCheckedChange = {
-                timeoutEnabled = it
-                prefs.edit().putBoolean(UninstallConfig.TIMEOUT_ENABLED, it).apply()
+        OverlayDropdownPreference(
+            items = durations.map { "$it 秒" },
+            selectedIndex = duration,
+            title = "验证倒计时",
+            onSelectedIndexChange = {
+                duration = it
+                prefs.edit().putInt(UninstallConfig.TIMEOUT_SECONDS, durations[it]).apply()
             },
-            title = "启用超时计时",
-            summary = "验证弹窗在设定秒数内未确认默认拒绝；关闭后仍有 30 秒系统安全上限，超时默认拒绝",
         )
-        AnimatedVisibility(
-            visible = timeoutEnabled,
-            enter = expandVertically(
-                animationSpec = tween(250, easing = FastOutSlowInEasing),
-                expandFrom = Alignment.Top,
-            ) + fadeIn(animationSpec = tween(200)),
-            exit = shrinkVertically(
-                animationSpec = tween(250, easing = FastOutSlowInEasing),
-                shrinkTowards = Alignment.Top,
-            ) + fadeOut(animationSpec = tween(150)),
-        ) {
-            OverlayDropdownPreference(
-                items = durations.map { it.toString() + " 秒" },
-                selectedIndex = duration,
-                title = "超时秒数",
-                onSelectedIndexChange = {
-                    duration = it
-                    prefs.edit().putInt(UninstallConfig.TIMEOUT_SECONDS, durations[it]).apply()
-                },
-            )
-        }
+        SwitchPreference(
+            checked = spoofResult,
+            onCheckedChange = {
+                spoofResult = it
+                prefs.edit().putBoolean(UninstallConfig.SPOOF_RESULT, it).apply()
+            },
+            title = "伪装卸载结果",
+            summary = "返回拒绝的卸载请求已成功卸载",
+        )
     }
+
     Group("发起方策略") {
         Link("白名单", "白名单中的发起方不会弹窗向你确认，直接允许") {
             a.startActivity(Intent(a, UninstallListActivity::class.java).putExtra("blacklist", false))
@@ -781,45 +789,45 @@ private fun UninstallPage(a: UninstallSettings) = Page(a, "卸载验证", a::fin
 private fun UninstallHistoryPage(a: UninstallHistoryActivity) {
     var records by remember { mutableStateOf<List<UninstallHistoryStore.Record>>(emptyList()) }
     var request by remember { mutableIntStateOf(0) }
-    var clearRequest by remember { mutableIntStateOf(0) }
     var confirmClear by remember { mutableStateOf(false) }
     var clearing by remember { mutableStateOf(false) }
     var loading by remember { mutableStateOf(true) }
     var hasMore by remember { mutableStateOf(true) }
     var loadError by remember { mutableStateOf<String?>(null) }
     var clearError by remember { mutableStateOf<String?>(null) }
+    // A single effect serializes refresh, pagination and deletion. Changing the
+    // request cancels any old read before it can repopulate a cleared list.
     LaunchedEffect(request) {
-        loading = true
-        val before = records.lastOrNull()?.id ?: Long.MAX_VALUE
+        val deleting = clearing
+        loading = !deleting
         try {
-            val batch = withContext(Dispatchers.IO) {
-                UninstallHistoryStore.read(a, before, 101)
+            if (deleting) {
+                val count = withContext(Dispatchers.IO) { UninstallHistoryStore.clear(a) }
+                records = emptyList()
+                hasMore = false
+                loadError = null
+                clearError = null
+                MiuixPages.showMessage(a, "清空完成", "已清空 $count 条卸载记录")
+            } else {
+                val before = records.lastOrNull()?.id ?: Long.MAX_VALUE
+                val batch = withContext(Dispatchers.IO) {
+                    UninstallHistoryStore.read(a, before, 101)
+                }
+                records = records + batch.take(100)
+                hasMore = batch.size > 100
+                loadError = null
             }
-            records = records + batch.take(100)
-            hasMore = batch.size > 100
-            loadError = null
         } catch (error: CancellationException) {
             throw error
         } catch (error: Exception) {
-            loadError = error.message ?: "读取记录失败"
+            if (deleting) {
+                clearError = error.message ?: "清空记录失败"
+                MiuixPages.showMessage(a, "清空失败", clearError.orEmpty())
+            } else {
+                loadError = error.message ?: "读取记录失败"
+            }
         }
         loading = false
-    }
-    LaunchedEffect(clearRequest) {
-        if (clearRequest == 0) return@LaunchedEffect
-        clearing = true
-        try {
-            withContext(Dispatchers.IO) { UninstallHistoryStore.clear(a) }
-            records = emptyList()
-            hasMore = true
-            loadError = null
-            clearError = null
-            request++
-        } catch (error: CancellationException) {
-            throw error
-        } catch (error: Exception) {
-            clearError = error.message ?: "清空记录失败"
-        }
         clearing = false
     }
     Scaffold(
@@ -906,13 +914,14 @@ private fun UninstallHistoryPage(a: UninstallHistoryActivity) {
             if (clearError != null) {
                 item { InfoCard("清空失败：" + clearError) }
             }
-            if (hasMore && !loading && loadError == null) {
+            if (hasMore && !loading && !clearing && loadError == null) {
                 item {
                     TextButton("加载更多", { request++ }, Modifier.fillMaxWidth())
                 }
             }
         }
     }
+    MiuixPages.MessageDialog(a)
     OverlayDialog(
         show = confirmClear,
         title = "清空卸载记录",
@@ -925,7 +934,10 @@ private fun UninstallHistoryPage(a: UninstallHistoryActivity) {
                 "清空",
                 {
                     confirmClear = false
-                    clearRequest++
+                    if (!clearing) {
+                        clearing = true
+                        request++
+                    }
                 },
                 Modifier.weight(1f),
                 colors = ButtonDefaults.textButtonColorsPrimary(),
@@ -1134,7 +1146,6 @@ private fun UninstallPrompt(
     target: String?,
     uid: Int,
     packages: Array<String>?,
-    countdown: Boolean,
     deadline: Long,
 ) {
     val callerName = remember(uid, packages) {
@@ -1198,7 +1209,7 @@ private fun UninstallPrompt(
                     }
                 }
                 Text(
-                    if (countdown) "剩余 $remaining 秒" else "剩余 $remaining 秒（安全上限）",
+                    "剩余 $remaining 秒",
                     color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                 )
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -1491,7 +1502,7 @@ private fun SettingsPage(a: ArashiSettings) = Page(a, "应用偏好设置", a::f
     }
     Group("外观") {
         OverlayDropdownPreference(
-            items = listOf("Arashi 紫色", "Miuix 默认蓝色"),
+            items = listOf("紫色", "蓝色"),
             selectedIndex = selectedColorScheme,
             title = "配色设置",
             onSelectedIndexChange = { index ->
@@ -1546,8 +1557,13 @@ private fun SettingsPage(a: ArashiSettings) = Page(a, "应用偏好设置", a::f
             summary = if (moduleActive) "隐藏后仍可从 LSPosed 管理器打开" else "需先激活 LSPosed 才能隐藏桌面图标",
             enabled = moduleActive,
         )
+        val installerBlocked = SystemToolSupport.isBlocked()
+        Box(Modifier.fillMaxWidth().clickable(enabled = installerBlocked) {
+            MiuixPages.showMessage(a, "暂不可用", SystemToolSupport.MESSAGE)
+        }) {
         SwitchPreference(
-            checked = installer,
+            checked = installer && !installerBlocked,
+            enabled = !installerBlocked,
             onCheckedChange = { requested ->
                 try {
                     a.setInstallerEnabled(requested)
@@ -1559,6 +1575,7 @@ private fun SettingsPage(a: ArashiSettings) = Page(a, "应用偏好设置", a::f
             title = "启用 Arashi 安装器",
             summary = "启用后可在打开 APK 文件时选择 Arashi 作为安装器",
         )
+        }
     }
 }
 

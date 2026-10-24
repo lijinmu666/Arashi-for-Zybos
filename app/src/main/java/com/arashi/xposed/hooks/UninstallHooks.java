@@ -38,7 +38,6 @@ public final class UninstallHooks {
     private static final String DENIED_MESSAGE = "WoShiJiangJieShi";
     private static final Semaphore PROMPT_SLOT = new Semaphore(1);
     private static final ThreadLocal<Boolean> INSTALLER_CALL = new ThreadLocal<>();
-    private static volatile Bundle lastPolicy;
     private static final Map<Object, String> APPROVED_OBSERVERS =
             Collections.synchronizedMap(new WeakHashMap<>());
 
@@ -64,8 +63,14 @@ public final class UninstallHooks {
             module.hook(method).intercept(chain -> {
                 Context context = systemContext();
                 String target = (String) chain.getArg(0);
-                if (context != null && !permit(context, Binder.getCallingUid(), target, null)) {
-                    return Reflect.defaultReturnValue(method.getReturnType());
+                if (context != null) {
+                    Decision decision = evaluateRequest(context, Binder.getCallingUid(), target, null);
+                    if (!decision.allowed) {
+                        if (decision.spoofSuccess) {
+                            sendZybosSuccess(chain.getThisObject(), target);
+                        }
+                        return Reflect.defaultReturnValue(method.getReturnType());
+                    }
                 }
                 INSTALLER_CALL.set(Boolean.TRUE);
                 try {
@@ -122,11 +127,14 @@ public final class UninstallHooks {
                 module.hook(method).intercept(chain -> {
                     Context context = systemContext();
                     VersionedPackage target = (VersionedPackage) chain.getArg(0);
-                    if (context != null && target != null
-                            && !permit(context, Binder.getCallingUid(),
-                            target.getPackageName(), (String) chain.getArg(1))) {
-                        denyInstaller(context, (IntentSender) chain.getArg(3), target.getPackageName());
-                        return null;
+                    if (context != null && target != null) {
+                        Decision decision = evaluateRequest(context, Binder.getCallingUid(),
+                                target.getPackageName(), (String) chain.getArg(1));
+                        if (!decision.allowed) {
+                            denyInstaller(context, (IntentSender) chain.getArg(3),
+                                    target.getPackageName(), decision.spoofSuccess);
+                            return null;
+                        }
                     }
                     INSTALLER_CALL.set(Boolean.TRUE);
                     try {
@@ -176,11 +184,13 @@ public final class UninstallHooks {
                             return chain.proceed();
                         }
                         Context context = systemContext();
-                        if (context != null && target != null
-                                && !permit(context, Binder.getCallingUid(),
-                                target.getPackageName(), null)) {
-                            denyPackageManager(chain.getArg(1), target.getPackageName());
-                            return null;
+                        if (context != null && target != null) {
+                            Decision decision = evaluateRequest(context, Binder.getCallingUid(),
+                                    target.getPackageName(), null);
+                            if (!decision.allowed) {
+                                denyPackageManager(observer, target.getPackageName(), decision.spoofSuccess);
+                                return null;
+                            }
                         }
                         return chain.proceed();
                     });
@@ -221,10 +231,13 @@ public final class UninstallHooks {
                         }
                         Context context = systemContext();
                         String target = (String) chain.getArg(0);
-                        if (context != null && target != null
-                                && !permit(context, Binder.getCallingUid(), target, null)) {
-                            denyLegacyPackageManager(chain.getArg(callbackIndex), target);
-                            return null;
+                        if (context != null && target != null) {
+                            Decision decision = evaluateRequest(context, Binder.getCallingUid(), target, null);
+                            if (!decision.allowed) {
+                                denyLegacyPackageManager(chain.getArg(callbackIndex), target,
+                                        decision.spoofSuccess);
+                                return null;
+                            }
                         }
                         return chain.proceed();
                     });
@@ -236,24 +249,24 @@ public final class UninstallHooks {
         }
     }
 
-    private static boolean permit(Context context, int uid, String target, String callerPackage) {
+    private static Decision evaluateRequest(Context context, int uid, String target, String callerPackage) {
         int callerPid = Binder.getCallingPid();
         Bundle policy;
+        // Query as system_server, not as the application requesting deletion.
+        // Keep uid/pid above intact for the actual uninstall policy evaluation.
+        long policyIdentity = Binder.clearCallingIdentity();
         try {
             policy = context.getContentResolver().call(SettingsProvider.URI,
                     SettingsProvider.METHOD_GET_UNINSTALL, "system_server", null);
-            if (policy != null) {
-                lastPolicy = policy;
-            }
         } catch (Throwable error) {
             Log.w(TAG, "Policy unavailable", error);
             policy = null;
+        } finally {
+            Binder.restoreCallingIdentity(policyIdentity);
         }
+        // Never resurrect an old enabled policy after the user disables validation.
         if (policy == null) {
-            policy = lastPolicy;
-        }
-        if (policy == null) {
-            return true;
+            return new Decision(true, "策略不可用");
         }
         String[] packages;
         try {
@@ -300,18 +313,17 @@ public final class UninstallHooks {
         } else if (matches(policy.getStringArrayList(UninstallConfig.WHITELIST), identities)) {
             decision = new Decision(true, "白名单");
         } else {
-            int seconds = policy.getInt(UninstallConfig.TIMEOUT_SECONDS,
-                    UninstallConfig.DEFAULT_TIMEOUT);
-            if (seconds != 5 && seconds != 10 && seconds != 15 && seconds != 30) {
-                seconds = UninstallConfig.DEFAULT_TIMEOUT;
-            }
-            boolean countdown = policy.getBoolean(UninstallConfig.TIMEOUT_ENABLED, true);
+            int seconds = UninstallConfig.normalizeTimeoutSeconds(policy.getInt(
+                    UninstallConfig.TIMEOUT_SECONDS, UninstallConfig.DEFAULT_TIMEOUT));
             decision = confirm(context, uid,
                     verifiedCaller == null ? new String[0] : new String[] { verifiedCaller },
-                    target, countdown, countdown ? seconds : 30);
+                    target, seconds);
         }
+        // Snapshot the setting for this request, including while its prompt is pending.
+        decision = new Decision(decision.allowed, decision.reason,
+                !decision.allowed && policy.getBoolean(UninstallConfig.SPOOF_RESULT, false));
         recordDecision(context, uid, verifiedCaller, target, decision);
-        return decision.allowed;
+        return decision;
     }
 
     private static void recordDecision(Context context, int uid, String callerPackage,
@@ -367,10 +379,16 @@ public final class UninstallHooks {
     private static final class Decision {
         final boolean allowed;
         final String reason;
+        final boolean spoofSuccess;
 
         Decision(boolean allowed, String reason) {
+            this(allowed, reason, false);
+        }
+
+        Decision(boolean allowed, String reason, boolean spoofSuccess) {
             this.allowed = allowed;
             this.reason = reason;
+            this.spoofSuccess = spoofSuccess;
         }
     }
 
@@ -410,7 +428,7 @@ public final class UninstallHooks {
     }
 
     private static Decision confirm(Context context, int uid, String[] packages,
-            String target, boolean countdown, int seconds) {
+            String target, int seconds) {
         if (!PROMPT_SLOT.tryAcquire()) {
             Log.w(TAG, "Another uninstall confirmation is pending");
             return new Decision(false, "已有待确认请求");
@@ -429,8 +447,6 @@ public final class UninstallHooks {
         prompt.putExtra("target", target);
         prompt.putExtra("caller_uid", uid);
         prompt.putExtra("caller_packages", packages == null ? new String[0] : packages);
-        prompt.putExtra("countdown", countdown);
-        prompt.putExtra("timeout_seconds", seconds);
         prompt.putExtra("deadline_elapsed", SystemClock.elapsedRealtime() + seconds * 1000L);
         prompt.putExtra("decision_receiver", receiver);
         try {
@@ -460,13 +476,27 @@ public final class UninstallHooks {
         }
     }
 
-    private static void denyInstaller(Context context, IntentSender receiver, String target) {
+    private static void sendZybosSuccess(Object service, String target) {
+        long identity = Binder.clearCallingIdentity();
+        try {
+            Reflect.callMethod(service, "sendZybosUnInstallSuccessCallback", target);
+        } catch (Throwable error) {
+            Log.w(TAG, "Zybos uninstall result callback failed", error);
+        } finally {
+            Binder.restoreCallingIdentity(identity);
+        }
+    }
+
+    private static void denyInstaller(Context context, IntentSender receiver, String target,
+                                      boolean spoofSuccess) {
         if (receiver == null) {
             return;
         }
         Intent result = new Intent();
-        result.putExtra(PackageInstaller.EXTRA_STATUS, PackageInstaller.STATUS_FAILURE_ABORTED);
-        result.putExtra(PackageInstaller.EXTRA_STATUS_MESSAGE, DENIED_MESSAGE);
+        result.putExtra(PackageInstaller.EXTRA_STATUS, spoofSuccess
+                ? PackageInstaller.STATUS_SUCCESS : PackageInstaller.STATUS_FAILURE_ABORTED);
+        result.putExtra("android.content.pm.extra.LEGACY_STATUS", spoofSuccess ? 1 : -5);
+        if (!spoofSuccess) result.putExtra(PackageInstaller.EXTRA_STATUS_MESSAGE, DENIED_MESSAGE);
         result.putExtra(PackageInstaller.EXTRA_PACKAGE_NAME, target);
         try {
             receiver.sendIntent(context, 0, result, null, null);
@@ -475,7 +505,7 @@ public final class UninstallHooks {
         }
     }
 
-    private static void denyPackageManager(Object observer, String target) {
+    private static void denyPackageManager(Object observer, String target, boolean spoofSuccess) {
         if (observer == null) {
             return;
         }
@@ -483,13 +513,13 @@ public final class UninstallHooks {
             Method callback = observer.getClass().getMethod("onPackageDeleted",
                     String.class, int.class, String.class);
             callback.setAccessible(true);
-            callback.invoke(observer, target, -5, DENIED_MESSAGE);
+            callback.invoke(observer, target, spoofSuccess ? 1 : -5, spoofSuccess ? null : DENIED_MESSAGE);
         } catch (Throwable error) {
             Log.w(TAG, "Delete observer callback failed", error);
         }
     }
 
-    private static void denyLegacyPackageManager(Object observer, String target) {
+    private static void denyLegacyPackageManager(Object observer, String target, boolean spoofSuccess) {
         if (observer == null) {
             return;
         }
@@ -497,7 +527,7 @@ public final class UninstallHooks {
             Method callback = observer.getClass().getMethod("packageDeleted",
                     String.class, int.class);
             callback.setAccessible(true);
-            callback.invoke(observer, target, -5);
+            callback.invoke(observer, target, spoofSuccess ? 1 : -5);
         } catch (Throwable error) {
             Log.w(TAG, "Legacy delete observer callback failed", error);
         }
