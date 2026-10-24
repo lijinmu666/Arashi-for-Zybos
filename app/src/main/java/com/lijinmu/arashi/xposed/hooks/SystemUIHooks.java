@@ -30,6 +30,7 @@ public static void hookSystemUI(XposedModule mod, ClassLoader cl) {
         AospBatteryHooks.hookSystemUI(mod, cl);
         AospWifiHooks.hookSystemUI(mod, cl);
         AospBluetoothHooks.hookSystemUI(mod);
+        SystemUiThemeHooks.hookSystemUI(mod, cl);
         NotificationReplyHooks.hookSystemUI(mod, cl);
         NavigationAccessHooks.hookSystemUI(mod, cl);
         
