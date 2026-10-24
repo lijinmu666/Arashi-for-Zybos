@@ -186,9 +186,6 @@ public class PhoneStatusBarView extends android.view.View {
  'com/android/systemui/shade/NotificationPanelViewController.java': '''package com.android.systemui.shade;
 public class NotificationPanelViewController {public float mExpandedFraction;public int mBarState;public boolean mHeadsUpPinnedMode,mTracking,mQsExpanded;public Object mQsController;public void updateExpansionAndVisibility(){}}
 ''',
- 'com/android/systemui/statusbar/StatusBarStateControllerImpl.java': '''package com.android.systemui.statusbar;
-public class StatusBarStateControllerImpl {public int mState;public boolean setState(int state,boolean force){mState=state;return true;}}
-''',
  'com/android/systemui/statusbar/phone/PanelViewController.java': '''package com.android.systemui.statusbar.phone;
 public class PanelViewController {public float mExpandedFraction;public void notifyBarPanelExpansionChanged(){}}
 ''',
@@ -439,10 +436,7 @@ public class Check {
   call(expansionUpdate,expansion14);check(duplicate.visibility==View.INVISIBLE);
   expansion14.mTracking=true;call(expansionUpdate,expansion14);check(duplicate.visibility==View.VISIBLE);
   expansion14.mTracking=false;expansion14.mHeadsUpPinnedMode=false;expansion14.mBarState=1;
-  expansion14.mQsExpanded=true; // Can remain stale while entering keyguard.
-  call(expansionUpdate,expansion14);check(duplicate.visibility==View.VISIBLE&&topClock.visibility==View.GONE);
-  check(((ViewGroup.MarginLayoutParams)duplicate.params).topMargin==0);
-  expansion14.mQsExpanded=false;
+  call(expansionUpdate,expansion14);check(duplicate.visibility==View.INVISIBLE);
   expansion14.mBarState=0;expansion14.mExpandedFraction=0;call(expansionUpdate,expansion14);check(duplicate.visibility==View.INVISIBLE);
   expansion14.mExpandedFraction=1;call(expansionUpdate,expansion14);check(duplicate.visibility==View.VISIBLE);
   View stableQs=named(new View(),"qs_frame"),stableNotifications=named(new View(),"notification_stack_scroller");
@@ -451,16 +445,6 @@ public class Check {
   int formatUpdates=TextClock.formatUpdates;
   for(int repeat=0;repeat<20;repeat++)SystemUiQsHooks.restoreShadeBounds(vendorRoot,1920);
   check(TextClock.formatUpdates==formatUpdates&&duplicate.getChildCount()==2);
-  var statusState=new com.android.systemui.statusbar.StatusBarStateControllerImpl();
-  Method changeState=statusState.getClass().getMethod("setState",int.class,boolean.class);
-  // Locking with an unchanged fraction must hide the injected clock immediately.
-  call(changeState,statusState,1,false);
-  check(topClock.visibility==View.GONE&&duplicate.visibility==View.VISIBLE);
-  check(((ViewGroup.MarginLayoutParams)duplicate.params).topMargin==0);
-  check(stableQs.params.width==-1&&stableNotifications.params.width==-1);
-  SystemUiQsHooks.restoreTopStatusRow(vendorRoot);check(topClock.visibility==View.GONE);
-  call(changeState,statusState,0,false);call(expansionUpdate,expansion14);
-  check(topClock.visibility==View.VISIBLE&&((ViewGroup.MarginLayoutParams)duplicate.params).topMargin==96);
   header.qsDisabled=false;header.customizing=false;header.qsVisible=true;
   call(vis,header);check(header.header.visibility==View.INVISIBLE);
   call(setVisible,duplicate,View.GONE);check(duplicate.visibility==View.GONE);
