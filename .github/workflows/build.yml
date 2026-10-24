@@ -64,6 +64,8 @@ jobs:
         run: python3 tests/check_uninstall_screen.py
       - name: 验证 Zybos 环境配置读写
         run: python3 tests/check_zybos_env.py
+      - name: 验证通知快捷回复兼容处理
+        run: python3 tests/check_notification_reply.py
       - name: 验证导航与下拉面板限制拦截
         run: python3 tests/check_navigation_access.py
       - name: 验证 iOS 图标图层缩放与尺寸恢复
