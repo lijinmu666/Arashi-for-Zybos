@@ -1,58 +1,47 @@
 package com.lijinmu.arashi.tools;
 
-import java.util.Collection;
-import java.util.Set;
-import java.util.TreeSet;
-import java.util.regex.Pattern;
-
-/** Stops the selected LSPosed application scopes without targeting Android's framework process. */
+/** Kills a fixed set of hooked application processes without force-stopping packages. */
 public final class ScopedAppStopper {
-    private static final String ARASHI_PACKAGE = "com.lijinmu.arashi";
-    private static final Pattern PACKAGE_NAME = Pattern.compile("[A-Za-z0-9_]+(?:\\.[A-Za-z0-9_]+)+");
+    private static final String[] TARGET_PACKAGES = {
+            "com.android.systemui", "com.android.settings",
+            "com.zuoyebang.iot.pad.launcher14", "com.android.launcher3",
+            "com.android.packageinstaller", "com.android.captiveportallogin",
+            "com.zuoyebang.iot.pad.supervise", "com.zuoyebang.iot.zptcpservice"
+    };
+    private ScopedAppStopper() {}
 
-    private ScopedAppStopper() {
+    public static RootResult stop() {
+        RootShell.Result result = RootShell.run(buildCommand());
+        return new RootResult(result.ok, result.ok
+                ? "已终止目标应用进程" : result.output);
     }
 
-    public static RootResult stop(Collection<String> selectedPackages) {
-        Set<String> packages = new TreeSet<>();
-        if (selectedPackages != null) {
-            for (String packageName : selectedPackages) {
-                if (packageName == null || !PACKAGE_NAME.matcher(packageName).matches()) continue;
-                if ("system".equals(packageName) || "system_server".equals(packageName)
-                        || "android".equals(packageName)) continue;
-                packages.add(packageName);
-            }
+    static String buildCommand() {
+        StringBuilder patterns = new StringBuilder();
+        for (String packageName : TARGET_PACKAGES) {
+            if (patterns.length() > 0) patterns.append('|');
+            patterns.append(packageName).append('|').append(packageName).append(":*");
         }
-        if (packages.isEmpty()) return new RootResult(false, "没有可停止的应用作用域");
-
-        // Stop Arashi last so it can finish the root command and display its result first.
-        boolean stopArashi = packages.remove(ARASHI_PACKAGE);
         StringBuilder command = new StringBuilder(
-                "if [ \"$(id -u)\" != 0 ]; then echo ROOT_REQUIRED; exit 77; fi; echo ROOT_GRANTED; failed=0; ");
-        for (String packageName : packages) {
-            command.append("am force-stop --user current ").append(packageName).append(" || failed=1; ");
-        }
-        if (stopArashi) {
-            command.append("if [ \"$failed\" = 0 ]; then (sleep 2; am force-stop --user current ")
-                    .append(ARASHI_PACKAGE)
-                    .append(" >/dev/null 2>&1) </dev/null >/dev/null 2>&1 & fi; ");
-        }
-        command.append("if [ \"$failed\" != 0 ]; then echo APP_STOP_FAILED; exit 1; fi");
-
-        RootShell.Result result = RootShell.run(command.toString());
-        if (!result.ok && !result.output.contains("APP_STOP_FAILED")) {
-            return new RootResult(false, result.output);
-        }
-        if (result.output.contains("APP_STOP_FAILED")) {
-            return new RootResult(false, "部分作用域应用停止失败，请检查设备及 root 管理器状态");
-        }
-        return new RootResult(true, "已发送强行停止命令：" + (packages.size() + (stopArashi ? 1 : 0)) + " 个应用");
+                "if [ \"$(id -u)\" != 0 ]; then echo ROOT_REQUIRED; exit 77; fi; "
+                + "echo ROOT_GRANTED; failed=0; "
+                // argv[0] preserves full package names; comm is truncated to 15 characters.
+                + "for proc in /proc/[0-9]*; do "
+                + "[ -r \"$proc/cmdline\" ] || continue; "
+                + "name=$(tr '\\000' '\\n' < \"$proc/cmdline\" 2>/dev/null | head -n 1); "
+                + "case \"$name\" in ");
+        command.append(patterns)
+                .append(") pid=$" + "{proc##*/}; ")
+                // Already-exited processes are successful, not a permission failure.
+                .append("kill -9 \"$pid\" 2>/dev/null || { [ ! -d \"$proc\" ] || failed=1; };; ")
+                .append("esac; done; ")
+                .append("if [ \"$failed\" != 0 ]; then echo APP_KILL_FAILED; exit 1; fi; ");
+        return command.toString();
     }
 
     public static final class RootResult {
         public final boolean ok;
         public final String output;
-
         private RootResult(boolean ok, String output) {
             this.ok = ok;
             this.output = output == null ? "" : output;

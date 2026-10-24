@@ -509,11 +509,11 @@ private fun HomePage(a: Main) = Page(a, "Arashi for Zybos") {
 private fun UnsupportedDevicePage(a: Main) = Page(a, "Arashi") {
     OverlayDialog(
         show = true,
-        summary = "当前系统可能无法正常使用 Arashi 功能",
+        summary = "当前系统不支持 Arashi 功能",
         onDismissRequest = a::exitUnsupportedDevice,
     ) {
         TextButton(
-            "确认",
+            "确定",
             a::exitUnsupportedDevice,
             Modifier.fillMaxWidth(),
             colors = ButtonDefaults.textButtonColorsPrimary(),
@@ -545,7 +545,7 @@ private fun HookPage(a: HookSettings) {
             OverlayDropdownPopup(
                 entry = DropdownEntry(listOf(
                     DropdownItem(
-                        text = "强行停止作用域应用",
+                        text = "杀死后台进程",
                         selected = false,
                         onClick = {
                             actionsExpanded = false
@@ -590,8 +590,8 @@ private fun HookPage(a: HookSettings) {
     if (confirmStopScopes) {
         OverlayDialog(
             show = true,
-            title = "强行停止作用域应用",
-            summary = "是否要杀死所有作用域应用？不会重启系统，也不会杀死系统框架。需要使用 root 权限",
+            title = "杀死作用域的进程",
+            summary = "终止 SystemUI 、系统设置、桌面、 PackageInstaller、登录到网络、管控服务和TCP服务的后台进程，以此使 Hook 设置生效",
             onDismissRequest = { confirmStopScopes = false },
         ) {
             Row(
@@ -609,20 +609,14 @@ private fun HookPage(a: HookSettings) {
                         confirmStopScopes = false
                         if (!stoppingScopes) {
                             stoppingScopes = true
-                            MiuixPages.showProgress(a, "强行停止作用域应用", "正在请求 root 权限并停止当前已勾选的 LSPosed 作用域应用")
+                            MiuixPages.showProgress(a, "杀死后台进程", "正在请求 root 权限并终止固定应用的进程")
                             coroutineScope.launch {
-                                val snapshot = withContext(Dispatchers.IO) { HookScopes.read(a) }
-                                if (!snapshot.scopeKnown) {
-                                    stoppingScopes = false
-                                    MiuixPages.showMessage(a, "无法读取作用域", "无法读取 LSPosed 作用域，请确认模块已启用后重试")
-                                    return@launch
-                                }
                                 val result = withContext(Dispatchers.IO) {
-                                    ScopedAppStopper.stop(snapshot.selectedPackages)
+                                    ScopedAppStopper.stop()
                                 }
                                 stoppingScopes = false
                                 if (result.ok) {
-                                    MiuixPages.showMessage(a, "操作已完成", result.output + "。Arashi 若在作用域中会稍后自行关闭")
+                                    MiuixPages.showMessage(a, "操作已完成", result.output)
                                 } else if (result.output.contains("ROOT_REQUIRED")
                                     || !result.output.contains("ROOT_GRANTED")
                                     || result.output.contains("无法执行 su")
@@ -644,31 +638,31 @@ private fun HookPage(a: HookSettings) {
     }
     val groups = listOf(
         "安装" to listOf(
-            HookItem("允许外部应用安装", "禁止 PackageInstaller 的安装检查，允许安装外部 APK", HookConfig.KEY_EXTERNAL_INSTALL),
-            HookItem("允许 Shell 安装", "放行 ADB 和 pm install 安装指令，允许 Shell 安装应用", HookConfig.KEY_SHELL_INSTALL),
+            HookItem("允许外部应用安装", "绕过 PackageInstaller 安装限制，允许安装外部应用", HookConfig.KEY_EXTERNAL_INSTALL),
+            HookItem("允许 Shell 安装", "绕过系统的 Shell 安装限制，允许 adb 和 pm install 安装应用", HookConfig.KEY_SHELL_INSTALL),
             HookItem("解除安装黑名单限制", "允许安装被硬编码在 mZybBlacklistApp 中的包名", HookConfig.KEY_CLEAR_BLACKLIST),
         ),
         "行为" to listOf(
             HookItem("允许打开开发者选项", "绕过系统设置检查，允许打开开发者选项的 Activity", HookConfig.KEY_DEV_OPTIONS),
-            HookItem("保留后台进程", "拦截划卡后强杀应用进程。开关控制立即生效", HookConfig.KEY_KEEP_BACKGROUND),
+            HookItem("保留后台进程", "拦截系统在划卡后杀死应用后台进程。开关控制立即生效", HookConfig.KEY_KEEP_BACKGROUND),
             HookItem("允许 USB 文件传输", "允许挂载外部 USB 设备和使用数据传输。开关控制立即生效", HookConfig.KEY_ALLOW_USB),
-            HookItem("允许任意应用设置壁纸", "允许任意应用设置壁纸，并移除新版桌面覆盖系统壁纸的静态背景。需勾选 系统框架 与 桌面 作用域，开关控制立即生效", HookConfig.KEY_ALLOW_WALLPAPER),
+            HookItem("允许任意应用设置壁纸", "允许任意应用设置壁纸，并移除新版桌面覆盖系统壁纸的静态背景。开关控制立即生效，需要系统框架和桌面作用域", HookConfig.KEY_ALLOW_WALLPAPER),
             HookItem("允许 WiFi 网页登录", "允许连接到认证型 WiFi 并正常跳转到 “登录到网络” 登录验证网页", HookConfig.KEY_CAPTIVE_PORTAL),
-            HookItem("始终使用传统电源菜单", "将长按电源键与下拉面板的电源菜单改为系统传统对话框。需勾选系统框架和系统界面作用域", HookConfig.KEY_LEGACY_POWER_MENU),
+            HookItem("始终使用传统电源菜单", "将长按电源键与下拉面板的电源菜单改为系统传统对话框。需要系统框架和系统界面作用域", HookConfig.KEY_LEGACY_POWER_MENU),
             HookItem("原版应用详情页设置", "恢复完整的 AOSP 原版应用信息页及应用通知设置，沿用系统控制器。开关控制重新打开页面后生效", HookConfig.KEY_AOSP_APP_DETAILS),
             HookItem("解除应用详情页限制", "允许打开 WebView、report服务 和 PadMs 的应用设置详情页。开关控制立即生效", HookConfig.KEY_CLEAR_DETAIL_BLACK),
-            HookItem("修复录屏的声音选项", "恢复 SystemUI 录屏菜单的设备声音、麦克风及混合音源选择选项", HookConfig.KEY_RECORD_INTERNAL_AUDIO),
+            HookItem("修复录屏声音", "恢复 SystemUI 录屏菜单的设备声音、麦克风及混合音源选择选项", HookConfig.KEY_RECORD_INTERNAL_AUDIO),
 						HookItem("修复通知快捷回复", "修复 SystemUI 通知回复框出现后立即关闭的问题。开关控制立即生效", HookConfig.KEY_NOTIFICATION_REPLY),
             HookItem("阻止重设默认浏览器", "拦截 SystemUI 开机时将 “学习网站” 设为默认浏览器", HookConfig.KEY_BLOCK_DEFAULT_BROWSER),
-            HookItem("阻止禁用系统导航与下拉面板", "拦截返回、主页、最近任务及下拉面板的禁用限制，覆盖激活与错误页面等场景。需勾选系统框架、系统界面 和 桌面 作用域", HookConfig.KEY_KEEP_NAVIGATION),
+            HookItem("阻止禁用系统导航与下拉面板", "拦截返回、主页、最近任务及下拉面板的禁用限制。需要系统框架、系统界面和桌面的作用域", HookConfig.KEY_KEEP_NAVIGATION),
         ),
         "美化" to listOf(
             HookItem("原版下拉面板", "恢复 AOSP 快捷设置布局，二次下拉展开完整磁贴，保留原生分页与编辑", HookConfig.KEY_AOSP_QS),
-            HookItem("修复莫奈取色", "恢复基于壁纸的动态配色，适配下拉面板与锁屏密码界面。手动主题色开启时优先使用手动颜色", HookConfig.KEY_SYSTEMUI_MONET),
+            HookItem("修复 Monet 颜色", "恢复基于壁纸的动态配色。手动主题色开启时优先使用手动颜色", HookConfig.KEY_SYSTEMUI_MONET),
             HookItem("自定义 SystemUI 主题色", "自定义下拉面板，锁屏密码键盘按下效果与密码圆点的强调色", HookConfig.KEY_SYSTEMUI_THEME),
             HookItem("原版状态栏图标", "将 电池、WLAN、蓝牙图标统一恢复为 AOSP 原版样式", HookConfig.KEY_AOSP_STATUS_ICONS),
-            HookItem("解除通知图标数量限制", "取消普通状态栏通知图标的固定数量上限，按可用宽度显示，空间不足时仍折叠为溢出提示", HookConfig.KEY_UNLIMITED_NOTIFICATION_ICONS),
-            HookItem("桌面图标圆角", "桌面应用图标与文件夹的改成 iOS 样式的圆角，文件夹使用半透明底色。强行停止桌面后生效", HookConfig.KEY_IOS_ICONS),
+            HookItem("解除通知图标数量限制", "取消普通状态栏通知图标的固定数量上限，按可用宽度显示", HookConfig.KEY_UNLIMITED_NOTIFICATION_ICONS),
+            HookItem("桌面图标圆角", "桌面应用图标与文件夹的改成 iOS 样式的圆角，文件夹使用半透明底色", HookConfig.KEY_IOS_ICONS),
             HookItem("状态栏显示日期", "仿 iPadOS 在状态栏左侧时间后显示月日与星期，如 16:40  10月17日周六。开关控制在下次时钟刷新时生效", HookConfig.KEY_STATUS_BAR_DATE),
         ),
         "TCP 服务" to listOf(
@@ -761,7 +755,7 @@ private fun HookPage(a: HookSettings) {
                                 }
                             },
                             title = "注入开发者选项入口",
-                            summary = "向设置侧边菜单中添加“开发者选项”入口。重启系统设置后生效",
+                            summary = "在系统设置的左侧菜单中添加 “开发者选项” 入口",
                             enabled = available,
                         )
                     }
@@ -1481,25 +1475,25 @@ private fun QuickCommandItem(title: String, summary: String, action: () -> Unit)
 private fun QuickPage(a: QuickCommands) = Page(a, "快捷指令执行", a::finish) {
     IntroCard("以下功能使用 root 权限执行，首次使用请授予 root 权限")
     Group("应用") {
-        QuickCommandItem("禁用 PadMs", "冻结 com.zuoyebang.padms") { a.run("禁用 PadMs", "pm disable com.zuoyebang.padms") }
-        QuickCommandItem("禁用 report服务", "冻结 com.zuoyebang.iot.pad.zpreport") { a.run("禁用 report服务", "pm disable com.zuoyebang.iot.pad.zpreport") }
-        QuickCommandItem("禁用桌面 ErrorActivity", "仅冻结桌面的 ErrorActivity 组件，保留桌面其他功能，以此禁止云控锁机的页面") { a.freezeLauncherErrorActivity() }
-        QuickCommandItem("禁用 系统升级", "冻结 com.zuoyebang.iot.zp.lib.ota.server") { a.run("禁用 系统升级", "pm disable com.zuoyebang.iot.zp.lib.ota.server") }
-        QuickCommandItem("启用 系统升级", "与上方功能作用排斥") { a.run("启用 系统升级", "pm enable com.zuoyebang.iot.zp.lib.ota.server") }
+        QuickCommandItem("禁用PadMs", "冻结 com.zuoyebang.padms") { a.run("禁用PadMs", "pm disable com.zuoyebang.padms") }
+        QuickCommandItem("禁用report服务", "冻结 com.zuoyebang.iot.pad.zpreport") { a.run("禁用report服务", "pm disable com.zuoyebang.iot.pad.zpreport") }
+        QuickCommandItem("禁用桌面的ErrorActivity", "仅冻结桌面的 ErrorActivity 组件，保留桌面其他功能，以此禁止云控锁机的页面") { a.freezeLauncherErrorActivity() }
+        QuickCommandItem("禁用系统升级", "冻结 com.zuoyebang.iot.zp.lib.ota.server") { a.run("禁用系统升级", "pm disable com.zuoyebang.iot.zp.lib.ota.server") }
+        QuickCommandItem("启用系统升级", "与上方功能作用排斥") { a.run("启用系统升级", "pm enable com.zuoyebang.iot.zp.lib.ota.server") }
     }
     Group("设置") {
-        Link("作业帮学习机系统环境控制", "读取和修改 persist.sys.env_config") {
+        Link("作业帮学习机系统环境控制", "读取和修改 persist.sys.env_config，请谨慎使用！！！") {
             a.startActivity(Intent(a, com.lijinmu.arashi.tools.ZybosEnvController::class.java))
         }
         fun set(title: String, key: String, value: Int) =
             a.run(title, "settings put global $key $value; settings get global $key")
         QuickCommandItem("打开开发者模式", "打开 development_settings_enabled") { set("打开开发者模式", "development_settings_enabled", 1) }
         QuickCommandItem("关闭开发者模式", "关闭 development_settings_enabled") { set("关闭开发者模式", "development_settings_enabled", 0) }
-        QuickCommandItem("打开 USB调试", "打开 adb_enabled") { set("打开 USB调试", "adb_enabled", 1) }
-        QuickCommandItem("关闭 USB调试", "关闭 adb_enabled") { set("关闭 USB调试", "adb_enabled", 0) }
+        QuickCommandItem("打开USB调试", "打开 adb_enabled") { set("打开 USB调试", "adb_enabled", 1) }
+        QuickCommandItem("关闭USB调试", "关闭 adb_enabled") { set("关闭 USB调试", "adb_enabled", 0) }
     }
     Group("投屏") {
-        QuickCommandItem("开启投屏", "启用 SystemUI 的无线显示并添加投屏磁贴") {
+        QuickCommandItem("打开投屏", "启用 SystemUI 的无线显示并添加投屏磁贴") {
             a.run("开启投屏", "settings put global wifi_display_on 1 && am broadcast --user current -a com.android.systemui.cast.Add -p com.android.systemui")
         }
         QuickCommandItem("关闭投屏", "与上方设置排斥") {

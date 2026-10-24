@@ -34,7 +34,7 @@ public class Resources {public static class NotFoundException extends RuntimeExc
  public Configuration getConfiguration(){return config;}public android.util.DisplayMetrics getDisplayMetrics(){return metrics;}
  public String getResourceName(int id){if(!names.containsKey(id))throw new NotFoundException();return owner+":"+names.get(id);}
  public int getIdentifier(String name,String kind,String pkg){return name.hashCode();}
- public boolean getBoolean(int id){return false;}public int getInteger(int id){return 17;}public float getDimension(int id){return 17.5f;}
+ public boolean booleanDefault;public boolean getBoolean(int id){return booleanDefault;}public int getInteger(int id){return 17;}public float getDimension(int id){return 17.5f;}
  public int getDimensionPixelSize(int id){return 17;}public int getDimensionPixelOffset(int id){return 17;}
  public int getColor(int id,Theme theme){return id;}}
 ''',
@@ -46,7 +46,7 @@ public class Drawable {public Drawable mutate(){return this;}public ConstantStat
  public Drawable child;public Drawable getDrawable(){return child;}}
 ''',
 'android/graphics/drawable/GradientDrawable.java': '''package android.graphics.drawable;public class GradientDrawable extends Drawable {
- public int radius;public void setCornerRadius(float r){radius=(int)r;}}
+ public float[] radii;public void setCornerRadii(float[] r){radii=r.clone();}public int radius;public void setCornerRadius(float r){radius=(int)r;}}
 ''',
 'android/graphics/drawable/RippleDrawable.java': '''package android.graphics.drawable;import android.content.res.Resources;
 public class RippleDrawable extends Drawable {public GradientDrawable fill=new GradientDrawable(),mask=new GradientDrawable();
@@ -68,7 +68,7 @@ public class View {public static class MeasureSpec {public static final int EXAC
  public ViewGroup.LayoutParams getLayoutParams(){return params;}public void setLayoutParams(ViewGroup.LayoutParams p){params=p;}
  public int getPaddingStart(){return ps;}public int getPaddingTop(){return pt;}public int getPaddingEnd(){return pe;}
  public void setPaddingRelative(int a,int b,int c,int d){ps=a;pt=b;pe=c;pb=d;}public void setMinimumHeight(int h){minHeight=h;}
- public boolean post(Runnable r){r.run();return true;}}
+ public void invalidate(){}public boolean post(Runnable r){r.run();return true;}}
 ''',
 'android/view/ViewGroup.java': '''package android.view;import java.util.*;
 public class ViewGroup extends View {public java.util.List<View> children=new ArrayList<>();
@@ -154,6 +154,24 @@ public class ShadeHeaderController {public View header=new View();public boolean
  'com/android/systemui/shade/NotificationsQuickSettingsContainer.java': '''package com.android.systemui.shade;
 public class NotificationsQuickSettingsContainer extends android.widget.FrameLayout {
  public int measures;public void onMeasure(int w,int h){measures++;}}''',
+ 'com/android/systemui/statusbar/notification/row/NotificationBackgroundView.java': '''package com.android.systemui.statusbar.notification.row;
+public class NotificationBackgroundView extends android.view.View {
+ public float[] mCornerRadii=new float[8];public boolean mBottomIsRounded;
+ public android.graphics.drawable.Drawable mBackground;public int original;
+ public void setRadius(float top,float bottom){original++;}
+ public void updateBackgroundRadii(){original++;}
+ public void setCustomBackground(android.graphics.drawable.Drawable d){mBackground=d;}
+}''',
+ 'com/android/systemui/statusbar/phone/PhoneStatusBarView.java': '''package com.android.systemui.statusbar.phone;
+public class PhoneStatusBarView extends android.view.View {
+ public void onAttachedToWindow(){}public void onDetachedFromWindow(){}
+}''',
+ 'com/android/systemui/shade/NotificationPanelViewController.java': '''package com.android.systemui.shade;
+public class NotificationPanelViewController {public float mExpandedFraction;public void updateExpansionAndVisibility(){}}
+''',
+ 'com/android/systemui/statusbar/phone/PanelViewController.java': '''package com.android.systemui.statusbar.phone;
+public class PanelViewController {public float mExpandedFraction;public void notifyBarPanelExpansionChanged(){}}
+''',
  'com/android/systemui/util/LargeScreenUtils.java': '''package com.android.systemui.util;
 public class LargeScreenUtils {public static boolean shouldUseSplitNotificationShade(android.content.res.Resources r){return false;}}''',
  'com/android/systemui/qs/QSPanelControllerBase.java': '''package com.android.systemui.qs;
@@ -265,6 +283,52 @@ public class Check {
   cp.width=777;ConfigManager.enabled=false;
   call(bounds.getClass().getMethod("onMeasure",int.class,int.class),bounds,1920,1280);
   check(cp.width==777);ConfigManager.enabled=true;
+  var notification=new com.android.systemui.statusbar.notification.row.NotificationBackgroundView();
+  GradientDrawable normal=new GradientDrawable(),mask=new GradientDrawable();
+  notification.mBackground=new LayerDrawable(new Drawable[]{normal,mask});
+  Method corner=notification.getClass().getMethod("setRadius",float.class,float.class);
+  call(corner,notification,56f,8f);
+  check(notification.original==0&&notification.mBottomIsRounded&&normal.radii[0]==56f&&normal.radii[4]==8f&&mask.radii[4]==8f);
+  call(corner,notification,0f,0f);
+  check(!notification.mBottomIsRounded&&normal.radii[0]==0f&&normal.radii[4]==0f);
+  notification.mCornerRadii[0]=20f;call(notification.getClass().getMethod("updateBackgroundRadii"),notification);
+  check(normal.radii[0]==20f&&notification.original==0);
+  GradientDrawable replacement=new GradientDrawable();
+  call(notification.getClass().getMethod("setCustomBackground",Drawable.class),notification,new InsetDrawable(replacement,0));
+  check(replacement.radii[0]==20f);
+  ConfigManager.enabled=false;call(corner,notification,56f,56f);
+  check(notification.original==1&&replacement.radii[0]==20f);ConfigManager.enabled=true;
+  notification.mBackground=new Drawable();call(corner,notification,56f,56f);check(notification.original==2);
+  check(SystemUiQsHooks.dimension("com.android.systemui:dimen/notification_corner_radius")==28);
+  check(SystemUiQsHooks.dimension("com.android.systemui:dimen/notification_corner_radius_small")==4);
+  Resources clipResources=new Resources();clipResources.names.put(1,"bool/config_clipNotificationsToOutline");
+  clipResources.booleanDefault=true;check(!(boolean)call(bool,clipResources,1));
+  ConfigManager.enabled=false;check((boolean)call(bool,clipResources,1));ConfigManager.enabled=true;
+  clipResources.owner="other";check((boolean)call(bool,clipResources,1));
+  var globalBar=new com.android.systemui.statusbar.phone.PhoneStatusBarView();
+  Method attach=globalBar.getClass().getMethod("onAttachedToWindow");
+  Method detach=globalBar.getClass().getMethod("onDetachedFromWindow");
+  Method setVisible=View.class.getMethod("setVisibility",int.class);
+  call(attach,globalBar);check(globalBar.visibility==0);
+  var expansion14=new com.android.systemui.shade.NotificationPanelViewController();
+  Method expansionUpdate=expansion14.getClass().getMethod("updateExpansionAndVisibility");
+  expansion14.mExpandedFraction=.01f;call(expansionUpdate,expansion14);check(globalBar.visibility==4);
+  call(setVisible,globalBar,View.VISIBLE);check(globalBar.visibility==4);
+  expansion14.mExpandedFraction=0;call(expansionUpdate,expansion14);check(globalBar.visibility==0);
+  call(setVisible,globalBar,View.GONE);expansion14.mExpandedFraction=1;
+  call(expansionUpdate,expansion14);expansion14.mExpandedFraction=0;
+  call(expansionUpdate,expansion14);check(globalBar.visibility==8); // preserve native hidden state
+  call(setVisible,globalBar,View.VISIBLE);
+  var expansion12=new com.android.systemui.statusbar.phone.PanelViewController();
+  Method update12=expansion12.getClass().getMethod("notifyBarPanelExpansionChanged");
+  expansion12.mExpandedFraction=1;call(update12,expansion12);check(globalBar.visibility==4);
+  ConfigManager.enabled=false;call(update12,expansion12);check(globalBar.visibility==0);
+  ConfigManager.enabled=true;call(update12,expansion12);check(globalBar.visibility==4);
+  var recreatedBar=new com.android.systemui.statusbar.phone.PhoneStatusBarView();
+  call(attach,recreatedBar);check(recreatedBar.visibility==4);
+  call(detach,globalBar);check(globalBar.visibility==0);
+  expansion12.mExpandedFraction=0;call(update12,expansion12);check(recreatedBar.visibility==0);
+  call(detach,recreatedBar);
   Resources r=new Resources();r.names.put(1,"integer/quick_settings_num_columns");r.names.put(2,"dimen/qs_tile_height");
   Method integer=Resources.class.getMethod("getInteger",int.class),dim=Resources.class.getMethod("getDimensionPixelSize",int.class);
   check((int)call(integer,r,1)==2);check((int)call(dim,r,2)==160);
@@ -328,7 +392,7 @@ public class InsetDrawable extends DrawableWrapper {public InsetDrawable(Drawabl
 stubs['android/graphics/drawable/GradientDrawable.java'] = stubs['android/graphics/drawable/GradientDrawable.java'].replace('public int radius;', 'public int radius,color;public void setColor(int c){color=c;}public void setSize(int w,int h){}')
 stubs['android/graphics/drawable/LayerDrawable.java'] = '''package android.graphics.drawable;
 public class LayerDrawable extends Drawable {public Drawable[] layers;public LayerDrawable(Drawable[] d){layers=d;}
- public void setLayerSize(int i,int w,int h){}public void setLayerGravity(int i,int g){}public void setLayerInsetEnd(int i,int v){}public void setId(int i,int id){}}
+ public int getNumberOfLayers(){return layers.length;}public Drawable getDrawable(int i){return layers[i];}public void setLayerSize(int i,int w,int h){}public void setLayerGravity(int i,int g){}public void setLayerInsetEnd(int i,int v){}public void setId(int i,int id){}}
 '''
 stubs['android/widget/SeekBar.java'] = '''package android.widget;public class SeekBar extends android.view.View {
  public android.graphics.drawable.Drawable progress,thumb=new android.graphics.drawable.Drawable();
