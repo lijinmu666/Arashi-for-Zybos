@@ -1,0 +1,22 @@
+plugins { id 'com.android.application' }
+android {
+    namespace 'com.arashi'
+    compileSdk 34
+    defaultConfig {
+        applicationId 'com.arashi'
+        minSdk 31
+        targetSdk 34
+        versionCode 11
+        versionName '0.2.3'
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+    buildFeatures {
+        buildConfig true
+    }
+}
+dependencies {
+    compileOnly 'io.github.libxposed:api:102.0.0'
+}

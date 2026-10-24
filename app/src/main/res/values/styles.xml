@@ -1,0 +1,17 @@
+<resources>
+    <style name="Theme.Arashi" parent="android:style/Theme.Material.Light.NoActionBar">
+        <item name="android:fontFamily">sans</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:statusBarColor">#F9F7FD</item>
+        <item name="android:navigationBarColor">#F9F7FD</item>
+        <item name="android:windowActionModeOverlay">true</item>
+        <item name="android:colorAccent">#8066BF</item>
+    </style>
+
+    <style name="Theme.Arashi.Installer" parent="@style/Theme.Arashi">
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowIsFloating">false</item>
+        <item name="android:backgroundDimEnabled">false</item>
+    </style>
+</resources>
