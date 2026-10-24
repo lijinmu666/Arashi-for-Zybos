@@ -49,6 +49,6 @@
 {"env":"PRODUCTION","isShowDebugTools":false,"isTips":false,"tcpServerConfigs":[]}
 ```
 
-`tcpServerConfigs` 是按环境选择的 TCP 端点配置，包含 `env`、`host`、`port`。它不是整个后台的替换入口，空数组也不代表关闭 TCP。页面当前不提供自定义端点编辑器
+`tcpServerConfigs` 是按环境选择的 TCP 端点配置，包含 `env`、`host`、`port`。它不是整个后台的替换入口，空数组也不代表关闭 TCP。页面支持添加、编辑和删除多条端点，逐条选择环境并填写域名或 IP、1–65535 的端口；编辑仅修改页面草稿，点击“应用并写入”后才保存到系统属性，重置默认会清空端点列表
 
 环境变更可能影响登录、激活与服务连接，界面提示重启后生效。不要把“读取当前配置”与“应用并写入”混用；查看配置不会执行写入

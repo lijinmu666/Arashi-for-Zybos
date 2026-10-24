@@ -1,6 +1,6 @@
 # Arashi
 
-Arashi 是面向作业帮学习机 AIBangOS 的 LSPosed 模块和系统工具，界面使用 Miuix。目前版本为 `v1.0.0`，内部版本代码为 `37`。后续默认长期保持显示版本号 `v1.0.0`，发布更新时只递增内部版本代码，除非明确要求更改显示版本号。
+Arashi 是面向作业帮学习机 AIBangOS 的 LSPosed 模块和系统工具，界面使用 Miuix。目前版本为 `v1.0.0`，内部版本代码为 `40`。后续默认长期保持显示版本号 `v1.0.0`，发布更新时只递增内部版本代码，除非明确要求更改显示版本号。
 
 系统内部相关组件使用 Zybos 命名。安装、卸载等特权工具依赖设备提供的 `ZybosSysApiManager`；不同固件的接口和限制可能存在差异。
 
@@ -75,7 +75,7 @@ TCP 拦截记录保存可获取的错误码、来源、进程及调用信息，�
 
 冻结类指令使用 `pm disable`，包括 PadMs、report、系统升级服务与桌面 ErrorActivity；ErrorActivity 只禁用对应组件，不禁用整个桌面
 
-Zybos 环境控制用于读取、格式化展示、写入或重置 `persist.sys.env_config`，需要 root。环境菜单为 `PRODUCTION`、`TEST`、`MOCK`；两个调试开关每次新进入页面均关闭，不从系统属性恢复开关状态。环境变更可能影响登录和激活，详见[工具说明](docs/records-and-tools.md)
+Zybos 环境控制用于读取、格式化展示、写入或重置 `persist.sys.env_config`，需要 root。环境菜单为 `PRODUCTION`、`TEST`、`MOCK`，支持添加、编辑及删除多条 TCP 服务器配置；两个调试开关每次新进入页面均关闭，不从系统属性恢复开关状态。环境变更可能影响登录和激活，详见[工具说明](docs/records-and-tools.md)
 
 ### 应用安装器
 

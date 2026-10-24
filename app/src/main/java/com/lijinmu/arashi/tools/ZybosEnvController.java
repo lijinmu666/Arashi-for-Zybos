@@ -34,6 +34,11 @@ public final class ZybosEnvController extends BasePage {
         return write(ZybosEnvConfig.update(original, environment, showTools, tips));
     }
 
+    public ZybosEnvConfig applyConfig(String original, String environment, boolean showTools,
+                                     boolean tips, String tcpServers) throws Exception {
+        return write(ZybosEnvConfig.update(original, environment, showTools, tips, tcpServers));
+    }
+
     public ZybosEnvConfig resetConfig() throws Exception {
         return write(ZybosEnvConfig.DEFAULT_JSON);
     }

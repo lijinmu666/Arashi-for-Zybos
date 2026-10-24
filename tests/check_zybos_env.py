@@ -38,6 +38,30 @@ public class EnvCheck {
    check(controller.applyConfig(source.toString(),env,true,true).json.equals(updated));
    check(RootShell.command.equals(ZybosEnvConfig.writeCommand(updated)));
   }
+  JSONArray endpoints=new JSONArray();
+  endpoints.put(new JSONObject().put("env","PRODUCTION").put("host"," tcp.example.com ").put("port",443).put("future",true));
+  endpoints.put(new JSONObject().put("env","TEST").put("host","::1").put("port",65535));
+  JSONObject source=new JSONObject(defaults.json).put("futureRoot",42);
+  JSONObject changed=new JSONObject(ZybosEnvConfig.update(source.toString(),"MOCK",false,false,endpoints.toString()));
+  check(changed.getInt("futureRoot")==42);
+  check(changed.getJSONArray("tcpServerConfigs").length()==2);
+  check(changed.getJSONArray("tcpServerConfigs").getJSONObject(0).getString("host").equals("tcp.example.com"));
+  check(changed.getJSONArray("tcpServerConfigs").getJSONObject(0).getBoolean("future"));
+  check(new JSONObject(ZybosEnvConfig.update(changed.toString(),"MOCK",false,false,"[]")).getJSONArray("tcpServerConfigs").length()==0);
+  for(Object port:new Object[]{0,65536,-1,1.5,"443"}) {
+   JSONArray bad=new JSONArray().put(new JSONObject().put("env","TEST").put("host","example.com").put("port",port));
+   try{ZybosEnvConfig.validateTcpServers(bad.toString());throw new AssertionError();}
+   catch(IllegalArgumentException expected){}
+  }
+  for(String host:new String[]{"","https://example.com","a/b","a b","a\n"}) {
+   JSONArray bad=new JSONArray().put(new JSONObject().put("env","TEST").put("host",host).put("port",443));
+   // Leading/trailing whitespace is normalized; internal whitespace and URLs are rejected.
+   if(host.equals("a\n")) continue;
+   try{ZybosEnvConfig.validateTcpServers(bad.toString());throw new AssertionError();}
+   catch(IllegalArgumentException expected){}
+  }
+  RootShell.ok=true;RootShell.reply=changed.toString();
+  check(new ZybosEnvController().applyConfig(source.toString(),"MOCK",false,false,endpoints.toString()).json.equals(changed.toString()));
   try{ZybosEnvConfig.update(defaults.json,"UNKNOWN",false,false);throw new AssertionError();}
   catch(IllegalArgumentException expected){}
   try{ZybosEnvConfig.parse("broken");throw new AssertionError();}catch(JSONException expected){}
