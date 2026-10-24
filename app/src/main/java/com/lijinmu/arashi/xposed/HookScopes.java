@@ -107,6 +107,7 @@ public final class HookScopes {
                 && !HookConfig.KEY_AOSP_QS.equals(key)
                 && !HookConfig.KEY_SYSTEMUI_MONET.equals(key)
                 && !HookConfig.KEY_AOSP_STATUS_ICONS.equals(key)
+                && !HookConfig.KEY_NOTIFICATION_LONG_PRESS.equals(key)
                 && !HookConfig.KEY_NOTIFICATION_REPLY.equals(key)
                 && !HookConfig.KEY_BLOCK_TCP_LOGIN_FAIL.equals(key)
                 && !HookConfig.KEY_RECORD_INTERNAL_AUDIO.equals(key)
@@ -150,7 +151,8 @@ public final class HookScopes {
                 || HookConfig.KEY_IOS_ICONS.equals(key)) {
             return new String[] { "com.zuoyebang.iot.pad.launcher14", "com.android.launcher3" };
         }
-        if (HookConfig.KEY_NOTIFICATION_REPLY.equals(key)
+        if (HookConfig.KEY_NOTIFICATION_LONG_PRESS.equals(key)
+                || HookConfig.KEY_NOTIFICATION_REPLY.equals(key)
                 || HookConfig.KEY_UNLIMITED_NOTIFICATION_ICONS.equals(key)
                 || HookConfig.KEY_AOSP_QS.equals(key)
                 || HookConfig.KEY_SYSTEMUI_MONET.equals(key)

@@ -517,6 +517,9 @@ public class Check {
   FrameLayout.LayoutParams mediaMargins=new FrameLayout.LayoutParams(-1,-2);portraitMedia.setLayoutParams(mediaMargins);
   SystemUiQsHooks.restoreMediaCard(portraitMedia);check(mediaMargins.topMargin==0&&mediaMargins.bottomMargin==0);
   SystemUiQsHooks.restoreMediaCard(portraitMedia);check(mediaMargins.topMargin==0&&mediaMargins.bottomMargin==0);
+  check(!HookConfig.defaultEnabled(HookConfig.KEY_NOTIFICATION_LONG_PRESS));
+  check(Arrays.asList(HookConfig.keys()).contains(HookConfig.KEY_NOTIFICATION_LONG_PRESS));
+  ConfigManager.enabled=false;ConfigManager.longPress=true;
   var interactionRow=new com.android.systemui.statusbar.notification.row.ExpandableNotificationRowController(false);
   var interactionConstructor=interactionRow.getClass().getConstructor(boolean.class);
   module.hooks.get(interactionConstructor).intercept(new XposedInterface.Chain(interactionRow,new Object[]{false},x->{
@@ -531,7 +534,7 @@ public class Check {
   var menuConstructor=interactionMenu.getClass().getConstructor();
   module.hooks.get(menuConstructor).intercept(new XposedInterface.Chain(interactionMenu,new Object[]{},x->null));
   check(interactionMenu.mShouldShowMenu);
-  ConfigManager.enabled=false;
+  ConfigManager.enabled=true;ConfigManager.longPress=false;
   interactionRow.mAllowLongPress=false;interactionRow.listenerInstalled=false;
   module.hooks.get(interactionConstructor).intercept(new XposedInterface.Chain(interactionRow,new Object[]{false},x->{
    interactionRow.mAllowLongPress=(Boolean)x[0];interactionRow.initialize();return null;}));
@@ -622,7 +625,7 @@ stubs['android/widget/SeekBar.java'] = '''package android.widget;public class Se
 '''
 stubs['android/view/Gravity.java'] = stubs['android/view/Gravity.java'].replace('CENTER_VERTICAL=16;', 'CENTER_VERTICAL=16,END=8388613,FILL_HORIZONTAL=7;')
 stubs['android/content/res/Resources.java'] = stubs['android/content/res/Resources.java'].replace(' public int getColor(', ' public android.graphics.drawable.Drawable getDrawable(int id,Theme t){return new android.graphics.drawable.Drawable();}public int getColor(')
-stubs['com/lijinmu/arashi/xposed/ConfigManager.java'] = stubs['com/lijinmu/arashi/xposed/ConfigManager.java'].replace('return enabled;', 'return HookConfig.KEY_AOSP_QS.equals(key)&&enabled;').replace('public static boolean enabled;', 'public static boolean enabled;public static int systemUiThemeColorCached(){return 0xff123456;}')
+stubs['com/lijinmu/arashi/xposed/ConfigManager.java'] = stubs['com/lijinmu/arashi/xposed/ConfigManager.java'].replace('return enabled;', 'return HookConfig.KEY_NOTIFICATION_LONG_PRESS.equals(key)?longPress:HookConfig.KEY_AOSP_QS.equals(key)&&enabled;').replace('public static boolean enabled;', 'public static boolean enabled,longPress;public static int systemUiThemeColorCached(){return 0xff123456;}')
 stubs['com/lijinmu/arashi/xposed/hooks/SystemUiMonetHooks.java'] = stubs['com/lijinmu/arashi/xposed/hooks/SystemUiMonetHooks.java'].replace('static boolean setField', 'static int accent(android.content.res.Resources r){return 0xff123456;}static boolean setField')
 stubs['Check.java'] = stubs['Check.java'].replace('  System.out.println("AOSP QS:', '''  FrameLayout brightness=new FrameLayout();SeekBar slider=named(new SeekBar(),"slider");View auto=named(new View(),"brightness_auto");
   brightness.addView(slider);brightness.addView(auto);SystemUiQsHooks.restoreBrightness(brightness);

@@ -864,7 +864,7 @@ public final class SystemUiQsHooks {
                 // constructor argument for allowLongPress. Do not guess on other builds.
                 final int allowIndex = constructorFlag && booleanCount == 1 ? booleanIndex : -1;
                 module.hook(constructor).intercept(chain -> {
-                    if (!enabled()) return chain.proceed();
+                    if (!ConfigManager.isEnabledCached(HookConfig.KEY_NOTIFICATION_LONG_PRESS)) return chain.proceed();
                     Object result;
                     if (allowIndex >= 0) {
                         Object[] args = new Object[parameters.length];

@@ -602,6 +602,7 @@ private fun HookPage(a: HookSettings) {
             HookItem("解除安装黑名单限制", "允许安装被硬编码在 mZybBlacklistApp 中的包名", HookConfig.KEY_CLEAR_BLACKLIST),
         ),
         "行为" to listOf(
+            HookItem("恢复通知长按操作", "恢复通知卡片长按菜单。修改后需重启 SystemUI，与原版下拉面板开关独立", HookConfig.KEY_NOTIFICATION_LONG_PRESS),
             HookItem("修复 Monet 颜色", "恢复基于壁纸的动态配色", HookConfig.KEY_SYSTEMUI_MONET),
             HookItem("允许打开开发者选项", "绕过系统设置检查，允许打开开发者选项的 Activity", HookConfig.KEY_DEV_OPTIONS),
             HookItem("保留后台进程", "拦截系统在划卡后杀死应用后台进程。开关控制立即生效", HookConfig.KEY_KEEP_BACKGROUND),
