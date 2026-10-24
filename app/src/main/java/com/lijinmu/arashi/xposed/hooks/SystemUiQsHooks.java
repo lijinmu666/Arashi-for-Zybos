@@ -20,6 +20,9 @@ import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
+import android.widget.TextClock;
+import android.text.format.DateFormat;
+import java.util.Locale;
 import android.widget.SeekBar;
 import com.lijinmu.arashi.xposed.SystemUiThemeColors;
 
@@ -32,6 +35,7 @@ import java.lang.reflect.Method;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.WeakHashMap;
+import java.lang.ref.WeakReference;
 
 /** Restore the retained AOSP QS hierarchy and expansion path in the supplied Zybos 12/14 builds. */
 public final class SystemUiQsHooks {
@@ -41,6 +45,7 @@ public final class SystemUiQsHooks {
             ThreadLocal.withInitial(() -> false);
     private static boolean shadeOpen;
     private static final Map<View, Boolean> MEDIA_PLAYERS = new WeakHashMap<>();
+    private static final Map<ViewGroup, WeakReference<TextClock>> TOP_CLOCKS = new WeakHashMap<>();
     private static final Map<View, NotificationTopInset> NOTIFICATION_TOP_INSETS = new WeakHashMap<>();
     private static final class NotificationTopInset {
         int nativeTop;
@@ -168,9 +173,53 @@ public final class SystemUiQsHooks {
         // named group before the vendor row, and the vendor may wrap its icons.
         for (int i = 0; i < root.getChildCount(); i++) {
             View child = root.getChildAt(i);
-            if (isVendorStatusRow(child)) child.setVisibility(View.GONE);
+            if (isVendorStatusRow(child) && !isTopBarSubtree(child)) child.setVisibility(View.GONE);
             else if (child instanceof ViewGroup) hideVendorStatusRow((ViewGroup) child);
         }
+    }
+
+    private static boolean isTopBarSubtree(View view) {
+        View ancestor = view;
+        while (ancestor != null) {
+            if (ancestor instanceof ViewGroup && TOP_CLOCKS.containsKey((ViewGroup) ancestor)) return true;
+            Object parent = ancestor.getParent();
+            ancestor = parent instanceof View ? (View) parent : null;
+        }
+        return false;
+    }
+
+    static void restoreTopStatusRow(ViewGroup root) {
+        View row = find(root, "system_icon_area");
+        // Only the vendor's direct, full-width top row, never nested AOSP header icons.
+        if (!(row instanceof LinearLayout) || row.getParent() != root) return;
+        LinearLayout bar = (LinearLayout) row;
+        WeakReference<TextClock> reference = TOP_CLOCKS.get(bar);
+        TextClock clock = reference == null ? null : reference.get();
+        if (clock == null) {
+            clock = new TextClock(bar.getContext());
+            clock.setSingleLine(true);
+            clock.setTextSize(12);
+            clock.setGravity(Gravity.START | Gravity.CENTER_VERTICAL);
+            bar.addView(clock, 0, new LinearLayout.LayoutParams(0, -1, 1f));
+            TOP_CLOCKS.put(bar, new WeakReference<>(clock));
+        }
+        Locale locale = Locale.getDefault();
+        String date = DateFormat.getBestDateTimePattern(locale, "MMMdEEE");
+        clock.setFormat12Hour(DateFormat.getBestDateTimePattern(locale, "hm") + "  " + date);
+        clock.setFormat24Hour(DateFormat.getBestDateTimePattern(locale, "Hm") + "  " + date);
+        clock.setTextColor(neutral(bar.getResources(), true));
+        bar.setOrientation(LinearLayout.HORIZONTAL);
+        bar.setGravity(Gravity.CENTER_VERTICAL | Gravity.END);
+        bar.setPaddingRelative(dp(bar, 16), 0, dp(bar, 16), 0);
+        ViewGroup.LayoutParams params = bar.getLayoutParams();
+        if (params != null && params.height != dp(bar, 28)) {
+            params.height = dp(bar, 28);
+            bar.setLayoutParams(params);
+        }
+        hideVendorStatusRow(root);
+        bar.setVisibility(View.VISIBLE);
+        View lowerHeader = find(root, "split_shade_status_bar");
+        if (lowerHeader != null) lowerHeader.setVisibility(View.INVISIBLE);
     }
 
     static boolean splitShade(Resources resources) {
@@ -220,7 +269,7 @@ public final class SystemUiQsHooks {
     // existing views before measuring; do not reparent notification rows or media controls.
     static void restoreShadeBounds(ViewGroup root, int width) throws ReflectiveOperationException {
         if (width <= 0) return;
-        hideVendorStatusRow(root);
+        restoreTopStatusRow(root);
         View qs = find(root, "qs_frame");
         View notifications = find(root, "notification_stack_scroller");
         if (qs == null || notifications == null || qs.getParent() != root
@@ -241,6 +290,14 @@ public final class SystemUiQsHooks {
             }
         }
         boundColumn(qs, column, edge, bottom);
+        if (!TOP_CLOCKS.isEmpty() && qs.getLayoutParams() instanceof ViewGroup.MarginLayoutParams) {
+            ViewGroup.MarginLayoutParams margins = (ViewGroup.MarginLayoutParams) qs.getLayoutParams();
+            int minimum = dp(root, 28);
+            if (margins.topMargin < minimum) {
+                margins.topMargin = minimum;
+                qs.setLayoutParams(margins);
+            }
+        }
         // A pinned banner uses the same stack as the shade: center it while the shade
         // is collapsed. Keep the right-hand stack on the lock screen.
         boolean banner = Boolean.TRUE.equals(Reflect.getObjectField(notifications, "mInHeadsUpPinnedMode"))
@@ -429,7 +486,7 @@ public final class SystemUiQsHooks {
             module.hook(visibility).intercept(chain -> {
                 View view = (View) chain.getThisObject();
                 if (enabled() && isVendorStatusRow(view))
-                    return chain.proceed(new Object[] {View.GONE});
+                    return chain.proceed(new Object[] {isTopBarSubtree(view) ? View.VISIBLE : View.GONE});
                 if (APPLYING_BAR_VISIBILITY.get() || !STATUS_BARS.containsKey(view))
                     return chain.proceed();
                 int wanted = (Integer) chain.getArg(0);
@@ -495,9 +552,8 @@ public final class SystemUiQsHooks {
         player.setOutlineProvider(MEDIA_OUTLINE);
         player.setClipToOutline(true);
         player.invalidateOutline();
-        // TransitionLayout/MediaCarousel measure their host from TransitionViewState,
-        // without player margins. Extra margins consume space outside that measured
-        // height and get clipped by the carousel and QS container.
+        // Keep the carousel's native measured height and child margins. Adding
+        // margins to the player shifts content beyond the parent's clipping window.
     }
 
     static void restoreFooter(View footer) {
@@ -507,8 +563,6 @@ public final class SystemUiQsHooks {
     }
 
     private static void hookMediaAndFooter(XposedModule module, ClassLoader loader) {
-        // TransitionLayout reapplies animated bounds on layout and pre-draw. Restore
-        // the outline after that pass, scoped to players registered by their holder.
         after(module, loader, "com.android.systemui.util.animation.TransitionLayout",
                 "applyCurrentState", player -> {
                     if (MEDIA_PLAYERS.containsKey((View) player)) restoreMediaCard((View) player);
@@ -657,6 +711,7 @@ public final class SystemUiQsHooks {
                 Object header = Reflect.getObjectField(controller, "header");
                 if (!(header instanceof View)) return chain.proceed();
                 int visibility = SystemUiQsExpansion.flag(controller, "qsDisabled") ? View.GONE
+                        : !TOP_CLOCKS.isEmpty() ? View.INVISIBLE
                         : SystemUiQsExpansion.flag(controller, "qsVisible")
                         && !SystemUiQsExpansion.flag(controller, "customizing") ? View.VISIBLE : View.INVISIBLE;
                 try {
@@ -983,4 +1038,3 @@ public final class SystemUiQsHooks {
         else if (drawable instanceof DrawableWrapper) round(((DrawableWrapper) drawable).getDrawable(), radius);
     }
 }
-

@@ -25,6 +25,13 @@ public class TransitionLayout extends android.view.View {public void applyCurren
  public float radius;public int width,height;public void setRoundRect(int l,int t,int r,int b,float x){width=r-l;height=b-t;radius=x;}}''',
 'android/view/ViewOutlineProvider.java': '''package android.view;public abstract class ViewOutlineProvider {
  public abstract void getOutline(View v,android.graphics.Outline o);}''',
+'android/content/Context.java': 'package android.content;public class Context {}',
+'android/text/format/DateFormat.java': '''package android.text.format;public class DateFormat {
+ public static String getBestDateTimePattern(java.util.Locale l,String skeleton){return skeleton;}}''',
+'android/widget/TextClock.java': '''package android.widget;public class TextClock extends TextView {
+ public CharSequence format12,format24;public TextClock(android.content.Context c){}
+ public void setSingleLine(boolean b){}public void setTextColor(int c){}
+ public void setFormat12Hour(CharSequence s){format12=s;}public void setFormat24Hour(CharSequence s){format24=s;}}''',
 'android/R.java': '''package android;public class R {public static class id {public static int mask=999;}
  public static class color {public static final int system_neutral1_50=50,system_neutral1_100=100,
  system_neutral1_800=800,system_neutral1_900=900;}}
@@ -70,7 +77,7 @@ public class View {public static class MeasureSpec {public static final int EXAC
  public void setOutlineProvider(ViewOutlineProvider p){outline=p;}public void setClipToOutline(boolean v){clip=v;}
  public void invalidateOutline(){}public int getWidth(){return width;}public int getHeight(){return height;}
  public void setElevation(float v){elevation=v;}
- public android.graphics.drawable.Drawable background;public Resources getResources(){return resources;}
+ public android.graphics.drawable.Drawable background;public android.content.Context getContext(){return new android.content.Context();}public Resources getResources(){return resources;}
  public void setBackground(android.graphics.drawable.Drawable d){background=d;}public boolean isClickable(){return true;}
  public void setId(int id){this.id=id;}public int getId(){return id;}public ViewGroup getParent(){return parent;}
  public View findViewById(int id){return this.id==id?this:null;}
@@ -395,14 +402,23 @@ public class Check {
   check(!unchangedMedia.clip&&unchangedMedia.outline==null);
   Drawable outerBackground=new GradientDrawable();footerBar.setBackground(outerBackground);
   call(bindFooter,null,footerBar);check(footerBar.background==outerBackground);ConfigManager.enabled=true;
-  var vendorRoot=new com.android.systemui.shade.NotificationsQuickSettingsContainer();View duplicate=named(new View(),"system_icon_area");vendorRoot.addView(duplicate);
-  SystemUiQsHooks.hideVendorStatusRow(vendorRoot);check(duplicate.visibility==View.GONE);
-  call(setVisible,duplicate,View.VISIBLE);check(duplicate.visibility==View.GONE);
+  var vendorRoot=new com.android.systemui.shade.NotificationsQuickSettingsContainer();
+  LinearLayout duplicate=named(new LinearLayout(),"system_icon_area");View topBattery=new View();duplicate.addView(topBattery);vendorRoot.addView(duplicate);
+  SystemUiQsHooks.restoreTopStatusRow(vendorRoot);check(duplicate.visibility==View.VISIBLE);
+  check(duplicate.getChildCount()==2&&duplicate.getChildAt(1)==topBattery);
+  check(duplicate.getChildAt(0) instanceof TextClock);
+  TextClock topClock=(TextClock)duplicate.getChildAt(0);
+  check(topClock.format12.toString().contains("hm")&&topClock.format24.toString().contains("Hm")&&topClock.format24.toString().contains("MMMdEEE"));
+  SystemUiQsHooks.restoreTopStatusRow(vendorRoot);check(duplicate.getChildCount()==2);
+  header.qsDisabled=false;header.customizing=false;header.qsVisible=true;
+  call(vis,header);check(header.header.visibility==View.INVISIBLE);
+  call(setVisible,duplicate,View.GONE);check(duplicate.visibility==View.VISIBLE);
+  call(setVisible,duplicate,View.VISIBLE);check(duplicate.visibility==View.VISIBLE);
   ConfigManager.enabled=false;call(setVisible,duplicate,View.VISIBLE);check(duplicate.visibility==View.VISIBLE);
-  ConfigManager.enabled=true;call(setVisible,duplicate,View.VISIBLE);check(duplicate.visibility==View.GONE);
+  ConfigManager.enabled=true;call(setVisible,duplicate,View.VISIBLE);check(duplicate.visibility==View.VISIBLE);
   FrameLayout nestedRoot=new FrameLayout(),nativeHeader=new FrameLayout();View nativeIcons=named(new View(),"system_icon_area");
   nativeHeader.addView(nativeIcons);nestedRoot.addView(nativeHeader);
-  SystemUiQsHooks.hideVendorStatusRow(nestedRoot);check(nativeIcons.visibility==View.VISIBLE);
+  SystemUiQsHooks.restoreTopStatusRow(nestedRoot);check(nativeIcons.visibility==View.VISIBLE);
   var wrappedRoot=new com.android.systemui.shade.NotificationsQuickSettingsContainer();
   FrameLayout protectedHeader=named(new FrameLayout(),"large_screen_shade_header");
   View protectedIcons=named(new View(),"system_icon_area");protectedHeader.addView(protectedIcons);wrappedRoot.addView(protectedHeader);
@@ -536,4 +552,3 @@ with tempfile.TemporaryDirectory(prefix='arashi-aosp-qs-') as directory:
     compiler = [shutil.which('javac')] if shutil.which('javac') else ['java', 'com.sun.tools.javac.Main']
     subprocess.run(compiler + ['-d', str(temp / 'classes')] + [str(p) for p in sources], check=True)
     subprocess.run(['java', '-cp', str(temp / 'classes'), 'com.lijinmu.arashi.xposed.hooks.Check'], check=True)
-
