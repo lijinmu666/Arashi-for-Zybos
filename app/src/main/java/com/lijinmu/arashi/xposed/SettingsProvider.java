@@ -160,6 +160,7 @@ Log.w(TAG, "reject untrusted caller uid=" + Binder.getCallingUid());
         result.putBoolean(HookConfig.KEY_AOSP_WIFI, prefs.getBoolean(HookConfig.KEY_AOSP_WIFI, false));
         result.putBoolean(HookConfig.KEY_AOSP_BATTERY, prefs.getBoolean(HookConfig.KEY_AOSP_BATTERY, false));
         result.putBoolean(HookConfig.KEY_SYSTEMUI_THEME, prefs.getBoolean(HookConfig.KEY_SYSTEMUI_THEME, false));
+        result.putBoolean(HookConfig.KEY_LEGACY_POWER_MENU, prefs.getBoolean(HookConfig.KEY_LEGACY_POWER_MENU, false));
         result.putInt(HookConfig.KEY_SYSTEMUI_THEME_COLOR, SystemUiThemeColors.opaque(prefs.getInt(
                 HookConfig.KEY_SYSTEMUI_THEME_COLOR, SystemUiThemeColors.DEFAULT_COLOR)));
         result.putBoolean(HookConfig.KEY_STATUS_BAR_DATE, prefs.getBoolean(HookConfig.KEY_STATUS_BAR_DATE, false));

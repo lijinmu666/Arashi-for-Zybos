@@ -31,6 +31,7 @@ public static void hookSystemUI(XposedModule mod, ClassLoader cl) {
         AospWifiHooks.hookSystemUI(mod, cl);
         AospBluetoothHooks.hookSystemUI(mod);
         SystemUiThemeHooks.hookSystemUI(mod, cl);
+        LegacyPowerMenuHooks.hookSystemUI(mod, cl);
         NotificationReplyHooks.hookSystemUI(mod, cl);
         NavigationAccessHooks.hookSystemUI(mod, cl);
         
@@ -38,6 +39,7 @@ public static void hookSystemUI(XposedModule mod, ClassLoader cl) {
     }
 
 public static void hookSystemServer(XposedModule mod, ClassLoader cl) {
+        LegacyPowerMenuHooks.hookSystemServer(mod, cl);
         hookDefaultBrowser(mod, cl, "system_server");
         NavigationAccessHooks.hookSystemServer(mod, cl);
     }

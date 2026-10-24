@@ -125,6 +125,9 @@ public final class HookScopes {
         if (HookConfig.KEY_KEEP_NAVIGATION.equals(key)) {
             return new String[] { "com.android.systemui", "com.zuoyebang.iot.pad.launcher14", "com.android.launcher3" };
         }
+        if (HookConfig.KEY_LEGACY_POWER_MENU.equals(key)) {
+            return new String[] { "com.android.systemui" };
+        }
         if (HookConfig.KEY_BLOCK_TCP_LOGIN_FAIL.equals(key)) {
             return new String[] { "com.zuoyebang.iot.zptcpservice" };
         }
@@ -172,6 +175,9 @@ public final class HookScopes {
         }
 
         public boolean isAvailable(String key) {
+            if (HookConfig.KEY_LEGACY_POWER_MENU.equals(key)) {
+                return systemActive && scopeKnown && selected.contains("com.android.systemui");
+            }
             if (usesSystemServer(key) && systemActive) return true;
             if (scopeKnown) {
                 for (String pkg : applicationScopes(key)) {
@@ -182,6 +188,11 @@ public final class HookScopes {
         }
 
         public String unavailableReason(String key) {
+            if (HookConfig.KEY_LEGACY_POWER_MENU.equals(key)) {
+                if (!systemActive) return "请勾选系统框架作用域并重启设备";
+                if (!scopeKnown) return "无法读取 LSPosed 作用域，请确认模块已启用并返回此页面";
+                return "请勾选系统界面 com.android.systemui 作用域并重启设备";
+            }
             String[] packages = applicationScopes(key);
             if (packages.length == 0) {
                 return "未检测到本次开机的 SystemServer 的 Hook，请勾选系统框架作用域并重启";

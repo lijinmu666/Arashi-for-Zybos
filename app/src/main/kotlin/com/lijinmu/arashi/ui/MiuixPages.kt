@@ -414,7 +414,7 @@ private fun rememberSystemServerActivation(a: androidx.activity.ComponentActivit
 }
 
 @Composable
-private fun HomePage(a: Main) = Page(a, "Arashi") {
+private fun HomePage(a: Main) = Page(a, "Arashi for Zybos") {
     val moduleActive by rememberSystemServerActivation(a)
     val statusColor = if (moduleActive) MiuixTheme.colorScheme.primary
         else MiuixTheme.colorScheme.onSurfaceVariantSummary
@@ -559,6 +559,7 @@ private fun HookPage(a: HookSettings) = Page(a, "Hook 功能设置", a::finish) 
             HookItem("阻止禁用系统导航与下拉面板", "拦截返回、主页、最近任务及下拉面板的禁用限制，覆盖激活与错误页面等场景。需勾选系统框架、系统界面 和 桌面 作用域，开关控制重启系统后生效", HookConfig.KEY_KEEP_NAVIGATION),
         ),
         "美化" to listOf(
+            HookItem("始终使用传统电源菜单", "将长按电源键与下拉面板的电源菜单改为系统传统对话框。需勾选系统框架和系统界面作用域，更新模块后重启设备；开关在下次打开菜单时生效", HookConfig.KEY_LEGACY_POWER_MENU),
             HookItem("自定义 SystemUI 主题色", "自定义下拉快捷设置、亮度条、锁屏密码键盘按下效果与密码圆点的强调色。修改后重启 SystemUI 生效，关闭后重启恢复系统颜色", HookConfig.KEY_SYSTEMUI_THEME),
             HookItem("原版电池图标", "恢复原版竖向的状态栏电池图标，保留电量百分比、省电模式和充电状态。重启 SystemUI 后生效", HookConfig.KEY_AOSP_BATTERY),
             HookItem("原版 WLAN 图标", "使用原版 Wi-Fi 信号的状态栏图标，保留信号强度、无网络提示与深浅色适配。重启 SystemUI 后生效", HookConfig.KEY_AOSP_WIFI),
@@ -1741,34 +1742,25 @@ private fun AboutCard(
     value: String,
     arrow: Boolean = false,
     externalLink: Boolean = false,
-    compactValue: Boolean = false,
     onClick: () -> Unit,
 ) {
-    Card(
-        modifier = Modifier.fillMaxWidth().height(88.dp),
-        insideMargin = PaddingValues(horizontal = 18.dp, vertical = 12.dp),
-        onClick = onClick,
-    ) {
-        Row(Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                Text(title, color = MiuixTheme.colorScheme.onSurfaceVariantSummary)
-                Spacer(Modifier.height(5.dp))
-                Text(
-                    value,
-                    style = if (compactValue) MiuixTheme.textStyles.body1 else MiuixTheme.textStyles.title2,
-                )
-            }
-            if (arrow || externalLink) {
-                Spacer(Modifier.width(12.dp))
-                Icon(
-                    if (externalLink) MiuixIcons.Link else MiuixIcons.Basic.ArrowRight,
-                    contentDescription = null,
-                    modifier = if (externalLink) Modifier.size(22.dp)
-                        else Modifier.size(width = 10.dp, height = 16.dp),
-                    tint = MiuixTheme.colorScheme.onSurfaceVariantActions,
-                )
-            }
-        }
+    Card(Modifier.fillMaxWidth()) {
+        BasicComponent(
+            title = title,
+            summary = value,
+            onClick = onClick,
+            endActions = if (arrow || externalLink) {
+                {
+                    Icon(
+                        if (externalLink) MiuixIcons.Link else MiuixIcons.Basic.ArrowRight,
+                        contentDescription = null,
+                        modifier = if (externalLink) Modifier.size(22.dp)
+                            else Modifier.size(width = 10.dp, height = 16.dp),
+                        tint = MiuixTheme.colorScheme.onSurfaceVariantActions,
+                    )
+                }
+            } else null,
+        )
     }
 }
 
@@ -1789,7 +1781,7 @@ private fun AboutPage(a: About) = Page(a, "关于 Arashi", a::finish) {
     AboutCard("作者", "李瑾沐", arrow = true, onClick = {
         MiuixPages.showMessage(a, "关于作者", "首席开发者 : 李瑾沐 (H…Hey)\n小红书号 : failgach")
     })
-    AboutCard("GitHub 仓库", "lijinmu666/Arashi-for-Zybos", externalLink = true, compactValue = true, onClick = {
+    AboutCard("GitHub 仓库", "lijinmu666/Arashi-for-Zybos", externalLink = true, onClick = {
         val url = "https://github.com/lijinmu666/Arashi-for-Zybos"
         try {
             a.startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse(url)))
@@ -1797,7 +1789,7 @@ private fun AboutPage(a: About) = Page(a, "关于 Arashi", a::finish) {
             MiuixPages.showMessage(a, "无法打开链接", "请先安装可打开网页的应用")
         }
     })
-    AboutCard("QQ 群聊", "加入 Arashi 用户交流与反馈群", externalLink = true, compactValue = true, onClick = {
+    AboutCard("QQ 群聊", "加入 Arashi 用户交流与反馈群", externalLink = true, onClick = {
         val url = "https://qun.qq.com/universal-share/share?ac=1&authKey=i%2Bh3ZyTelsMfhjWvc8srNCHnS4BMGrsr4hj1fDcEXx0fC5ECgHyUjh45kS5qiQ3W&busi_data=eyJncm91cENvZGUiOiIxMTI1MTkwMzUwIiwidG9rZW4iOiIrRFg2KzdBTHhRRlZKODZjUUt2U2gySFRBaHFBeFNIYTdFTFc0emcydXJuTEZsN1dvS3MwT1J4ZFF2dnNJNUhOIiwidWluIjoiODQxNTYzNjAifQ%3D%3D&data=PB0LIOhizgFR_GzQFzdDn6FEbw0rzkzMw5JbqCzMZp0t72lHOOiSfSqMcISpvsGOvjkcACA_44t9aKGSV3GaNQ&svctype=4&tempid=h5_group_info"
         try {
             a.startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse(url)))
