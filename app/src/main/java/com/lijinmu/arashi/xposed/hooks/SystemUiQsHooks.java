@@ -40,6 +40,12 @@ public final class SystemUiQsHooks {
     private static final ThreadLocal<Boolean> APPLYING_BAR_VISIBILITY =
             ThreadLocal.withInitial(() -> false);
     private static boolean shadeOpen;
+    private static final Map<View, NotificationTopInset> NOTIFICATION_TOP_INSETS = new WeakHashMap<>();
+    private static final class NotificationTopInset {
+        int nativeTop;
+        int appliedTop;
+        NotificationTopInset(int top) { nativeTop = appliedTop = top; }
+    }
     private static final Map<String, Integer> DIMENSIONS = new HashMap<>();
     static {
         DIMENSIONS.put("notification_corner_radius", 28);
@@ -202,6 +208,30 @@ public final class SystemUiQsHooks {
         int notificationStart = split ? width - edge - column : edge;
         if (banner) notificationStart = (width - column) / 2;
         boundColumn(notifications, column, notificationStart, bottom);
+        Method onKeyguard = Reflect.findMethodExact(notifications.getClass(), "onKeyguard");
+        boolean keyguard = onKeyguard != null && Boolean.TRUE.equals(onKeyguard.invoke(notifications));
+        boolean expanded = !Boolean.FALSE.equals(Reflect.getObjectField(notifications, "mIsExpanded"));
+        insetNotificationTop(notifications, split && expanded && !banner && !keyguard ? dp(root, 48) : 0);
+    }
+
+
+    static void insetNotificationTop(View notifications, int extra) {
+        ViewGroup.LayoutParams params = notifications.getLayoutParams();
+        if (!(params instanceof ViewGroup.MarginLayoutParams)) return;
+        ViewGroup.MarginLayoutParams margins = (ViewGroup.MarginLayoutParams) params;
+        NotificationTopInset state = NOTIFICATION_TOP_INSETS.get(notifications);
+        if (state == null) {
+            state = new NotificationTopInset(margins.topMargin);
+            NOTIFICATION_TOP_INSETS.put(notifications, state);
+        } else if (margins.topMargin != state.appliedTop) {
+            // The native controller can replace margins on rotation/configuration updates.
+            state.nativeTop = margins.topMargin;
+        }
+        state.appliedTop = state.nativeTop + extra;
+        if (margins.topMargin != state.appliedTop) {
+            margins.topMargin = state.appliedTop;
+            notifications.setLayoutParams(params);
+        }
     }
 
     private static void boundColumn(View view, int width, int left, int bottom)

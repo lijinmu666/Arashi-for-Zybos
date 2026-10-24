@@ -81,7 +81,7 @@ public class View {public static class MeasureSpec {public static final int EXAC
 'android/view/ViewGroup.java': '''package android.view;import java.util.*;
 public class ViewGroup extends View {public java.util.List<View> children=new ArrayList<>();
  public static class LayoutParams {public int width,height;public LayoutParams(int w,int h){width=w;height=h;}}
- public static class MarginLayoutParams extends LayoutParams {public int leftMargin,rightMargin,bottomMargin,start,end;
+ public static class MarginLayoutParams extends LayoutParams {public int leftMargin,rightMargin,topMargin,bottomMargin,start,end;
  public MarginLayoutParams(int w,int h){super(w,h);}public void setMarginStart(int v){start=v;}public void setMarginEnd(int v){end=v;}}
  public void addView(View v){if(v.parent!=null)throw new IllegalStateException("double parent");children.add(v);v.parent=this;}
  public void addView(View v,LayoutParams p){v.setLayoutParams(p);addView(v);}
@@ -98,7 +98,7 @@ public class ViewGroup extends View {public java.util.List<View> children=new Ar
  public void setMarginStart(int x){start=x;}}}
 ''',
 'android/widget/FrameLayout.java': '''package android.widget;public class FrameLayout extends android.view.ViewGroup {
- public static class LayoutParams extends android.view.ViewGroup.MarginLayoutParams {public int topMargin,gravity;
+ public static class LayoutParams extends android.view.ViewGroup.MarginLayoutParams {public int gravity;
  public LayoutParams(int w,int h){super(w,h);}}}
 ''',
 'android/widget/RelativeLayout.java': '''package android.widget;public class RelativeLayout extends android.view.ViewGroup {
@@ -266,7 +266,7 @@ public class Check {
   split.owner="com.android.systemui";ConfigManager.enabled=false;
   check(!(boolean)call(bool,split,70));check(!(boolean)call(splitDecision,null,split));ConfigManager.enabled=true;
   var bounds=new com.android.systemui.shade.NotificationsQuickSettingsContainer();View qsBounds=named(new View(),"qs_frame");
-  class Stack extends View {public boolean mInHeadsUpPinnedMode,mIsExpanded=true;public Object mAmbientState;}
+  class Stack extends View {public boolean mInHeadsUpPinnedMode,mIsExpanded=true,keyguard;public Object mAmbientState;public boolean onKeyguard(){return keyguard;}}
   Stack stackBounds=named(new Stack(),"notification_stack_scroller");
   qsBounds.setLayoutParams(new FrameLayout.LayoutParams(960,-1));stackBounds.setLayoutParams(new FrameLayout.LayoutParams(960,-1));
   bounds.addView(qsBounds);bounds.addView(stackBounds);
@@ -275,13 +275,22 @@ public class Check {
   check(qsBounds.params.width==912&&stackBounds.params.width==912);
   check(((FrameLayout.LayoutParams)qsBounds.params).leftMargin==32);
   check(((FrameLayout.LayoutParams)stackBounds.params).leftMargin==976);
+  check(((FrameLayout.LayoutParams)stackBounds.params).topMargin==96);
+  SystemUiQsHooks.restoreShadeBounds(bounds,1920);
+  check(((FrameLayout.LayoutParams)stackBounds.params).topMargin==96);
+  stackBounds.keyguard=true;SystemUiQsHooks.restoreShadeBounds(bounds,1920);
+  check(((FrameLayout.LayoutParams)stackBounds.params).topMargin==0);
+  stackBounds.keyguard=false;SystemUiQsHooks.restoreShadeBounds(bounds,1920);
+  check(((FrameLayout.LayoutParams)stackBounds.params).topMargin==96);
   check(((FrameLayout.LayoutParams)qsBounds.params).bottomMargin==64);
   stackBounds.mInHeadsUpPinnedMode=true;stackBounds.mIsExpanded=false;
   SystemUiQsHooks.restoreShadeBounds(bounds,1920);
   check(((FrameLayout.LayoutParams)stackBounds.params).leftMargin==504);
+  check(((FrameLayout.LayoutParams)stackBounds.params).topMargin==0);
   bounds.resources.config.orientation=1;bounds.resources.config.screenWidthDp=640;
   SystemUiQsHooks.restoreShadeBounds(bounds,1280);check(qsBounds.params.width==1216&&stackBounds.params.width==1216);
   check(((FrameLayout.LayoutParams)qsBounds.params).leftMargin==32);
+  check(((FrameLayout.LayoutParams)stackBounds.params).topMargin==0);
   SystemUiQsHooks.restoreShadeBounds(bounds,0);check(qsBounds.params.width==1216);
   class Constraints extends ViewGroup.MarginLayoutParams {
    public int startToStart=0,startToEnd=-1,endToStart=-1,endToEnd=0;
@@ -291,6 +300,11 @@ public class Check {
   qsBounds.setLayoutParams(new Constraints());stackBounds.setLayoutParams(new Constraints());
   bounds.resources.config.orientation=2;stackBounds.mIsExpanded=true;SystemUiQsHooks.restoreShadeBounds(bounds,1920);
   Constraints cp=(Constraints)stackBounds.params;
+  check(cp.topMargin==96);
+  cp.topMargin=20;SystemUiQsHooks.restoreShadeBounds(bounds,1920);check(cp.topMargin==116);
+  SystemUiQsHooks.restoreShadeBounds(bounds,1920);check(cp.topMargin==116);
+  bounds.resources.config.orientation=1;SystemUiQsHooks.restoreShadeBounds(bounds,1280);check(cp.topMargin==20);
+  bounds.resources.config.orientation=2;SystemUiQsHooks.restoreShadeBounds(bounds,1920);
   check(cp.width==912&&cp.leftMargin==976&&cp.leftToLeft==0&&cp.startToStart==-1&&cp.endToEnd==-1);
   cp.width=777;ConfigManager.enabled=false;
   call(bounds.getClass().getMethod("onMeasure",int.class,int.class),bounds,1920,1280);
