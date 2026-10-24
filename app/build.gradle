@@ -18,8 +18,8 @@ android {
         applicationId 'com.lijinmu.arashi'
         minSdk = 31
         targetSdk = 34
-        versionCode = 44
-        versionName = 'v1.0.0'
+        versionCode = 46
+        versionName = 'v1.1.0'
     }
     if (hasSigningConfig) {
         signingConfigs {

@@ -549,20 +549,21 @@ private fun HookPage(a: HookSettings) = Page(a, "Hook 功能设置", a::finish) 
             HookItem("允许打开开发者选项", "绕过系统设置检查，允许打开开发者选项的 Activity", HookConfig.KEY_DEV_OPTIONS),
             HookItem("保留后台进程", "拦截划卡后强杀应用进程。开关控制立即生效", HookConfig.KEY_KEEP_BACKGROUND),
             HookItem("允许 USB 文件传输", "允许挂载外部 USB 设备和使用数据传输。开关控制立即生效", HookConfig.KEY_ALLOW_USB),
-            HookItem("允许任意应用设置壁纸", "允许任意应用设置壁纸，并移除新版桌面覆盖系统壁纸的静态背景。需勾选系统框架与作业帮桌面作用域，开关控制立即生效", HookConfig.KEY_ALLOW_WALLPAPER),
-            HookItem("允许 WiFi 网页登录", "允许连接到认证型 WiFi 正常跳转到 “登录到网络” 登录验证网页", HookConfig.KEY_CAPTIVE_PORTAL),
-            HookItem("原版应用详情与通知设置", "恢复完整原版应用信息页及应用通知设置，沿用系统控制器；更改后重新打开页面", HookConfig.KEY_AOSP_APP_DETAILS),
+            HookItem("允许任意应用设置壁纸", "允许任意应用设置壁纸，并移除新版桌面覆盖系统壁纸的静态背景。需勾选 系统框架 与 桌面 作用域，开关控制立即生效", HookConfig.KEY_ALLOW_WALLPAPER),
+            HookItem("允许 WiFi 网页登录", "允许连接到认证型 WiFi 并正常跳转到 “登录到网络” 登录验证网页", HookConfig.KEY_CAPTIVE_PORTAL),
+            HookItem("原版应用详情页设置", "恢复完整的 AOSP 原版应用信息页及应用通知设置，沿用系统控制器。开关控制重新打开页面后生效", HookConfig.KEY_AOSP_APP_DETAILS),
             HookItem("解除应用详情页限制", "允许打开 WebView、report服务 和 PadMs 的应用设置详情页。开关控制立即生效", HookConfig.KEY_CLEAR_DETAIL_BLACK),
             HookItem("修复录屏的声音选项", "恢复 SystemUI 录屏菜单的设备声音、麦克风及混合音源选择选项", HookConfig.KEY_RECORD_INTERNAL_AUDIO),
-						HookItem("修复通知快捷回复", "尝试修复 SystemUI 通知回复框出现后立即关闭的问题。开关控制立即生效", HookConfig.KEY_NOTIFICATION_REPLY),
+						HookItem("修复通知快捷回复", "修复 SystemUI 通知回复框出现后立即关闭的问题。开关控制立即生效", HookConfig.KEY_NOTIFICATION_REPLY),
             HookItem("阻止重设默认浏览器", "拦截 SystemUI 开机时将 “学习网站” 设为默认浏览器", HookConfig.KEY_BLOCK_DEFAULT_BROWSER),
             HookItem("阻止禁用系统导航与下拉面板", "拦截返回、主页、最近任务及下拉面板的禁用限制，覆盖激活与错误页面等场景。需勾选系统框架、系统界面 和 桌面 作用域，开关控制重启系统后生效", HookConfig.KEY_KEEP_NAVIGATION),
         ),
         "美化" to listOf(
-            HookItem("状态栏使用 AOSP 的 WLAN 图标", "使用原版 Wi-Fi 信号图标，保留信号强度、无网络提示与深浅色适配。重启 SystemUI 后生效", HookConfig.KEY_AOSP_WIFI),
-            HookItem("状态栏使用 AOSP 的电池图标", "恢复原版竖向电池图标，保留电量百分比与充电状态。重启 SystemUI 后生效", HookConfig.KEY_AOSP_BATTERY),
+            HookItem("原版电池图标", "恢复原版竖向的状态栏电池图标，保留电量百分比、省电模式和充电状态。重启 SystemUI 后生效", HookConfig.KEY_AOSP_BATTERY),
+            HookItem("原版 WLAN 图标", "使用原版 Wi-Fi 信号的状态栏图标，保留信号强度、无网络提示与深浅色适配。重启 SystemUI 后生效", HookConfig.KEY_AOSP_WIFI),
+            HookItem("原版蓝牙图标", "恢复蓝牙已连接时的原版的状态栏图标，保留连接状态与深浅色适配。重启 SystemUI 后生效", HookConfig.KEY_AOSP_BLUETOOTH),
             HookItem("桌面图标圆角", "桌面应用图标与文件夹的改成 iOS 样式的圆角，文件夹使用半透明底色。强行停止桌面后生效", HookConfig.KEY_IOS_ICONS),
-						HookItem("状态栏显示日期", "仿 iPadOS 在状态栏左侧时间后显示月日与星期，如 16:40  10月17日周六。开关控制在下次时钟刷新时生效", HookConfig.KEY_STATUS_BAR_DATE),
+            HookItem("状态栏显示日期", "仿 iPadOS 在状态栏左侧时间后显示月日与星期，如 16:40  10月17日周六。开关控制在下次时钟刷新时生效", HookConfig.KEY_STATUS_BAR_DATE),
         ),
         "TCP 服务" to listOf(
             HookItem("屏蔽锁机广播", "拦截 ZpTcpService 发出的所有 login.fail 广播，以此防止云控锁机", HookConfig.KEY_BLOCK_TCP_LOGIN_FAIL),
@@ -823,7 +824,12 @@ private fun BackgroundWhitelistPage(a: BackgroundWhitelistActivity) {
                                     onCheckedChange = { checked ->
                                         save(if (checked) selected + choice.packageName else selected - choice.packageName)
                                     },
-                                    title = choice.label, summary = choice.packageName,
+                                    title = choice.label,
+                                    summary = choice.packageName + when (choice.isSystem) {
+                                        true -> " · 系统应用"
+                                        false -> " · 用户应用"
+                                        null -> ""
+                                    },
                                     checkboxLocation = CheckboxLocation.End,
                                 )
                             }
@@ -1387,7 +1393,7 @@ private fun QuickPage(a: QuickCommands) = Page(a, "快捷指令执行", a::finis
         QuickCommandItem("启用 系统升级", "与上方功能作用排斥") { a.run("启用 系统升级", "pm enable com.zuoyebang.iot.zp.lib.ota.server") }
     }
     Group("设置") {
-        Link("Zybos 环境控制", "读取和修改 persist.sys.env_config") {
+        Link("作业帮学习机系统环境控制", "读取和修改 persist.sys.env_config") {
             a.startActivity(Intent(a, com.lijinmu.arashi.tools.ZybosEnvController::class.java))
         }
         fun set(title: String, key: String, value: Int) =

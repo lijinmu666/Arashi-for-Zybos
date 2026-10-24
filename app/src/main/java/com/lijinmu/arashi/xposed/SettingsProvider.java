@@ -156,6 +156,7 @@ Log.w(TAG, "reject untrusted caller uid=" + Binder.getCallingUid());
         result.putBoolean(HookConfig.KEY_ALLOW_USB, prefs.getBoolean(HookConfig.KEY_ALLOW_USB, HookConfig.DEFAULT_ENABLED));
         result.putBoolean(HookConfig.KEY_RECORD_INTERNAL_AUDIO, prefs.getBoolean(HookConfig.KEY_RECORD_INTERNAL_AUDIO, HookConfig.defaultEnabled(HookConfig.KEY_RECORD_INTERNAL_AUDIO)));
         result.putBoolean(HookConfig.KEY_NOTIFICATION_REPLY, prefs.getBoolean(HookConfig.KEY_NOTIFICATION_REPLY, false));
+        result.putBoolean(HookConfig.KEY_AOSP_BLUETOOTH, prefs.getBoolean(HookConfig.KEY_AOSP_BLUETOOTH, false));
         result.putBoolean(HookConfig.KEY_AOSP_WIFI, prefs.getBoolean(HookConfig.KEY_AOSP_WIFI, false));
         result.putBoolean(HookConfig.KEY_AOSP_BATTERY, prefs.getBoolean(HookConfig.KEY_AOSP_BATTERY, false));
         result.putBoolean(HookConfig.KEY_STATUS_BAR_DATE, prefs.getBoolean(HookConfig.KEY_STATUS_BAR_DATE, false));

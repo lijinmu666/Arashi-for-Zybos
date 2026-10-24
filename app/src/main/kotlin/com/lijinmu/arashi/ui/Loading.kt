@@ -16,7 +16,6 @@ import top.yukonga.miuix.kmp.basic.Button
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.InfiniteProgressIndicator
 import top.yukonga.miuix.kmp.basic.TextButton
-import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /** Shared Miuix orbiting-dot animation; operation names remain available to accessibility. */
 @Composable
@@ -30,7 +29,6 @@ internal fun LoadingIndicator(
             contentDescription = description
             progressBarRangeInfo = ProgressBarRangeInfo.Indeterminate
         },
-        color = MiuixTheme.colorScheme.primary,
         size = size,
     )
 }
