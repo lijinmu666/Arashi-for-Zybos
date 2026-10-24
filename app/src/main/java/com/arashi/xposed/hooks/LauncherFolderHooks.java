@@ -19,8 +19,13 @@ public final class LauncherFolderHooks {
     private LauncherFolderHooks() {}
 
     public static void hookLauncher(XposedModule module, ClassLoader loader) {
+        hookLauncher(module, loader, false);
+    }
+
+    public static void hookLauncher(XposedModule module, ClassLoader loader, boolean launcher3) {
         try {
-            Class<?> background = Class.forName("com.android.launcher3.folder.b0", false, loader);
+            Class<?> background = Class.forName(launcher3 ? "com.android.launcher3.folder.c0"
+                    : "com.android.launcher3.folder.b0", false, loader);
             Method draw = Reflect.findMethodExact(background, "c", Canvas.class);
             Field size = declared(background, "l");
             Field left = declared(background, "m");

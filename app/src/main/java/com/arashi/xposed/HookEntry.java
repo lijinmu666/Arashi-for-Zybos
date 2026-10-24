@@ -74,11 +74,12 @@ public final class HookEntry extends XposedModule {
         } else if (PKG_SUPERVISE.equals(pkg)) {
             ConfigManager.init(pkg);
             SuperviseHooks.hookSupervise(this, param.getClassLoader());
-        } else if ("com.zuoyebang.iot.pad.launcher14".equals(pkg)) {
+        } else if ("com.zuoyebang.iot.pad.launcher14".equals(pkg)
+                || "com.android.launcher3".equals(pkg)) {
             ConfigManager.init(pkg);
-            LauncherWallpaperHooks.hookLauncher(this, param.getClassLoader());
-            LauncherIconHooks.hookLauncher(this, param.getClassLoader());
-            LauncherFolderHooks.hookLauncher(this, param.getClassLoader());
+            LauncherWallpaperHooks.hookLauncher(this, param.getClassLoader(), "com.android.launcher3".equals(pkg));
+            LauncherIconHooks.hookLauncher(this, param.getClassLoader(), "com.android.launcher3".equals(pkg));
+            LauncherFolderHooks.hookLauncher(this, param.getClassLoader(), "com.android.launcher3".equals(pkg));
         } else if (PKG_SYSTEMUI.equals(pkg)) {
             ConfigManager.init(pkg);
             SystemUIHooks.hookSystemUI(this, param.getClassLoader());

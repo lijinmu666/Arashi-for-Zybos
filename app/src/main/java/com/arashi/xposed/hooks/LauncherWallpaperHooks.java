@@ -15,10 +15,16 @@ public final class LauncherWallpaperHooks {
     private LauncherWallpaperHooks() {}
 
     public static void hookLauncher(XposedModule module, ClassLoader loader) {
+        hookLauncher(module, loader, false);
+    }
+
+    public static void hookLauncher(XposedModule module, ClassLoader loader, boolean launcher3) {
         try {
-            // AIbangOS launcher 7.10.2 copies a static wallpaper into its content
-            // container. Let the system wallpaper surface show through instead.
-            Class<?> snapshot = Class.forName("com.zuoyebang.iot.pad.launcher.c1", false, loader);
+            // Both launchers copy a static wallpaper into the content container.
+            // Their snapshot coroutine names differ; c1 is unrelated on Launcher3.
+            // Let the system wallpaper surface show through instead.
+            Class<?> snapshot = Class.forName(launcher3 ? "com.zuoyebang.iot.pad.launcher.a1"
+                    : "com.zuoyebang.iot.pad.launcher.c1", false, loader);
             Method load = Reflect.findMethodExact(snapshot, "invokeSuspend", Object.class);
             if (load != null) {
                 module.hook(load).intercept(chain -> {

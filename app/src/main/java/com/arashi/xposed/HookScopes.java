@@ -102,7 +102,8 @@ public final class HookScopes {
     }
 
     private static boolean usesSystemServer(String key) {
-        return !HookConfig.KEY_IOS_ICONS.equals(key)
+        return !HookConfig.KEY_RECORD_INTERNAL_AUDIO.equals(key)
+                && !HookConfig.KEY_IOS_ICONS.equals(key)
                 && !HookConfig.KEY_EXTERNAL_INSTALL.equals(key)
                 && !HookConfig.KEY_CAPTIVE_PORTAL.equals(key)
                 && !HookConfig.KEY_DEV_OPTIONS.equals(key)
@@ -130,9 +131,10 @@ public final class HookScopes {
         }
         if (HookConfig.KEY_ALLOW_WALLPAPER.equals(key)
                 || HookConfig.KEY_IOS_ICONS.equals(key)) {
-            return new String[] { "com.zuoyebang.iot.pad.launcher14" };
+            return new String[] { "com.zuoyebang.iot.pad.launcher14", "com.android.launcher3" };
         }
-        if (HookConfig.KEY_BLOCK_DEFAULT_BROWSER.equals(key)) {
+        if (HookConfig.KEY_BLOCK_DEFAULT_BROWSER.equals(key)
+                || HookConfig.KEY_RECORD_INTERNAL_AUDIO.equals(key)) {
             return new String[] { "com.android.systemui" };
         }
         return new String[0];
