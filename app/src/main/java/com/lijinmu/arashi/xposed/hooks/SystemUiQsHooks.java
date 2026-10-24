@@ -41,9 +41,8 @@ import java.lang.ref.WeakReference;
 public final class SystemUiQsHooks {
     private static final String TAG = "[Arashi-AospQs]";
     private static final Map<View, Integer> STATUS_BARS = new WeakHashMap<>();
-    private static final ThreadLocal<Boolean> APPLYING_BAR_VISIBILITY =
-            ThreadLocal.withInitial(() -> false);
     private static boolean shadeOpen;
+    private static boolean lastBarEnabled;
     private static final Map<View, Boolean> MEDIA_PLAYERS = new WeakHashMap<>();
     private static final Map<ViewGroup, WeakReference<TextClock>> TOP_CLOCKS = new WeakHashMap<>();
     private static final Map<View, NotificationTopInset> NOTIFICATION_TOP_INSETS = new WeakHashMap<>();
@@ -82,6 +81,13 @@ public final class SystemUiQsHooks {
         hookShadeBounds(module, loader);
         hookNotificationCorners(module, loader);
         hookGlobalStatusBar(module, loader);
+        for (String container : new String[] {
+                "com.android.systemui.shade.NotificationsQuickSettingsContainer",
+                "com.android.systemui.statusbar.phone.NotificationsQuickSettingsContainer"}) {
+            after(module, loader, container, "onFinishInflate", root -> restoreTopStatusRow((ViewGroup) root));
+            after(module, loader, container, "onAttachedToWindow", root -> restoreTopStatusRow((ViewGroup) root));
+            after(module, loader, container, "onConfigurationChanged", root -> restoreTopStatusRow((ViewGroup) root));
+        }
         hookMediaAndFooter(module, loader);
         hookNotificationInteractions(module, loader);
         hookExpansion(module, loader, "com.android.systemui.shade.QuickSettingsController", true);
@@ -189,7 +195,10 @@ public final class SystemUiQsHooks {
     }
 
     static void restoreTopStatusRow(ViewGroup root) {
-        View row = find(root, "system_icon_area");
+        int rowId = root.getResources().getIdentifier("system_icon_area", "id", "com.android.systemui");
+        View row = null;
+        for (int i = 0; i < root.getChildCount(); i++)
+            if (root.getChildAt(i).getId() == rowId) { row = root.getChildAt(i); break; }
         // Only the vendor's direct, full-width top row, never nested AOSP header icons.
         if (!(row instanceof LinearLayout) || row.getParent() != root) return;
         LinearLayout bar = (LinearLayout) row;
@@ -212,8 +221,20 @@ public final class SystemUiQsHooks {
         bar.setGravity(Gravity.CENTER_VERTICAL | Gravity.END);
         bar.setPaddingRelative(dp(bar, 16), 0, dp(bar, 16), 0);
         ViewGroup.LayoutParams params = bar.getLayoutParams();
-        if (params != null && params.height != dp(bar, 28)) {
-            params.height = dp(bar, 28);
+        if (params != null) {
+            params.height = dp(bar, 32);
+            try {
+                if (SystemUiQsExpansion.field(params.getClass(), "leftToLeft") != null) {
+                    params.width = 0;
+                    setLayoutField(params, "leftToLeft", 0);
+                    setLayoutField(params, "rightToRight", 0);
+                    setLayoutField(params, "topToTop", 0);
+                    setLayoutField(params, "startToStart", -1);
+                    setLayoutField(params, "endToEnd", -1);
+                } else params.width = -1;
+            } catch (ReflectiveOperationException error) {
+                Log.w(TAG, "Top row constraints unavailable", error);
+            }
             bar.setLayoutParams(params);
         }
         hideVendorStatusRow(root);
@@ -269,7 +290,6 @@ public final class SystemUiQsHooks {
     // existing views before measuring; do not reparent notification rows or media controls.
     static void restoreShadeBounds(ViewGroup root, int width) throws ReflectiveOperationException {
         if (width <= 0) return;
-        restoreTopStatusRow(root);
         View qs = find(root, "qs_frame");
         View notifications = find(root, "notification_stack_scroller");
         if (qs == null || notifications == null || qs.getParent() != root
@@ -310,7 +330,7 @@ public final class SystemUiQsHooks {
         Method onKeyguard = Reflect.findMethodExact(notifications.getClass(), "onKeyguard");
         boolean keyguard = onKeyguard != null && Boolean.TRUE.equals(onKeyguard.invoke(notifications));
         boolean expanded = !Boolean.FALSE.equals(Reflect.getObjectField(notifications, "mIsExpanded"));
-        insetNotificationTop(notifications, split && expanded && !banner && !keyguard ? dp(root, 48) : 0);
+        insetNotificationTop(notifications, split && expanded && !banner && !keyguard ? dp(root, 64) : 0);
     }
 
 
@@ -478,30 +498,20 @@ public final class SystemUiQsHooks {
                 "updateExpansionAndVisibility", SystemUiQsHooks::onShadeExpansion);
         observeAlways(module, loader, "com.android.systemui.statusbar.phone.PanelViewController",
                 "notifyBarPanelExpansionChanged", SystemUiQsHooks::onShadeExpansion);
-        // Visibility is inherited from View. Match registered PhoneStatusBarView instances
-        // only, leaving the shade header and the status-bar window/touch surface untouched.
-        try {
-            Method visibility = View.class.getDeclaredMethod("setVisibility", int.class);
-            try { module.deoptimize(visibility); } catch (Throwable ignored) {}
-            module.hook(visibility).intercept(chain -> {
-                View view = (View) chain.getThisObject();
-                if (enabled() && isVendorStatusRow(view))
-                    return chain.proceed(new Object[] {isTopBarSubtree(view) ? View.VISIBLE : View.GONE});
-                if (APPLYING_BAR_VISIBILITY.get() || !STATUS_BARS.containsKey(view))
-                    return chain.proceed();
-                int wanted = (Integer) chain.getArg(0);
-                STATUS_BARS.put(view, wanted);
-                return chain.proceed(new Object[] {
-                        enabled() && shadeOpen && wanted == View.VISIBLE ? View.INVISIBLE : wanted});
-            });
-        } catch (Throwable error) { Log.w(TAG, "Global status bar visibility unavailable", error); }
     }
 
     static void onShadeExpansion(Object controller) {
         Object fraction = Reflect.getObjectField(controller, "mExpandedFraction");
         if (!(fraction instanceof Number)) return;
         float value = ((Number) fraction).floatValue();
-        shadeOpen = Float.isFinite(value) && value > 0f;
+        boolean open = Float.isFinite(value) && value > 0f;
+        if (open == shadeOpen && lastBarEnabled == enabled()) return;
+        if (open && !shadeOpen) {
+            for (Map.Entry<View, Integer> entry : STATUS_BARS.entrySet())
+                entry.setValue(entry.getKey().getVisibility());
+        }
+        shadeOpen = open;
+        lastBarEnabled = enabled();
         refreshGlobalStatusBars();
     }
 
@@ -515,9 +525,7 @@ public final class SystemUiQsHooks {
 
     private static void applyBarVisibility(View view, int visibility) {
         if (view.getVisibility() == visibility) return;
-        APPLYING_BAR_VISIBILITY.set(true);
-        try { view.setVisibility(visibility); }
-        finally { APPLYING_BAR_VISIBILITY.set(false); }
+        view.setVisibility(visibility);
     }
 
     // Unlike the feature-gated after() helper, these observers must also restore the
@@ -549,9 +557,8 @@ public final class SystemUiQsHooks {
     };
 
     static void restoreMediaCard(View player) {
-        player.setOutlineProvider(MEDIA_OUTLINE);
-        player.setClipToOutline(true);
-        player.invalidateOutline();
+        if (player.getOutlineProvider() != MEDIA_OUTLINE) player.setOutlineProvider(MEDIA_OUTLINE);
+        if (!player.getClipToOutline()) player.setClipToOutline(true);
         // Keep the carousel's native measured height and child margins. Adding
         // margins to the player shifts content beyond the parent's clipping window.
     }
@@ -564,9 +571,10 @@ public final class SystemUiQsHooks {
 
     private static void hookMediaAndFooter(XposedModule module, ClassLoader loader) {
         after(module, loader, "com.android.systemui.util.animation.TransitionLayout",
-                "applyCurrentState", player -> {
+                "onLayout", player -> {
                     if (MEDIA_PLAYERS.containsKey((View) player)) restoreMediaCard((View) player);
                 });
+        hookMediaMeasurement(module, loader);
         for (String name : new String[] {
                 "com.android.systemui.media.controls.models.player.MediaViewHolder",
                 "com.android.systemui.media.PlayerViewHolder",
@@ -667,6 +675,79 @@ public final class SystemUiQsHooks {
             }
         } catch (ClassNotFoundException ignored) {
         } catch (Throwable error) { Log.w(TAG, "Notification interaction hook unavailable: " + name, error); }
+    }
+
+
+    static int mediaViewportWidth(View player) {
+        int width = Integer.MAX_VALUE;
+        boolean inQs = false;
+        View current = player;
+        while (current != null) {
+            String name = current.getClass().getName();
+            if (name.endsWith(".MediaScrollView") && current.getWidth() > 0)
+                width = Math.min(width, current.getWidth() - current.getPaddingLeft() - current.getPaddingRight());
+            int qsId = current.getResources().getIdentifier("qs_frame", "id", "com.android.systemui");
+            if (qsId != 0 && current.getId() == qsId) inQs = true;
+            Object parent = current.getParent();
+            current = parent instanceof View ? (View) parent : null;
+        }
+        return inQs && width > 0 && width < Integer.MAX_VALUE ? width : 0;
+    }
+
+    private static void hookMediaMeasurement(XposedModule module, ClassLoader loader) {
+        for (String name : new String[] {"com.android.systemui.media.controls.ui.MediaViewController",
+                "com.android.systemui.media.MediaViewController"}) {
+            try {
+                Class<?> type = Class.forName(name, false, loader);
+                for (Method method : type.getDeclaredMethods()) {
+                    if (!method.getName().equals("obtainViewState") || method.getParameterTypes().length != 1) continue;
+                    try { module.deoptimize(method); } catch (Throwable ignored) {}
+                    module.hook(method).intercept(chain -> {
+                        if (!enabled()) return chain.proceed();
+                        Object player = Reflect.getObjectField(chain.getThisObject(), "transitionLayout");
+                        int width = player instanceof View ? mediaViewportWidth((View) player) : 0;
+                        Object state = chain.getArg(0);
+                        if (width == 0 || state == null) return chain.proceed();
+                        MediaWidthOverride change;
+                        try { change = prepareMediaWidth(state, width); }
+                        catch (ReflectiveOperationException | RuntimeException error) {
+                            Log.w(TAG, "Media measurement unavailable", error);
+                            return chain.proceed();
+                        }
+                        if (change == null) return chain.proceed();
+                        // Adjust before the native cache key and ConstraintSet are measured.
+                        // Native execution stays outside the setup catch: never retry a failed call.
+                        try { return chain.proceed(); }
+                        finally { change.spec.setInt(change.input, change.original); }
+                    });
+                }
+            } catch (ClassNotFoundException ignored) {
+            } catch (Throwable error) { Log.w(TAG, "Media measurement hook unavailable", error); }
+        }
+    }
+
+
+    private static final class MediaWidthOverride {
+        final Object input;
+        final java.lang.reflect.Field spec;
+        final int original;
+        MediaWidthOverride(Object input, java.lang.reflect.Field spec, int original) {
+            this.input = input; this.spec = spec; this.original = original;
+        }
+    }
+
+    private static MediaWidthOverride prepareMediaWidth(Object state, int width)
+            throws ReflectiveOperationException {
+        Method getInput = Reflect.findMethodExact(state.getClass(), "getMeasurementInput");
+        if (getInput == null) return null;
+        Object input = getInput.invoke(state);
+        if (input == null) return null;
+        java.lang.reflect.Field spec = SystemUiQsExpansion.field(input.getClass(), "widthMeasureSpec");
+        if (spec == null) return null;
+        int original = spec.getInt(input);
+        if (View.MeasureSpec.getSize(original) <= width) return null;
+        spec.setInt(input, View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY));
+        return new MediaWidthOverride(input, spec, original);
     }
 
     static int neutral(Resources resources, boolean foreground) {
