@@ -545,7 +545,7 @@ private fun HookPage(a: HookSettings) {
             OverlayDropdownPopup(
                 entry = DropdownEntry(listOf(
                     DropdownItem(
-                        text = "强行停止作用域应用",
+                        text = "杀死后台进程",
                         selected = false,
                         onClick = {
                             actionsExpanded = false
@@ -590,8 +590,8 @@ private fun HookPage(a: HookSettings) {
     if (confirmStopScopes) {
         OverlayDialog(
             show = true,
-            title = "强行停止作用域应用",
-            summary = "是否要杀死所有作用域应用？不会重启系统，也不会杀死系统框架。需要使用 root 权限",
+            title = "杀死后台进程",
+            summary = "使用 root 终止系统界面、设置、桌面、安装器、网络登录、管控服务和 TCP 服务的进程，Arashi 将稍后关闭",
             onDismissRequest = { confirmStopScopes = false },
         ) {
             Row(
@@ -609,20 +609,14 @@ private fun HookPage(a: HookSettings) {
                         confirmStopScopes = false
                         if (!stoppingScopes) {
                             stoppingScopes = true
-                            MiuixPages.showProgress(a, "强行停止作用域应用", "正在请求 root 权限并停止当前已勾选的 LSPosed 作用域应用")
+                            MiuixPages.showProgress(a, "杀死后台进程", "正在请求 root 权限并终止固定应用的进程")
                             coroutineScope.launch {
-                                val snapshot = withContext(Dispatchers.IO) { HookScopes.read(a) }
-                                if (!snapshot.scopeKnown) {
-                                    stoppingScopes = false
-                                    MiuixPages.showMessage(a, "无法读取作用域", "无法读取 LSPosed 作用域，请确认模块已启用后重试")
-                                    return@launch
-                                }
                                 val result = withContext(Dispatchers.IO) {
-                                    ScopedAppStopper.stop(snapshot.selectedPackages)
+                                    ScopedAppStopper.stop()
                                 }
                                 stoppingScopes = false
                                 if (result.ok) {
-                                    MiuixPages.showMessage(a, "操作已完成", result.output + "。Arashi 若在作用域中会稍后自行关闭")
+                                    MiuixPages.showMessage(a, "操作已完成", result.output)
                                 } else if (result.output.contains("ROOT_REQUIRED")
                                     || !result.output.contains("ROOT_GRANTED")
                                     || result.output.contains("无法执行 su")
