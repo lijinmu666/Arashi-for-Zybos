@@ -2051,7 +2051,7 @@ private fun ZybosEnvPage(a: com.lijinmu.arashi.tools.ZybosEnvController) = Page(
         SwitchPreference(
             checked = showTools,
             onCheckedChange = { showTools = it },
-            title = "启用应用商店调试工具悬浮窗",
+            title = "启用作业帮调试工具悬浮窗",
             enabled = !busy && original != null,
         )
         SwitchPreference(
