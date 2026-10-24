@@ -1,6 +1,6 @@
 # Arashi
 
-Arashi 是面向作业帮学习机 AIBangOS 的 LSPosed 模块和系统工具，界面使用 Miuix。目前版本为 `v1.1.0`，内部版本代码为 `46`。
+Arashi 是面向作业帮学习机 AIBangOS 的 LSPosed 模块和系统工具，界面使用 Miuix。目前版本为 `v1.2.0`，内部版本代码为 `47`。
 
 系统内部相关组件使用 Zybos 命名。安装、卸载等特权工具依赖设备提供的 `ZybosSysApiManager`；不同固件的接口和限制可能存在差异。
 
@@ -129,3 +129,5 @@ docs/          兼容性、功能说明与提交索引
 ## 许可证
 
 Arashi 版权所有 © 2026 lijinmu666，采用 GNU General Public License v3.0 only（SPDX：`GPL-3.0-only`）授权，详见 [LICENSE](LICENSE)。
+
+卸载验证与 TCP 拦截提醒使用普通响铃通知及系统默认通知声音，遵循系统音量、勿扰和用户的渠道设置。
