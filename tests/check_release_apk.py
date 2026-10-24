@@ -60,20 +60,20 @@ def definitions(data):
 
 with zipfile.ZipFile(sys.argv[1]) as apk:
     entry = apk.read('META-INF/xposed/java_init.list').decode().strip()
-    if entry != 'com.arashi.xposed.HookEntry':
+    if entry != 'com.lijinmu.arashi.xposed.HookEntry':
         raise AssertionError('Unexpected LSPosed entry: ' + entry)
     found = set()
     for path in apk.namelist():
         if path.startswith('classes') and path.endswith('.dex'):
             found.update(definitions(apk.read(path)))
     required = {
-        ('Lcom/arashi/xposed/HookEntry;', '<init>'),
-        ('Lcom/arashi/xposed/HookEntry;', 'onModuleLoaded'),
-        ('Lcom/arashi/xposed/HookEntry;', 'onPackageReady'),
-        ('Lcom/arashi/xposed/HookEntry;', 'onSystemServerStarting'),
-        ('Lcom/arashi/Main;', 'isModuleActive'),
-        ('Lcom/arashi/xposed/hooks/TcpLoginHooks;', 'hookTcpService'),
-        ('Lcom/arashi/xposed/hooks/UninstallHooks;', 'hookSystemServer'),
+        ('Lcom/lijinmu/arashi/xposed/HookEntry;', '<init>'),
+        ('Lcom/lijinmu/arashi/xposed/HookEntry;', 'onModuleLoaded'),
+        ('Lcom/lijinmu/arashi/xposed/HookEntry;', 'onPackageReady'),
+        ('Lcom/lijinmu/arashi/xposed/HookEntry;', 'onSystemServerStarting'),
+        ('Lcom/lijinmu/arashi/Main;', 'isModuleActive'),
+        ('Lcom/lijinmu/arashi/xposed/hooks/TcpLoginHooks;', 'hookTcpService'),
+        ('Lcom/lijinmu/arashi/xposed/hooks/UninstallHooks;', 'hookSystemServer'),
     }
     missing = required - found
     if missing:

@@ -15,7 +15,7 @@ STUBS = {
  public static class Global { public static int getInt(android.content.ContentResolver r,String k){return 1;}
  public static int getInt(android.content.ContentResolver r,String k,int d){return 1;}
  public static int getInt(String r,String k,int d){return 99;} } }""",
-    "com/arashi/xposed/ConfigManager.java": """package com.arashi.xposed; public class ConfigManager {
+    "com/lijinmu/arashi/xposed/ConfigManager.java": """package com.lijinmu.arashi.xposed; public class ConfigManager {
  public static boolean enabled; public static boolean isEnabledCached(String k){return enabled;} }""",
     "io/github/libxposed/api/XposedInterface.java": """package io.github.libxposed.api; import java.util.*;
  public interface XposedInterface {
@@ -59,8 +59,8 @@ STUBS = {
 }
 CHECK = r"""import java.lang.reflect.*;
 import java.util.*;
-import com.arashi.xposed.*;
-import com.arashi.xposed.hooks.NavigationAccessHooks;
+import com.lijinmu.arashi.xposed.*;
+import com.lijinmu.arashi.xposed.hooks.NavigationAccessHooks;
 import io.github.libxposed.api.*;
 public class NavigationCheck {
  static XposedModule module=new XposedModule();
@@ -144,7 +144,7 @@ with tempfile.TemporaryDirectory(prefix="arashi-navigation-") as directory:
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(source)
     (tmp / "NavigationCheck.java").write_text(CHECK)
-    real = ROOT / "app/src/main/java/com/arashi/xposed"
+    real = ROOT / "app/src/main/java/com/lijinmu/arashi/xposed"
     sources = [*tmp.rglob("*.java"), real / "HookConfig.java",
                real / "NavigationAccessPolicy.java", real / "hooks/NavigationAccessHooks.java"]
     subprocess.run(["javac", "-d", str(tmp / "classes"), *map(str, sources)], check=True)

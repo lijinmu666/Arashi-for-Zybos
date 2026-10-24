@@ -67,7 +67,7 @@ Arashi 是面向作业帮学习机 AIBangOS 的 LSPosed 模块和系统工具，
 ## 项目结构
 
 ```text
-app/src/main/java/com/arashi/
+app/src/main/java/com/lijinmu/arashi/
   about/       关于页面
   security/    签名检查
   settings/    设置入口
@@ -76,7 +76,7 @@ app/src/main/java/com/arashi/
   uninstall/   卸载验证设置、名单和记录
   xposed/      模块入口、配置同步、作用域检测和 Hook
   zybos/       Zybos 系统服务调用
-app/src/main/kotlin/com/arashi/ui/MiuixPages.kt
+app/src/main/kotlin/com/lijinmu/arashi/ui/MiuixPages.kt
                Miuix 页面和弹窗
 ```
 

@@ -45,10 +45,10 @@ stubs.update({
  public static class Dispatcher {public void addCallback(Object a,OnBackPressedCallback c){}}
 }''',
 'android/os/SystemClock.java': '''package android.os; public class SystemClock {public static long elapsedRealtime(){return 100;}}''',
-'com/arashi/ui/MiuixPages.java': '''package com.arashi.ui; public class MiuixPages {
- public static int renders;public static void renderUninstallPrompt(com.arashi.UninstallPromptActivity a,String t,int uid,String[] pkgs,long deadline){renders++;}}''',
-'com/arashi/uninstall/UninstallConfig.java': '''package com.arashi.uninstall; public class UninstallConfig {public static String PREF_NAME="uninstall",ENABLED="enabled";}''',
-'Check.java': '''package com.arashi; import android.os.*;import android.content.*;import com.arashi.ui.MiuixPages;
+'com/lijinmu/arashi/ui/MiuixPages.java': '''package com.lijinmu.arashi.ui; public class MiuixPages {
+ public static int renders;public static void renderUninstallPrompt(com.lijinmu.arashi.UninstallPromptActivity a,String t,int uid,String[] pkgs,long deadline){renders++;}}''',
+'com/lijinmu/arashi/uninstall/UninstallConfig.java': '''package com.lijinmu.arashi.uninstall; public class UninstallConfig {public static String PREF_NAME="uninstall",ENABLED="enabled";}''',
+'Check.java': '''package com.lijinmu.arashi; import android.os.*;import android.content.*;import com.lijinmu.arashi.ui.MiuixPages;
 public class Check {
  static void start(UninstallPromptActivity a){a.onCreate(null);} static void destroy(UninstallPromptActivity a){a.onDestroy();}
  static void check(boolean b){if(!b)throw new AssertionError();}
@@ -79,7 +79,7 @@ with tempfile.TemporaryDirectory(prefix='arashi-uninstall-screen-') as directory
     tmp=Path(directory)
     for name,source in stubs.items():
         target=tmp/name;target.parent.mkdir(parents=True,exist_ok=True);target.write_text(source)
-    sources=[ROOT/'app/src/main/java/com/arashi/UninstallPromptActivity.java',
-             ROOT/'app/src/main/java/com/arashi/uninstall/UninstallScreenState.java']
+    sources=[ROOT/'app/src/main/java/com/lijinmu/arashi/UninstallPromptActivity.java',
+             ROOT/'app/src/main/java/com/lijinmu/arashi/uninstall/UninstallScreenState.java']
     subprocess.run(['javac','-d',str(tmp/'classes'),*map(str,tmp.rglob('*.java')),*map(str,sources)],check=True)
-    subprocess.run(['java','-cp',str(tmp/'classes'),'com.arashi.Check'],check=True)
+    subprocess.run(['java','-cp',str(tmp/'classes'),'com.lijinmu.arashi.Check'],check=True)
