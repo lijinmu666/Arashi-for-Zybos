@@ -69,6 +69,7 @@ import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.Scaffold
+import top.yukonga.miuix.kmp.basic.PullToRefresh
 import top.yukonga.miuix.kmp.basic.SmallTopAppBar
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextButton
@@ -551,6 +552,7 @@ private fun HookPage(a: HookSettings) = Page(a, "Hook 功能设置", a::finish) 
             HookItem("允许 USB 文件传输", "允许挂载外部 USB 设备和使用数据传输。开关控制立即生效", HookConfig.KEY_ALLOW_USB),
             HookItem("允许任意应用设置壁纸", "允许任意应用设置壁纸，并移除新版桌面覆盖系统壁纸的静态背景。需勾选 系统框架 与 桌面 作用域，开关控制立即生效", HookConfig.KEY_ALLOW_WALLPAPER),
             HookItem("允许 WiFi 网页登录", "允许连接到认证型 WiFi 并正常跳转到 “登录到网络” 登录验证网页", HookConfig.KEY_CAPTIVE_PORTAL),
+            HookItem("始终使用传统电源菜单", "将长按电源键与下拉面板的电源菜单改为系统传统对话框。需勾选系统框架和系统界面作用域，更新模块后重启设备；开关在下次打开菜单时生效", HookConfig.KEY_LEGACY_POWER_MENU),
             HookItem("原版应用详情页设置", "恢复完整的 AOSP 原版应用信息页及应用通知设置，沿用系统控制器。开关控制重新打开页面后生效", HookConfig.KEY_AOSP_APP_DETAILS),
             HookItem("解除应用详情页限制", "允许打开 WebView、report服务 和 PadMs 的应用设置详情页。开关控制立即生效", HookConfig.KEY_CLEAR_DETAIL_BLACK),
             HookItem("修复录屏的声音选项", "恢复 SystemUI 录屏菜单的设备声音、麦克风及混合音源选择选项", HookConfig.KEY_RECORD_INTERNAL_AUDIO),
@@ -559,7 +561,6 @@ private fun HookPage(a: HookSettings) = Page(a, "Hook 功能设置", a::finish) 
             HookItem("阻止禁用系统导航与下拉面板", "拦截返回、主页、最近任务及下拉面板的禁用限制，覆盖激活与错误页面等场景。需勾选系统框架、系统界面 和 桌面 作用域，开关控制重启系统后生效", HookConfig.KEY_KEEP_NAVIGATION),
         ),
         "美化" to listOf(
-            HookItem("始终使用传统电源菜单", "将长按电源键与下拉面板的电源菜单改为系统传统对话框。需勾选系统框架和系统界面作用域，更新模块后重启设备；开关在下次打开菜单时生效", HookConfig.KEY_LEGACY_POWER_MENU),
             HookItem("自定义 SystemUI 主题色", "自定义下拉快捷设置、亮度条、锁屏密码键盘按下效果与密码圆点的强调色。修改后重启 SystemUI 生效，关闭后重启恢复系统颜色", HookConfig.KEY_SYSTEMUI_THEME),
             HookItem("原版状态栏图标", "将蓝牙已连接、WLAN 和电池图标统一恢复为 AOSP 原版样式，保留状态与深浅色适配。重启 SystemUI 后生效", HookConfig.KEY_AOSP_STATUS_ICONS),
             HookItem("解除通知图标数量限制", "取消普通状态栏通知图标的固定数量上限，按可用宽度显示；空间不足时仍折叠为溢出提示。重启 SystemUI 后生效", HookConfig.KEY_UNLIMITED_NOTIFICATION_ICONS),
@@ -722,6 +723,8 @@ private fun BackgroundWhitelistPage(a: BackgroundWhitelistActivity) {
     var selected by remember {
         mutableStateOf(prefs.getStringSet(HookConfig.KEY_KEEP_BACKGROUND_WHITELIST, emptySet()).orEmpty().toSet())
     }
+    // Freeze selected-first ranking for this visit so checkbox changes never move rows.
+    val selectedOnEntry = remember(a) { selected.toSet() }
     var query by remember { mutableStateOf("") }
     var showSystemApps by remember { mutableStateOf(false) }
     val apps = rememberAppPickerData(a) {
@@ -743,7 +746,7 @@ private fun BackgroundWhitelistPage(a: BackgroundWhitelistActivity) {
         val matchesCategory = showSystemApps || it.isSystem == false
         matchesCategory && (query.isBlank() || it.label.contains(query, true) || it.packageName.contains(query, true))
     }.sortedWith(
-        compareBy<BackgroundChoice> { if (it.packageName in selected) 0 else 1 }
+        compareBy<BackgroundChoice> { if (it.packageName in selectedOnEntry) 0 else 1 }
             .thenBy { if (it.isSystem == true) 1 else 0 }
             .thenBy { it.label.lowercase() }
             .thenBy { it.packageName },
@@ -926,6 +929,8 @@ private fun UninstallHistoryPage(a: UninstallHistoryActivity) {
     var confirmClear by remember { mutableStateOf(false) }
     var clearing by remember { mutableStateOf(false) }
     var loading by remember { mutableStateOf(true) }
+    var initialLoading by remember { mutableStateOf(true) }
+    var refreshingRequested by remember { mutableStateOf(false) }
     var hasMore by remember { mutableStateOf(true) }
     var loadError by remember { mutableStateOf<String?>(null) }
     var clearError by remember { mutableStateOf<String?>(null) }
@@ -947,7 +952,16 @@ private fun UninstallHistoryPage(a: UninstallHistoryActivity) {
             loadError = error.message ?: "读取记录失败"
         } finally {
             loading = false
+            initialLoading = false
+            refreshingRequested = false
         }
+    }
+    fun refreshRecords() {
+        if (loading || clearing) return
+        refreshingRequested = true
+        records = emptyList()
+        hasMore = true
+        request++
     }
     fun clearRecords() {
         if (clearing) return
@@ -988,103 +1002,99 @@ private fun UninstallHistoryPage(a: UninstallHistoryActivity) {
             )
         },
     ) { innerPadding ->
-        LazyColumn(
+        PullToRefresh(
+            isRefreshing = refreshingRequested || (loading && !initialLoading),
+            onRefresh = ::refreshRecords,
             modifier = Modifier.fillMaxSize().padding(innerPadding).consumeWindowInsets(innerPadding),
-            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 28.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            refreshTexts = listOf("下拉刷新", "松开刷新", "正在刷新", "刷新完成"),
         ) {
-            item {
-                IntroCard("记录已捕获的卸载请求，允许不代表系统最终卸载成功")
-            }
-            item {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    TextButton(
-                        "刷新",
-                        {
-                            records = emptyList()
-                            hasMore = true
-                            request++
-                        },
-                        Modifier.weight(1f),
-                        enabled = !loading && !clearing,
-                    )
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 28.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                item {
+                    IntroCard("记录已捕获的卸载请求，允许不代表系统最终卸载成功")
+                }
+                item {
                     LoadingTextButton(
                         "清空记录",
                         { confirmClear = true },
-                        Modifier.weight(1f),
+                        Modifier.fillMaxWidth(),
                         enabled = records.isNotEmpty() && !loading && !clearing,
                         loading = clearing,
                     )
                 }
-            }
-            items(records, key = { it.id }) { record ->
-                val time = remember(record.time) {
-                    SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date(record.time))
+                items(records, key = { it.id }) { record ->
+                    val time = remember(record.time) {
+                        SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date(record.time))
+                    }
+                    Card(Modifier.fillMaxWidth(), insideMargin = PaddingValues(16.dp)) {
+                        Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text(
+                                    if (record.allowed) "允许" else "拒绝",
+                                    color = if (record.allowed) Color(0xFF36A866) else Color(0xFFE05252),
+                                    style = MiuixTheme.textStyles.title3,
+                                )
+                                Text(time, color = MiuixTheme.colorScheme.onSurfaceVariantSummary)
+                            }
+                            Text("目标应用：" + (record.targetName ?: record.targetPackage ?: "未知应用"))
+                            if (!record.targetPackage.isNullOrBlank()
+                                && record.targetPackage != record.targetName) {
+                                Text(record.targetPackage.orEmpty(),
+                                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary)
+                            }
+                            Text("发起方：" + (record.callerName ?: "进程") + " (" + record.callerUid + ")")
+                            if (!record.callerPackage.isNullOrBlank()
+                                && record.callerPackage != record.callerName) {
+                                Text(record.callerPackage.orEmpty(),
+                                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary)
+                            }
+                            Text("原因：" + (record.reason ?: "未知"),
+                                color = MiuixTheme.colorScheme.onSurfaceVariantSummary)
+                        }
+                    }
                 }
-                Card(Modifier.fillMaxWidth(), insideMargin = PaddingValues(16.dp)) {
-                    Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text(
-                                if (record.allowed) "允许" else "拒绝",
-                                color = if (record.allowed) Color(0xFF36A866) else Color(0xFFE05252),
-                                style = MiuixTheme.textStyles.title3,
-                            )
-                            Text(time, color = MiuixTheme.colorScheme.onSurfaceVariantSummary)
-                        }
-                        Text("目标应用：" + (record.targetName ?: record.targetPackage ?: "未知应用"))
-                        if (!record.targetPackage.isNullOrBlank()
-                            && record.targetPackage != record.targetName) {
-                            Text(record.targetPackage.orEmpty(),
-                                color = MiuixTheme.colorScheme.onSurfaceVariantSummary)
-                        }
-                        Text("发起方：" + (record.callerName ?: "进程") + " (" + record.callerUid + ")")
-                        if (!record.callerPackage.isNullOrBlank()
-                            && record.callerPackage != record.callerName) {
-                            Text(record.callerPackage.orEmpty(),
-                                color = MiuixTheme.colorScheme.onSurfaceVariantSummary)
-                        }
-                        Text("原因：" + (record.reason ?: "未知"),
-                            color = MiuixTheme.colorScheme.onSurfaceVariantSummary)
+                if (records.isEmpty() && !loading && loadError == null) {
+                    item { InfoCard("暂无卸载记录") }
+                }
+                if (loading) {
+                    item { LoadingCard("加载记录") }
+                }
+                if (loadError != null) {
+                    item { InfoCard("读取失败：" + loadError) }
+                }
+                if (clearError != null) {
+                    item { InfoCard("清空失败：" + clearError) }
+                }
+                if (hasMore && !loading && !clearing && loadError == null) {
+                    item {
+                        TextButton("加载更多", { request++ }, Modifier.fillMaxWidth())
                     }
                 }
             }
-            if (records.isEmpty() && !loading && loadError == null) {
-                item { InfoCard("暂无卸载记录") }
-            }
-            if (loading) {
-                item { LoadingCard("加载记录") }
-            }
-            if (loadError != null) {
-                item { InfoCard("读取失败：" + loadError) }
-            }
-            if (clearError != null) {
-                item { InfoCard("清空失败：" + clearError) }
-            }
-            if (hasMore && !loading && !clearing && loadError == null) {
-                item {
-                    TextButton("加载更多", { request++ }, Modifier.fillMaxWidth())
-                }
-            }
         }
-    }
-    MiuixPages.MessageDialog(a)
-    OverlayDialog(
-        show = confirmClear,
-        title = "清空卸载记录",
-        summary = "确定清空全部卸载记录吗？",
-        onDismissRequest = { confirmClear = false },
-    ) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            TextButton("取消", { confirmClear = false }, Modifier.weight(1f))
-            TextButton(
-                "清空",
-                {
-                    confirmClear = false
-                    clearRecords()
-                },
-                Modifier.weight(1f),
-                colors = ButtonDefaults.textButtonColorsPrimary(),
-            )
+        // Miuix overlays must share the Scaffold's popup host; siblings have no host.
+        MiuixPages.MessageDialog(a)
+        OverlayDialog(
+            show = confirmClear,
+            title = "清空卸载记录",
+            summary = "确定清空全部卸载记录吗？",
+            onDismissRequest = { confirmClear = false },
+        ) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                TextButton("取消", { confirmClear = false }, Modifier.weight(1f))
+                TextButton(
+                    "清空",
+                    {
+                        confirmClear = false
+                        clearRecords()
+                    },
+                    Modifier.weight(1f),
+                    colors = ButtonDefaults.textButtonColorsPrimary(),
+                )
+            }
         }
     }
 }
@@ -1097,6 +1107,8 @@ private fun UninstallListPage(a: UninstallListActivity, blacklist: Boolean) {
     var selected by remember(prefKey) {
         mutableStateOf(prefs.getStringSet(prefKey, mutableSetOf()).orEmpty().toSet())
     }
+    // Freeze selected-first ranking for this visit so checkbox changes never move rows.
+    val selectedOnEntry = remember(prefKey) { selected.toSet() }
     var query by remember { mutableStateOf("") }
     var showSystemApps by remember { mutableStateOf(false) }
     var manual by remember { mutableStateOf("") }
@@ -1139,7 +1151,7 @@ private fun UninstallListPage(a: UninstallListActivity, blacklist: Boolean) {
         inFilter && (query.isBlank() || choice.title.contains(query, true) ||
             choice.summary.contains(query, true) || choice.key.contains(query, true))
     }.sortedWith(
-        compareBy<UninstallChoice> { if (it.key in selected) 0 else 1 }
+        compareBy<UninstallChoice> { if (it.key in selectedOnEntry) 0 else 1 }
             .thenBy { it.kind }
             .thenBy { it.title.lowercase() }
             .thenBy { it.key },

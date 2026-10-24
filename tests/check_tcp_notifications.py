@@ -34,18 +34,19 @@ STUBS = {
  public NotificationChannel(String i,String n,int v){id=i;importance=v;}
  public void setSound(Object s,Object a){sound=s;attributes=a;} }''',
 'android/app/NotificationManager.java': '''package android.app; import java.util.*; public class NotificationManager {
- public static final int IMPORTANCE_DEFAULT=3; public boolean enabled=true,fail; public Map<String,Notification> sent=new LinkedHashMap<>();
+ public static final int IMPORTANCE_DEFAULT=3,IMPORTANCE_HIGH=4; public boolean enabled=true,fail; public Map<String,Notification> sent=new LinkedHashMap<>();
  public Map<String,NotificationChannel> channels=new LinkedHashMap<>();
  public boolean areNotificationsEnabled(){return enabled;}
  public void createNotificationChannel(NotificationChannel c){channels.putIfAbsent(c.id,c);}
  public void notify(String t,int i,Notification n){if(fail)throw new SecurityException();sent.put(t,n);} }''',
 'android/app/Notification.java': '''package android.app; public class Notification {
  public static final Object AUDIO_ATTRIBUTES_DEFAULT=new Object();
- public static final int VISIBILITY_PRIVATE=0; public String channel,text; public PendingIntent click; public boolean autoCancel;
+ public static final int VISIBILITY_PRIVATE=0,PRIORITY_HIGH=1; public static final String CATEGORY_MESSAGE="msg"; public String category; public int priority; public String channel,text; public PendingIntent click; public boolean autoCancel;
  public static class BigTextStyle {public BigTextStyle bigText(String s){return this;}}
  public static class Builder {Notification n=new Notification(); public Builder(android.content.Context c,String channel){n.channel=channel;}
  public Builder setSmallIcon(int i){return this;} public Builder setContentTitle(String s){return this;}
- public Builder setContentText(String s){n.text=s;return this;} public Builder setStyle(BigTextStyle s){return this;}
+ public Builder setContentText(String s){n.text=s;return this;}
+ public Builder setCategory(String s){n.category=s;return this;} public Builder setPriority(int p){n.priority=p;return this;} public Builder setStyle(BigTextStyle s){return this;}
  public Builder setContentIntent(PendingIntent p){n.click=p;return this;} public Builder setAutoCancel(boolean b){n.autoCancel=b;return this;}
  public Builder setVisibility(int v){return this;} public Notification build(){return n;} } }''',
 'android/provider/Settings.java': '''package android.provider; public class Settings {public static class System {public static final Object DEFAULT_NOTIFICATION_URI=new Object();} public static String ACTION_APP_NOTIFICATION_SETTINGS="settings",EXTRA_APP_PACKAGE="package";}''',
@@ -67,9 +68,10 @@ public class Check {
  Notification n=a.manager.sent.get("tcp-block-1");
  check(n.text.equals("ZpTcpService 试图发送 login.fail (10001) 广播，已被阻止。点按查看详情信息"));
  check(n.autoCancel&&n.click.intent.target==TcpHistoryActivity.class);
- check(n.channel.equals("tcp_login_fail_blocked_audible_v1"));
+ check(n.channel.equals("tcp_login_fail_blocked_heads_up_v2"));
+ check(n.category.equals(Notification.CATEGORY_MESSAGE)&&n.priority==Notification.PRIORITY_HIGH);
  for(NotificationChannel c:a.manager.channels.values()){
-  check(c.importance==NotificationManager.IMPORTANCE_DEFAULT);
+  check(c.importance==NotificationManager.IMPORTANCE_HIGH);
   check(c.sound==android.provider.Settings.System.DEFAULT_NOTIFICATION_URI);
   check(c.attributes==Notification.AUDIO_ATTRIBUTES_DEFAULT);
  }
@@ -98,9 +100,10 @@ public class Check {
  check(denied.text.equals("桌面(1000) 试图卸载应用，由于其已被添加至黑名单，已拒绝本次卸载。点按查看详情信息"));
  check(denied.click.intent.target==com.lijinmu.arashi.uninstall.UninstallHistoryActivity.class);
  NotificationChannel eventChannel=events.manager.channels.get(denied.channel);
- check(eventChannel.importance==NotificationManager.IMPORTANCE_DEFAULT);
+ check(eventChannel.importance==NotificationManager.IMPORTANCE_HIGH);
  check(eventChannel.sound==android.provider.Settings.System.DEFAULT_NOTIFICATION_URI);
- check(denied.channel.endsWith("_audible_v1"));
+ check(denied.channel.endsWith("_heads_up_v2"));
+ check(denied.category.equals(Notification.CATEGORY_MESSAGE)&&denied.priority==Notification.PRIORITY_HIGH);
  events.prefs.putBoolean(NotificationPreferences.BLACKLIST,false);
  UninstallNotifications.post(events,2,data);check(events.manager.sent.size()==1);
  data.put("reason","白名单");data.put("allowed",true);UninstallNotifications.post(events,3,data);

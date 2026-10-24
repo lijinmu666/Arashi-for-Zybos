@@ -23,11 +23,11 @@ public final class AppNotifications {
         try {
             NotificationManager manager = context.getSystemService(NotificationManager.class);
             if (manager == null) return;
-            // Channel sound cannot be changed after registration. Use a stable new ID
-            // so upgrades also switch from the old channel to an ordinary audible one.
-            String audibleChannelId = channel + "_audible_v1";
+            // A new ID is required because channel importance cannot be raised after
+            // registration. This gives existing installs an audible heads-up channel.
+            String audibleChannelId = channel + "_heads_up_v2";
             NotificationChannel audibleChannel = new NotificationChannel(
-                    audibleChannelId, channelName, NotificationManager.IMPORTANCE_DEFAULT);
+                    audibleChannelId, channelName, NotificationManager.IMPORTANCE_HIGH);
             audibleChannel.setSound(Settings.System.DEFAULT_NOTIFICATION_URI,
                     Notification.AUDIO_ATTRIBUTES_DEFAULT);
             manager.createNotificationChannel(audibleChannel);
@@ -40,6 +40,8 @@ public final class AppNotifications {
                     .setSmallIcon(android.R.drawable.ic_dialog_info)
                     .setContentTitle(title)
                     .setContentText(text)
+                    .setCategory(Notification.CATEGORY_MESSAGE)
+                    .setPriority(Notification.PRIORITY_HIGH)
                     .setStyle(new Notification.BigTextStyle().bigText(text))
                     .setContentIntent(openHistory)
                     .setAutoCancel(true)
