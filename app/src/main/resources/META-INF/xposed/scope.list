@@ -1,4 +1,8 @@
 system
 com.android.packageinstaller
 com.android.captiveportallogin
+com.android.settings
+com.android.providers.settings
+com.android.systemui
+com.zuoyebang.iot.pad.supervise
 com.arashi

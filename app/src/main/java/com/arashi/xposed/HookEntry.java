@@ -8,17 +8,15 @@ import io.github.libxposed.api.XposedModuleInterface.SystemServerStartingParam;
 
 import com.arashi.xposed.hooks.AdbHideHooks;
 import com.arashi.xposed.hooks.CaptivePortalHooks;
+import com.arashi.xposed.hooks.ControlHooks;
+import com.arashi.xposed.hooks.DevOptionsHooks;
 import com.arashi.xposed.hooks.InstallHooks;
+import com.arashi.xposed.hooks.RestrictionHooks;
+import com.arashi.xposed.hooks.SuperviseHooks;
+import com.arashi.xposed.hooks.SystemUIHooks;
+import com.arashi.xposed.hooks.UninstallHooks;
 
 import java.lang.reflect.Method;
-
-
-
-
-
-
-
-
 
 public final class HookEntry extends XposedModule {
 
@@ -27,10 +25,15 @@ public final class HookEntry extends XposedModule {
     private static final String PKG_SELF = "com.arashi";
     private static final String PKG_INSTALLER = "com.android.packageinstaller";
     private static final String PKG_CAPTIVE = "com.android.captiveportallogin";
+    private static final String PKG_SETTINGS = "com.android.settings";
+    private static final String PKG_SETTINGS_PROVIDER = "com.android.providers.settings";
+    private static final String PKG_SUPERVISE = "com.zuoyebang.iot.pad.supervise";
+    private static final String PKG_SYSTEMUI = "com.android.systemui";
 
     @Override
     public void onModuleLoaded(ModuleLoadedParam param) {
         log("=== libxposed102 BUILD " + BUILD_TAG + " ===");
+        ConfigManager.attach(this, param.isSystemServer());
         try {
             log("module loaded, process=" + param.getProcessName()
                     + " systemServer=" + param.isSystemServer());
@@ -45,7 +48,11 @@ public final class HookEntry extends XposedModule {
         ClassLoader cl = param.getClassLoader();
         ConfigManager.init("android");
         InstallHooks.hookSystemServer(this, cl);
+        UninstallHooks.hookSystemServer(this, cl);
         AdbHideHooks.hookSystemServer(this, cl);
+        RestrictionHooks.hookSystemServer(this, cl);
+        ControlHooks.hookSystemServer(this, cl);
+        SystemUIHooks.hookSystemServer(this, cl);
         log("system_server hooks complete");
     }
 
@@ -61,11 +68,22 @@ public final class HookEntry extends XposedModule {
         } else if (PKG_CAPTIVE.equals(pkg)) {
             ConfigManager.init(pkg);
             CaptivePortalHooks.hookCaptivePortal(this, param.getClassLoader());
+        } else if (PKG_SETTINGS.equals(pkg)) {
+            ConfigManager.init(pkg);
+            DevOptionsHooks.hookSettings(this, param.getClassLoader());
+        } else if (PKG_SETTINGS_PROVIDER.equals(pkg)) {
+            ConfigManager.init(pkg);
+            AdbHideHooks.hookSettingsProvider(this, param.getClassLoader());
+        } else if (PKG_SUPERVISE.equals(pkg)) {
+            ConfigManager.init(pkg);
+            SuperviseHooks.hookSupervise(this, param.getClassLoader());
+        } else if (PKG_SYSTEMUI.equals(pkg)) {
+            ConfigManager.init(pkg);
+            SystemUIHooks.hookSystemUI(this, param.getClassLoader());
         }
     }
 
-    
-    private void hookSelfActivation(ClassLoader cl) {
+private void hookSelfActivation(ClassLoader cl) {
         try {
             Method m = cl.loadClass("com.arashi.Main")
                     .getDeclaredMethod("isModuleActive");
@@ -77,8 +95,7 @@ public final class HookEntry extends XposedModule {
         }
     }
 
-    
-    private void log(String msg) {
+private void log(String msg) {
         android.util.Log.i(TAG, msg);
         try {
             log(android.util.Log.INFO, TAG, msg);

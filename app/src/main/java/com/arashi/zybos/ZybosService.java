@@ -6,27 +6,19 @@ import android.util.Log;
 
 import java.lang.reflect.Method;
 
-
-
-
-
-
 public final class ZybosService {
     private static final String TAG = "ArashiZybos";
 
-    
-    public static final String CLASS_MANAGER = "android.os.ZybosSysApiManager";
-    
-    
-    public static final String CLASS_IFACE = "android.os.IZybosSysApiManager";
+public static final String CLASS_MANAGER = "android.os.ZybosSysApiManager";
+
+public static final String CLASS_IFACE = "android.os.IZybosSysApiManager";
     
     public static final String CLASS_STUB = "android.os.IZybosSysApiManager$Stub";
     private static final String[] CANDIDATE_SERVICES = {
             "zybos_manager"
     };
 
-    
-    private static Object proxy;
+private static Object proxy;
     private static IBinder rawBinder;
     private static Class<?> ifaceClass;
     private static boolean detected;
@@ -34,15 +26,13 @@ public final class ZybosService {
 
     private ZybosService() {}
 
-    
-    public static synchronized boolean detect(Context context) {
+public static synchronized boolean detect(Context context) {
         if (detected && (proxy != null || rawBinder != null)) return true;
         String binderError = "未尝试";
 
         ifaceClass = loadClass(CLASS_IFACE);
 
-        
-        try {
+try {
             Class<?> sm = Class.forName("android.os.ServiceManager");
             Method getService = sm.getMethod("getService", String.class);
             for (String name : CANDIDATE_SERVICES) {
@@ -87,8 +77,7 @@ public final class ZybosService {
         }
         lastError = binderError;
 
-        
-        try {
+try {
             Class<?> mgr = Class.forName(CLASS_MANAGER);
             Method getInstance = mgr.getDeclaredMethod("getInstance", Context.class);
             getInstance.setAccessible(true);
@@ -150,16 +139,7 @@ public final class ZybosService {
     public static boolean isAvailable() { return proxy != null || rawBinder != null; }
     public static String getLastError() { return lastError; }
 
-    
-
-    
-
-
-
-
-
-
-    public static boolean silentInstallApk(String apkPath, boolean isSdcard,
+public static boolean silentInstallApk(String apkPath, boolean isSdcard,
                                            String packageName) {
         if (rawBinder != null && proxy == null) {
             return transactInstall(rawBinder, apkPath, isSdcard, packageName);
@@ -179,7 +159,14 @@ public final class ZybosService {
                 return false;
             }
             m.setAccessible(true);
-            m.invoke(proxy, apkPath, isSdcard, packageName);
+            Object result = m.invoke(proxy, apkPath, isSdcard, packageName);
+            if ((m.getReturnType() == boolean.class || m.getReturnType() == Boolean.class)
+                    && !Boolean.TRUE.equals(result)) {
+                lastError = "silentInstallApk 返回失败";
+                Log.w(TAG, lastError + ": " + apkPath);
+                return false;
+            }
+            lastError = "";
             Log.i(TAG, "silentInstallApk 已下发: " + apkPath);
             return true;
         } catch (Throwable t) {
@@ -189,13 +176,7 @@ public final class ZybosService {
         }
     }
 
-    
-
-
-
-
-
-    public static boolean silentUninstallApk(String packageName, boolean isKeepData) {
+public static boolean silentUninstallApk(String packageName, boolean isKeepData) {
         if (rawBinder != null && proxy == null) {
             return transactUninstall(rawBinder, packageName, isKeepData);
         }
@@ -213,7 +194,14 @@ public final class ZybosService {
                 return false;
             }
             m.setAccessible(true);
-            m.invoke(proxy, packageName, isKeepData);
+            Object result = m.invoke(proxy, packageName, isKeepData);
+            if ((m.getReturnType() == boolean.class || m.getReturnType() == Boolean.class)
+                    && !Boolean.TRUE.equals(result)) {
+                lastError = "silentUninstallApk 返回失败";
+                Log.w(TAG, lastError + ": " + packageName);
+                return false;
+            }
+            lastError = "";
             Log.i(TAG, "silentUninstallApk 已下发: " + packageName);
             return true;
         } catch (Throwable t) {
@@ -225,7 +213,7 @@ public final class ZybosService {
 
     private static boolean transactInstall(IBinder binder, String path, boolean sdcard,
                                             String packageName) {
-        android.os.Parcel data = android.os.Parcel.obtain(binder);
+        android.os.Parcel data = android.os.Parcel.obtain();
         android.os.Parcel reply = android.os.Parcel.obtain();
         try {
             data.writeInterfaceToken("android.os.IZybosSysApiManager");
@@ -247,7 +235,7 @@ public final class ZybosService {
     }
 
     private static boolean transactUninstall(IBinder binder, String packageName, boolean keepData) {
-        android.os.Parcel data = android.os.Parcel.obtain(binder);
+        android.os.Parcel data = android.os.Parcel.obtain();
         android.os.Parcel reply = android.os.Parcel.obtain();
         try {
             data.writeInterfaceToken("android.os.IZybosSysApiManager");
@@ -271,9 +259,7 @@ public final class ZybosService {
         return t.getCause() != null ? t.getCause() : t;
     }
 
-    
-
-    private static Method findMethodOn(Class<?> cls, String name, Class<?>... paramTypes) {
+private static Method findMethodOn(Class<?> cls, String name, Class<?>... paramTypes) {
         if (cls == null) return null;
         Class<?>[] types = paramTypes != null ? paramTypes : new Class<?>[0];
         try {

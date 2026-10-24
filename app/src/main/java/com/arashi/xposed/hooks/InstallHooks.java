@@ -2,6 +2,10 @@ package com.arashi.xposed.hooks;
 
 import android.content.Context;
 import android.content.Intent;
+import android.os.Build;
+import android.os.Binder;
+import android.os.Parcel;
+import android.os.Process;
 import android.util.ArraySet;
 import android.util.Log;
 
@@ -12,44 +16,102 @@ import com.arashi.xposed.HookConfig;
 import com.arashi.xposed.Reflect;
 
 import java.lang.reflect.Constructor;
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.util.ArrayList;
-
 
 public final class InstallHooks {
 
     private static final String TAG = "[Arashi-Install]";
 
     private static volatile Class<?> installPkgHelperClass;
+    private static volatile Class<?> legacyPackageManagerClass;
     private static volatile Object zybServiceInstance;
+    private static final int TRANSACTION_SILENT_INSTALL_APK = 0x19;
+    private static final ThreadLocal<Integer> arashiInstallCaller = new ThreadLocal<>();
 
     private InstallHooks() {
     }
 
-    
-    
-    
-
-    public static void hookSystemServer(XposedModule mod, ClassLoader cl) {
+public static void hookSystemServer(XposedModule mod, ClassLoader cl) {
         
         hookBooleanProp(mod, cl);
 
-        
-        hookZybosNoArg(mod, cl, "isDisallowInstallPackage", false);
+hookZybosNoArg(mod, cl, "isDisallowInstallPackage", false);
 
-        
-        hookZybosStringArg(mod, cl, "isSilentInstallDisallow", false);
+hookZybosStringArg(mod, cl, "isSilentInstallDisallow", false);
 
-        
-        hookHandleInstallEvent(mod, cl);
+hookArashiInstallCaller(mod, cl);
 
-        
-        hookInstallPackageHelper(mod, cl);
+hookHandleInstallEvent(mod, cl);
 
-        
-        hookZybosServiceCtor(mod, cl);
+hookInstallPackageHelper(mod, cl);
+
+hookLegacyPackageManagerBlacklist(mod, cl);
+
+hookZybosServiceCtor(mod, cl);
 
         Log.i(TAG, "system_server hooks initialized");
+    }
+
+    private static void hookArashiInstallCaller(XposedModule mod, ClassLoader cl) {
+        try {
+            Class<?> service = Class.forName("com.android.server.ZybosSysApiService", false, cl);
+            Method onTransact = Reflect.findMethodExact(service, "onTransact",
+                    int.class, Parcel.class, Parcel.class, int.class);
+            Method enforceCaller = Reflect.findMethodExact(service, "enforceCallerIsSystem");
+            if (onTransact == null || enforceCaller == null
+                    || enforceCaller.getReturnType() != void.class) {
+                Log.i(TAG, "Zybos caller check not present on this system");
+                return;
+            }
+            mod.hook(onTransact).intercept(chain -> {
+                if ((Integer) chain.getArg(0) != TRANSACTION_SILENT_INSTALL_APK
+                        || !isArashiCaller()) {
+                    return chain.proceed();
+                }
+                Integer previous = arashiInstallCaller.get();
+                arashiInstallCaller.set(Binder.getCallingUid());
+                try {
+                    return chain.proceed();
+                } finally {
+                    if (previous == null) arashiInstallCaller.remove();
+                    else arashiInstallCaller.set(previous);
+                }
+            });
+            mod.hook(enforceCaller).intercept(chain -> {
+                Integer caller = arashiInstallCaller.get();
+                if (caller != null && caller == Binder.getCallingUid()) {
+                    Log.i(TAG, "Arashi silentInstallApk caller accepted, uid=" + caller);
+                    return null;
+                }
+                return chain.proceed();
+            });
+            Log.i(TAG, "Zybos Arashi install caller hook registered");
+        } catch (Throwable error) {
+            Log.w(TAG, "Zybos Arashi install caller hook unavailable", error);
+        }
+    }
+
+    private static boolean isArashiCaller() {
+        int caller = Binder.getCallingUid();
+        if (caller < Process.FIRST_APPLICATION_UID) return false;
+        try {
+            Class<?> activityThread = Class.forName("android.app.ActivityThread");
+            Object thread = Reflect.callStaticMethod(activityThread, "currentActivityThread");
+            Context context = (Context) Reflect.callMethod(thread, "getSystemContext");
+            if (context == null) return false;
+            String[] packages = context.getPackageManager().getPackagesForUid(caller);
+            if (packages == null) return false;
+            for (String name : packages) {
+                if ("com.arashi".equals(name)) return true;
+            }
+            return false;
+        } catch (Throwable error) {
+            Log.w(TAG, "Unable to verify Arashi install caller", error);
+            return false;
+        }
     }
 
     private static void hookBooleanProp(XposedModule mod, ClassLoader cl) {
@@ -62,6 +124,7 @@ public final class InstallHooks {
                 return;
             }
             mod.hook(m).intercept(chain -> {
+                clearBlacklistsIfEnabled();
                 try {
                     if (ConfigManager.isEnabled(HookConfig.KEY_SHELL_INSTALL)
                             && "sys.allow.install.package".equals(chain.getArg(0))) {
@@ -70,9 +133,7 @@ public final class InstallHooks {
                     }
                 } catch (Throwable ignored) {
                 }
-                Object result = chain.proceed();
-                clearBlacklistsIfEnabled();
-                return result;
+                return chain.proceed();
             });
         } catch (Throwable t) {
             Log.w(TAG, "SystemProperties hook failed: " + t);
@@ -150,7 +211,8 @@ public final class InstallHooks {
             for (Constructor<?> ctor : Reflect.getDeclaredConstructors(clazz)) {
                 mod.hook(ctor).intercept(chain -> {
                     Object result = chain.proceed();
-                    if (ConfigManager.isEnabled(HookConfig.KEY_CLEAR_BLACKLIST)) {
+                    if (ConfigManager.isEnabled(HookConfig.KEY_CLEAR_BLACKLIST)
+                            && !useAndroid12BlacklistHook()) {
                         clearBlacklistField(clazz, "mZybBlacklistApp");
                     }
                     return result;
@@ -159,6 +221,33 @@ public final class InstallHooks {
             Log.i(TAG, "InstallPackageHelper blacklist hook registered");
         } catch (Throwable t) {
             Log.w(TAG, "InstallPackageHelper hook failed: " + t);
+        }
+    }
+
+    private static void hookLegacyPackageManagerBlacklist(XposedModule mod, ClassLoader cl) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S
+                || Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            return;
+        }
+        try {
+            Class<?> clazz = Class.forName("com.android.server.pm.PackageManagerService", false, cl);
+            Field field = clazz.getDeclaredField("mZybBlacklistApp");
+            if (!Modifier.isStatic(field.getModifiers())
+                    || !ArraySet.class.isAssignableFrom(field.getType())) {
+                return;
+            }
+            legacyPackageManagerClass = clazz;
+            for (Constructor<?> ctor : Reflect.getDeclaredConstructors(clazz)) {
+                mod.hook(ctor).intercept(chain -> {
+                    clearLegacyBlacklistIfEnabled();
+                    Object result = chain.proceed();
+                    clearLegacyBlacklistIfEnabled();
+                    return result;
+                });
+            }
+            Log.i(TAG, "AIBangOS Android 12 PackageManager blacklist hook registered");
+        } catch (Throwable t) {
+            Log.w(TAG, "AIBangOS Android 12 blacklist hook unavailable: " + t);
         }
     }
 
@@ -183,11 +272,7 @@ public final class InstallHooks {
         }
     }
 
-    
-    
-    
-
-    public static void hookPackageInstaller(XposedModule mod, ClassLoader cl) {
+public static void hookPackageInstaller(XposedModule mod, ClassLoader cl) {
         hookInstallerBool(mod, cl, "isInstallRequestFromUnknownSource", false, Intent.class);
         hookInstallerBool(mod, cl, "hasInstallApplication", true, String.class);
         hookInstallerBool(mod, cl, "isConflictedOverlayInstallApk", false,
@@ -217,15 +302,13 @@ public final class InstallHooks {
         }
     }
 
-    
-    
-    
-
-    private static void clearBlacklistsIfEnabled() {
+private static void clearBlacklistsIfEnabled() {
         if (!ConfigManager.isEnabled(HookConfig.KEY_CLEAR_BLACKLIST)) {
             return;
         }
-        if (installPkgHelperClass != null) {
+        if (useAndroid12BlacklistHook()) {
+            clearLegacyBlacklistIfEnabled();
+        } else if (installPkgHelperClass != null) {
             clearBlacklistField(installPkgHelperClass, "mZybBlacklistApp");
         }
         if (zybServiceInstance != null) {
@@ -233,6 +316,20 @@ public final class InstallHooks {
             clearListField(zybServiceInstance, "disallowClassList");
             clearListField(zybServiceInstance, "disallowPackageList");
         }
+    }
+
+    private static void clearLegacyBlacklistIfEnabled() {
+        if (legacyPackageManagerClass != null
+                && useAndroid12BlacklistHook()
+                && ConfigManager.isEnabled(HookConfig.KEY_CLEAR_BLACKLIST)) {
+            clearBlacklistField(legacyPackageManagerClass, "mZybBlacklistApp");
+        }
+    }
+
+    private static boolean useAndroid12BlacklistHook() {
+        return Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+                && Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU
+                && ConfigManager.isEnabled(HookConfig.KEY_ANDROID12_BLACKLIST_HOOK);
     }
 
     @SuppressWarnings("unchecked")

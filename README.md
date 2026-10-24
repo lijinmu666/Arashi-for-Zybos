@@ -1,53 +1,85 @@
 # Arashi
 
-Arashi 是面向作业帮学习机 AibangOS 的 LSPosed 模块和系统工具。
+Arashi 是面向作业帮学习机 AIBangOS 的 LSPosed 模块和系统工具，界面使用 Miuix。目前版本为 `v0.9.1`，版本号为 `32`。
 
-AibangOS 系统内部使用 **Zybos** 作为相关系统组件名称。本项目目前主要围绕 `ZybosSysApiManager` 实现应用安装与卸载功能。
+系统内部相关组件使用 Zybos 命名。安装、卸载等特权工具依赖设备提供的 `ZybosSysApiManager`；不同固件的接口和限制可能存在差异。
 
-## 当前功能
+## 下载与使用
 
-### 通过 ZybosSysApiManager 安装和卸载应用
+签名 APK 放在 [GitHub Releases](https://github.com/lijinmu666/Arashi/releases)，源码分支只保留项目文件。
 
-Arashi 连接 AibangOS 提供的 `ZybosSysApiManager`，调用其系统接口执行：
+1. 安装 Arashi，在支持 libxposed API 102 的 LSPosed 管理器中启用模块。
+2. 按需要勾选系统框架及对应应用作用域，然后重启设备。
+3. 在“Hook 功能设置”中启用所需功能。系统框架按本次开机的 Hook 状态检测，应用作用域在设置页实时读取。
 
-- 按应用包名发起卸载
-- 按 APK 文件路径发起安装
+最低 Android 版本为 Android 12（API 31）。Hook 针对 AIBangOS 的相关实现，不能据此保证其他系统或所有固件都兼容。
 
-安装和卸载请求由 `ZybosSysApiManager` 处理，不需要通过 `adb root` 等特殊系统权限来完成具体操作。
+## 功能
 
-### 注册为系统安装器
+### Hook 功能设置
 
-Arashi 可以注册为系统 APK 安装器，接收系统发出的 APK 安装请求。
+- 安装：外部应用安装支持、Shell 安装支持、清除安装黑名单。
+- 系统行为：开发者选项支持、保留后台进程、USB 设备支持、壁纸设置支持、WiFi 登录支持、清除详情页黑名单、阻止重置默认浏览器、隐藏调试状态。
+- 管控：阻止管控服务、应用禁用失效、页面屏蔽失效及时间限制相关功能。
+- 实验功能：虚拟显示及跨包通知相关 Hook，默认关闭。
 
-使用方式与系统软件包安装程序类似：
+未检测到对应作用域时，相关开关不可用并保留原设置。系统框架 Hook 的变更需要重启设备，应用作用域的变更需要重启目标应用。
 
-- 从文件管理器或其他应用打开 APK
-- 在系统弹出的应用选择界面中选择 Arashi
-- Arashi 读取 APK 信息
-- 通过 `ZybosSysApiManager` 发起安装
+### 卸载验证
 
-目前支持系统安装器常见的 APK 打开方式，包括 `VIEW`、`INSTALL_PACKAGE` 和 `SEND` 请求。
+当应用或用户发起卸载时，询问是否允许本次卸载，并展示发起方名称与 UID、目标应用图标、名称和包名。
 
-### 安装器开关
+- 黑白名单匹配的是发起卸载的应用包名或 UID，而非被卸载的应用。
+- 白名单直接允许，黑名单直接拒绝；同时命中时黑名单优先。
+- 名单使用独立选择页面，支持应用图标、搜索，以及用户应用、系统应用、常用 UID、已选择分类；也支持手动输入包名或 UID。
+- 超时计时可选择 5、10、15、30 秒，超时默认拒绝。关闭计时后隐藏秒数菜单，并保留系统安全等待上限。
+- 允许和拒绝的请求均可在卸载记录中查看，记录支持清空。
+- 未检测到本次开机的系统框架 Hook 时，卸载验证暂时关闭；重新检测到激活后恢复此前的开启状态。
 
-可以在 Arashi 设置中启用或禁用 Arashi 安装器。
+### 系统特权工具与快捷指令
 
-禁用后，Arashi 仍可通过 LSPosed 管理器的模块设置入口打开。
+通过 Zybos 系统接口安装 APK、按包名卸载或使用应用选择器卸载，并显示执行结果。选择器支持图标、搜索和分类；卸载选择器过滤未安装更新的系统应用。
 
-## Hook 功能
+快捷指令提供冻结应用、打开设置，以及开发者选项、ADB 等设置的开启和关闭操作。
 
-Arashi 通过 LSPosed 对 AibangOS / Zybos 相关系统组件进行 Hook。当前已接入以下功能开关：
+### 应用安装器
 
-- **外部应用安装支持**：改善软件包安装程序对外部来源应用安装请求的处理
-- **Shell 安装支持**：放宽 ZybOS 对 Shell / `pm install` 安装请求的限制
-- **清除内置黑名单**：清理系统安装组件中的部分硬编码应用黑名单
-- **Wi-Fi 登录支持**：调整认证型 Wi-Fi 登录流程相关判断
-- **隐藏 ADB 状态**：让普通应用读取开发者选项和 ADB 状态时得到隐藏后的结果
+支持从文件管理器等应用的“打开方式”选择 Arashi，接收 `VIEW`、`INSTALL_PACKAGE` 和 `SEND` 安装请求。解析 APK 后展示应用信息并确认安装。
 
-Hook 功能在 Arashi 的“Hook 功能设置”中单独控制。启用模块后，需要在 LSPosed 中选择对应作用域；部分作用于 `system_server` 的 Hook 需要重启系统后生效。
+确认后立即显示 Miuix 无限进度条，后台执行安装并核对安装结果。无法直接使用的文件来源会尝试暂存到共享存储，读取共享存储时需要所有文件访问权限。
 
+### 应用偏好设置
 
-## 适用范围
+提供深色、浅色和跟随系统模式，以及隐藏桌面入口、安装器启用状态等设置。未检测到激活时隐藏桌面图标选项不可用。
 
-- AibangOS 系统
-- 系统内部提供 `ZybosSysApiManager` 的设备
+兼容设置包含“兼容安卓12清除安装黑名单”，用于切换不同固件的 Hook 路径；是否启用功能仍由对应功能开关控制。
+
+应用会检查签名。与原作者签名不匹配时显示一次提示，确认后仍可使用。
+
+## 项目结构
+
+```text
+app/src/main/java/com/arashi/
+  about/       关于页面
+  security/    签名检查
+  settings/    设置入口
+  tools/       特权工具、选择器和快捷指令
+  ui/          界面辅助组件
+  uninstall/   卸载验证设置、名单和记录
+  xposed/      模块入口、配置同步、作用域检测和 Hook
+  zybos/       Zybos 系统服务调用
+app/src/main/kotlin/com/arashi/ui/MiuixPages.kt
+               Miuix 页面和弹窗
+```
+
+## 本地编译
+
+项目使用 AGP `9.3.0`、Gradle Wrapper `9.7.1` 和 Android SDK `37`。请配置兼容的 JDK 与 Android SDK。
+
+```powershell
+.\gradlew.bat :app:assembleRelease
+```
+
+需要签名时，在项目根目录自行创建 `keystore.properties`，配置 `storeFile`、`storePassword`、`keyAlias` 和 `keyPassword`，并准备自己的签名文件。这些文件以及 `local.properties`、缓存、备份和构建产物均不提交到仓库。
+
+使用自己的签名编译的 APK 会触发应用内的签名不匹配提示。

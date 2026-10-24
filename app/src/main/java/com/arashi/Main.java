@@ -1,7 +1,12 @@
 package com.arashi;
 
+import com.arashi.security.SignatureVerifier;
+import com.arashi.ui.BasePage;
+import com.arashi.ui.MiuixPages;
+import com.arashi.ui.Ui;
+
 import android.content.Intent;
-import android.app.AlertDialog;
+import android.content.SharedPreferences;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.util.concurrent.TimeUnit;
@@ -28,11 +33,7 @@ public final class Main extends BasePage {
                 if (supported) {
                     populateHome();
                 } else {
-                    new AlertDialog.Builder(this)
-                            .setMessage("当前设备不支持 Arashi")
-                            .setCancelable(false)
-                            .setPositiveButton("确定", (dialog, which) -> finish())
-                            .show();
+                    MiuixPages.renderUnsupportedDevice(this);
                 }
             });
         }, "Arashi-BrandCheck").start();
@@ -60,33 +61,17 @@ public final class Main extends BasePage {
     }
 
     private void populateHome() {
-        TextView brand = Ui.label(this, "Arashi", 36, Ui.text(this), true);
-        content.addView(brand);
+        MiuixPages.renderHome(this);
+        showSignatureWarningIfNeeded();
+    }
 
-        LinearLayout hero = Ui.card(this, content, Ui.soft(this));
-        LinearLayout.LayoutParams heroLp = (LinearLayout.LayoutParams) hero.getLayoutParams();
-        heroLp.topMargin = Ui.dp(this, 28);
-        hero.setLayoutParams(heroLp);
-        hero.setPadding(Ui.dp(this, 24), Ui.dp(this, 24), Ui.dp(this, 24), Ui.dp(this, 24));
-        TextView version = Ui.label(this, "版本 " + BuildConfig.VERSION_NAME, 13, Ui.secondary(this), true);
-        hero.addView(version);
-        lsposedState = status(hero, "LSPosed", "检测中");
-        updateModuleStatus();
-        
-        hero.postDelayed(this::updateModuleStatus, 2000);
-        hero.postDelayed(this::updateModuleStatus, 6000);
-        com.arashi.zybos.ZybosService.detect(this);
-        boolean zybosAvailable = com.arashi.zybos.ZybosService.isAvailable();
-        TextView zybosState = status(hero, "ZybosSysApiManager", zybosAvailable ? "可用" : "不可用");
-        zybosState.setTextColor(zybosAvailable ? Ui.STATUS_GREEN : Ui.STATUS_RED);
-
-        Ui.section(this, content, "功能");
-        Ui.link(this, content, "Hook 功能设置", "控制 Hook 是否启用",
-                () -> startActivity(new Intent(this, HookSettings.class)));
-        Ui.link(this, content, "系统特权工具", "利用 ZybosSysApiManager 执行系统操作",
-                () -> startActivity(new Intent(this, ZybosTools.class)));
-        Ui.link(this, content, "应用偏好设置", "配置主题、外观等",
-                () -> startActivity(new Intent(this, ArashiSettings.class)));
+    private void showSignatureWarningIfNeeded() {
+        SharedPreferences prefs = getSharedPreferences("signature_warning", MODE_PRIVATE);
+        if (prefs.getBoolean("shown", false) || !SignatureVerifier.isMismatched(this)) {
+            return;
+        }
+        prefs.edit().putBoolean("shown", true).commit();
+        MiuixPages.showSignatureWarning(this);
     }
 
     private void updateModuleStatus() {
@@ -100,13 +85,10 @@ public final class Main extends BasePage {
         int reportedBoot = getSharedPreferences(SettingsProvider.STATUS_PREF_NAME, MODE_PRIVATE)
                 .getInt(SettingsProvider.KEY_SYSTEM_SERVER_BOOT, -1);
         if (boot >= 0 && reportedBoot == boot) {
-            lsposedState.setText("模块已激活（系统进程）");
-            lsposedState.setTextColor(Ui.STATUS_GREEN);
-        } else if (isModuleActive()) {
-            lsposedState.setText("模块已激活（本应用）");
+            lsposedState.setText("已激活");
             lsposedState.setTextColor(Ui.STATUS_GREEN);
         } else {
-            lsposedState.setText("等待系统进程回报");
+            lsposedState.setText("未激活");
             lsposedState.setTextColor(Ui.STATUS_RED);
         }
     }
@@ -124,10 +106,8 @@ public final class Main extends BasePage {
         return state;
     }
 
-    
-    public boolean isModuleActive() {
-        
-        
-        return false;
+public boolean isModuleActive() {
+
+return false;
     }
 }

@@ -14,7 +14,6 @@ import com.arashi.xposed.Reflect;
 
 import java.lang.reflect.Method;
 
-
 public final class AdbHideHooks {
 
     private static final String TAG = "[Arashi-AdbHide]";
@@ -55,6 +54,16 @@ public final class AdbHideHooks {
             Log.i(TAG, "ContentProvider.attachInfo hooked (awaiting SettingsProvider)");
         } catch (Throwable t) {
             Log.w(TAG, "attachInfo hook failed: " + t);
+        }
+    }
+
+    public static void hookSettingsProvider(XposedModule mod, ClassLoader cl) {
+        try {
+            Class<?> provider = Class.forName(
+                    "com.android.providers.settings.SettingsProvider", false, cl);
+            hookSettingsProviderCall(mod, provider);
+        } catch (Throwable error) {
+            Log.w(TAG, "SettingsProvider hook unavailable", error);
         }
     }
 

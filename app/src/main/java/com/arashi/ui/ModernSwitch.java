@@ -1,15 +1,13 @@
-package com.arashi;
+package com.arashi.ui;
 
 import android.animation.ValueAnimator;
 import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Paint;
-import android.graphics.Path;
 import android.graphics.RectF;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.accessibility.AccessibilityNodeInfo;
-
 
 final class ModernSwitch extends View {
     interface OnCheckedChangeListener { void onCheckedChanged(boolean checked); }
@@ -61,47 +59,33 @@ final class ModernSwitch extends View {
     }
 
     @Override protected void onMeasure(int widthSpec, int heightSpec) {
-        setMeasuredDimension(resolveSize((int) dp(64), widthSpec),
+        setMeasuredDimension(resolveSize((int) dp(58), widthSpec),
                 resolveSize((int) dp(48), heightSpec));
     }
 
     @Override protected void onDraw(Canvas canvas) {
         super.onDraw(canvas);
-        float left = (getWidth() - dp(52)) / 2f;
-        float top = (getHeight() - dp(32)) / 2f;
-        track.set(left, top, left + dp(52), top + dp(32));
+        float left = (getWidth() - dp(50)) / 2f;
+        float top = (getHeight() - dp(30)) / 2f;
+        track.set(left, top, left + dp(50), top + dp(30));
         boolean dark = Ui.dark((android.app.Activity) getContext());
 
         paint.setStyle(Paint.Style.FILL);
         paint.setColor(checked ? Ui.accent((android.app.Activity) getContext())
-                : dark ? 0xFF4A4453 : 0xFFE6E0E9);
-        canvas.drawRoundRect(track, dp(16), dp(16), paint);
+                : dark ? 0xFF5A5A60 : 0xFFE0E2E8);
+        canvas.drawRoundRect(track, dp(15), dp(15), paint);
         if (!checked) {
             paint.setStyle(Paint.Style.STROKE);
-            paint.setStrokeWidth(dp(2));
-            paint.setColor(dark ? 0xFF9C94A5 : 0xFF79717F);
-            canvas.drawRoundRect(track, dp(16), dp(16), paint);
+            paint.setStrokeWidth(dp(1));
+            paint.setColor(dark ? 0xFF707077 : 0xFFD1D3D9);
+            canvas.drawRoundRect(track, dp(15), dp(15), paint);
         }
 
-        float cx = left + dp(16) + dp(20) * position;
+        float cx = left + dp(15) + dp(20) * position;
         float cy = getHeight() / 2f;
         paint.setStyle(Paint.Style.FILL);
-        paint.setColor(checked ? (dark ? 0xFF38264E : 0xFFFFFFFF)
-                : (dark ? 0xFFCFC6D7 : 0xFF79717F));
-        canvas.drawCircle(cx, cy, dp(8) + dp(4) * position, paint);
-
-        if (position > 0.5f) {
-            paint.setStyle(Paint.Style.STROKE);
-            paint.setStrokeCap(Paint.Cap.ROUND);
-            paint.setStrokeJoin(Paint.Join.ROUND);
-            paint.setStrokeWidth(dp(2));
-            paint.setColor(dark ? Ui.LAVENDER : Ui.PURPLE);
-            Path tick = new Path();
-            tick.moveTo(cx - dp(5), cy);
-            tick.lineTo(cx - dp(1), cy + dp(4));
-            tick.lineTo(cx + dp(6), cy - dp(4));
-            canvas.drawPath(tick, paint);
-        }
+        paint.setColor(dark ? 0xFFF5F5F5 : 0xFFFFFFFF);
+        canvas.drawCircle(cx, cy, dp(12), paint);
     }
 
     @Override public boolean onTouchEvent(MotionEvent event) {

@@ -1,8 +1,12 @@
 package com.arashi.xposed;
 
+import com.arashi.uninstall.UninstallConfig;
+import com.arashi.uninstall.UninstallHistoryStore;
+
 import android.content.ContentProvider;
 import android.content.ContentValues;
 import android.content.Context;
+import android.content.pm.ApplicationInfo;
 import android.content.SharedPreferences;
 import android.database.Cursor;
 import android.net.Uri;
@@ -10,14 +14,22 @@ import android.os.Bundle;
 import android.os.Binder;
 import android.os.Process;
 import android.provider.Settings;
+import android.util.Log;
 
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 public final class SettingsProvider extends ContentProvider {
+    private static final String TAG = "[Arashi-Provider]";
     public static final String AUTHORITY = "com.arashi.settings";
     public static final Uri URI = Uri.parse("content://" + AUTHORITY);
     public static final String METHOD_GET_ALL = "get_all_settings";
+    public static final String METHOD_GET_UNINSTALL = "get_uninstall_validation";
+    public static final String METHOD_ADD_UNINSTALL_RECORD = "add_uninstall_record";
     public static final String STATUS_PREF_NAME = "hook_runtime";
     public static final String KEY_SYSTEM_SERVER_BOOT = "system_server_boot";
+
+private static final Map<Integer, Boolean> TRUSTED_UID_CACHE = new ConcurrentHashMap<>();
 
     @Override
     public boolean onCreate() {
@@ -26,7 +38,26 @@ public final class SettingsProvider extends ContentProvider {
 
     @Override
     public Bundle call(String method, String arg, Bundle extras) {
-        if (!METHOD_GET_ALL.equals(method)) {
+        if (METHOD_ADD_UNINSTALL_RECORD.equals(method)) {
+            if (Binder.getCallingUid() != Process.SYSTEM_UID || extras == null) {
+                return null;
+            }
+            Context context = getContext();
+            if (context == null) return null;
+            try {
+                UninstallHistoryStore.append(context, extras);
+                return Bundle.EMPTY;
+            } catch (RuntimeException error) {
+                Log.w(TAG, "Uninstall record unavailable", error);
+                return null;
+            }
+        }
+        if (!METHOD_GET_ALL.equals(method) && !METHOD_GET_UNINSTALL.equals(method)) {
+            return null;
+        }
+        if (!isTrustedCaller()) {
+
+Log.w(TAG, "reject untrusted caller uid=" + Binder.getCallingUid());
             return null;
         }
         
@@ -35,9 +66,8 @@ public final class SettingsProvider extends ContentProvider {
             return null;
         }
 
-        
-        
-        if (Binder.getCallingUid() == Process.SYSTEM_UID) {
+        if (Binder.getCallingUid() == Process.SYSTEM_UID
+                && "system_server".equals(arg)) {
             try {
                 int boot = Settings.Global.getInt(context.getContentResolver(),
                         "boot_count", -1);
@@ -47,20 +77,95 @@ public final class SettingsProvider extends ContentProvider {
                     if (runtime.getInt(KEY_SYSTEM_SERVER_BOOT, -1) != boot) {
                         runtime.edit().putInt(KEY_SYSTEM_SERVER_BOOT, boot).apply();
                     }
+                    UninstallConfig.syncActivation(context, true);
                 }
             } catch (RuntimeException ignored) {
-                
             }
         }
 
+        if (METHOD_GET_UNINSTALL.equals(method)) {
+            SharedPreferences uninstall = context.getSharedPreferences(
+                    UninstallConfig.PREF_NAME, Context.MODE_PRIVATE);
+            Bundle policy = new Bundle();
+            policy.putBoolean(UninstallConfig.ENABLED,
+                    uninstall.getBoolean(UninstallConfig.ENABLED, false));
+            policy.putBoolean(UninstallConfig.TIMEOUT_ENABLED,
+                    uninstall.getBoolean(UninstallConfig.TIMEOUT_ENABLED, true));
+            policy.putInt(UninstallConfig.TIMEOUT_SECONDS,
+                    uninstall.getInt(UninstallConfig.TIMEOUT_SECONDS, UninstallConfig.DEFAULT_TIMEOUT));
+            policy.putStringArrayList(UninstallConfig.WHITELIST,
+                    new java.util.ArrayList<>(uninstall.getStringSet(
+                            UninstallConfig.WHITELIST, java.util.Collections.emptySet())));
+            policy.putStringArrayList(UninstallConfig.BLACKLIST,
+                    new java.util.ArrayList<>(uninstall.getStringSet(
+                            UninstallConfig.BLACKLIST, java.util.Collections.emptySet())));
+            return policy;
+        }
+
         SharedPreferences prefs = context.getSharedPreferences(HookConfig.PREF_NAME, Context.MODE_PRIVATE);
+        
         Bundle result = new Bundle();
-        result.putBoolean(HookConfig.KEY_EXTERNAL_INSTALL, prefs.getBoolean(HookConfig.KEY_EXTERNAL_INSTALL, false));
-        result.putBoolean(HookConfig.KEY_SHELL_INSTALL, prefs.getBoolean(HookConfig.KEY_SHELL_INSTALL, false));
-        result.putBoolean(HookConfig.KEY_CLEAR_BLACKLIST, prefs.getBoolean(HookConfig.KEY_CLEAR_BLACKLIST, false));
-        result.putBoolean(HookConfig.KEY_CAPTIVE_PORTAL, prefs.getBoolean(HookConfig.KEY_CAPTIVE_PORTAL, false));
-        result.putBoolean(HookConfig.KEY_HIDE_ADB, prefs.getBoolean(HookConfig.KEY_HIDE_ADB, false));
+        result.putBoolean(HookConfig.KEY_ANDROID12_BLACKLIST_HOOK,
+                prefs.getBoolean(HookConfig.KEY_ANDROID12_BLACKLIST_HOOK, false));
+        result.putBoolean(HookConfig.KEY_EXTERNAL_INSTALL, prefs.getBoolean(HookConfig.KEY_EXTERNAL_INSTALL, HookConfig.DEFAULT_ENABLED));
+        result.putBoolean(HookConfig.KEY_SHELL_INSTALL, prefs.getBoolean(HookConfig.KEY_SHELL_INSTALL, HookConfig.DEFAULT_ENABLED));
+        result.putBoolean(HookConfig.KEY_CLEAR_BLACKLIST, prefs.getBoolean(HookConfig.KEY_CLEAR_BLACKLIST, HookConfig.DEFAULT_ENABLED));
+        result.putBoolean(HookConfig.KEY_CAPTIVE_PORTAL, prefs.getBoolean(HookConfig.KEY_CAPTIVE_PORTAL, HookConfig.DEFAULT_ENABLED));
+        result.putBoolean(HookConfig.KEY_HIDE_ADB, prefs.getBoolean(HookConfig.KEY_HIDE_ADB, HookConfig.DEFAULT_ENABLED));
+        result.putBoolean(HookConfig.KEY_UNRESTRICT_NOTIFY, prefs.getBoolean(HookConfig.KEY_UNRESTRICT_NOTIFY, HookConfig.defaultEnabled(HookConfig.KEY_UNRESTRICT_NOTIFY)));
+        result.putBoolean(HookConfig.KEY_HIDE_ALERT, prefs.getBoolean(HookConfig.KEY_HIDE_ALERT, HookConfig.DEFAULT_ENABLED));
+        result.putBoolean(HookConfig.KEY_ALLOW_USB, prefs.getBoolean(HookConfig.KEY_ALLOW_USB, HookConfig.DEFAULT_ENABLED));
+        result.putBoolean(HookConfig.KEY_ALLOW_DISPLAY, prefs.getBoolean(HookConfig.KEY_ALLOW_DISPLAY, HookConfig.defaultEnabled(HookConfig.KEY_ALLOW_DISPLAY)));
+        result.putBoolean(HookConfig.KEY_ALLOW_WALLPAPER, prefs.getBoolean(HookConfig.KEY_ALLOW_WALLPAPER, HookConfig.DEFAULT_ENABLED));
+        result.putBoolean(HookConfig.KEY_CLEAR_DETAIL_BLACK, prefs.getBoolean(HookConfig.KEY_CLEAR_DETAIL_BLACK, HookConfig.DEFAULT_ENABLED));
+        result.putBoolean(HookConfig.KEY_BLOCK_SUPERVISE, prefs.getBoolean(HookConfig.KEY_BLOCK_SUPERVISE, HookConfig.DEFAULT_ENABLED));
+        result.putBoolean(HookConfig.KEY_DEV_OPTIONS, prefs.getBoolean(HookConfig.KEY_DEV_OPTIONS, HookConfig.DEFAULT_ENABLED));
+        result.putBoolean(HookConfig.KEY_KEEP_BACKGROUND, prefs.getBoolean(HookConfig.KEY_KEEP_BACKGROUND, HookConfig.defaultEnabled(HookConfig.KEY_KEEP_BACKGROUND)));
+        result.putBoolean(HookConfig.KEY_NEUTRALIZE_POLICY, prefs.getBoolean(HookConfig.KEY_NEUTRALIZE_POLICY, HookConfig.DEFAULT_ENABLED));
+        result.putBoolean(HookConfig.KEY_NEUTRALIZE_ADVANCE, prefs.getBoolean(HookConfig.KEY_NEUTRALIZE_ADVANCE, HookConfig.DEFAULT_ENABLED));
+        result.putBoolean(HookConfig.KEY_NO_TIMEOUT_LOCK, prefs.getBoolean(HookConfig.KEY_NO_TIMEOUT_LOCK, HookConfig.DEFAULT_ENABLED));
+        result.putBoolean(HookConfig.KEY_BLOCK_DEFAULT_BROWSER, prefs.getBoolean(HookConfig.KEY_BLOCK_DEFAULT_BROWSER, HookConfig.DEFAULT_ENABLED));
         return result;
+    }
+
+private boolean isTrustedCaller() {
+        int uid = Binder.getCallingUid();
+        if (uid == Process.SYSTEM_UID || uid == Process.myUid()
+                || uid < Process.FIRST_APPLICATION_UID) {
+            return true;
+        }
+        Boolean cached = TRUSTED_UID_CACHE.get(uid);
+        if (cached != null) {
+            return cached;
+        }
+        boolean trusted = isSystemAppUid(uid);
+
+if (trusted) {
+            TRUSTED_UID_CACHE.put(uid, Boolean.TRUE);
+        }
+        return trusted;
+    }
+
+    private boolean isSystemAppUid(int uid) {
+        Context context = getContext();
+        if (context == null) {
+            return false;
+        }
+        try {
+            String[] packages = context.getPackageManager().getPackagesForUid(uid);
+            if (packages == null) {
+                return false;
+            }
+            for (String pkg : packages) {
+                ApplicationInfo info = context.getPackageManager().getApplicationInfo(pkg, 0);
+                if ((info.flags & ApplicationInfo.FLAG_SYSTEM) != 0
+                        || (info.flags & ApplicationInfo.FLAG_UPDATED_SYSTEM_APP) != 0) {
+                    return true;
+                }
+            }
+        } catch (Throwable ignored) {
+        }
+        return false;
     }
 
     @Override

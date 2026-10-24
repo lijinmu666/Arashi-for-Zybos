@@ -10,7 +10,6 @@ import com.arashi.xposed.Reflect;
 
 import java.lang.reflect.Method;
 
-
 public final class CaptivePortalHooks {
 
     private static final String TAG = "[Arashi-Captive]";
@@ -28,17 +27,13 @@ public final class CaptivePortalHooks {
             return;
         }
 
-        
-        hookBool(mod, activity, "checkVerificationStatus", true);
+hookBool(mod, activity, "checkVerificationStatus", true);
 
-        
-        hookBool(mod, activity, "hasVpnNetwork", false);
+hookBool(mod, activity, "hasVpnNetwork", false);
 
-        
-        hookTestForCaptivePortal(mod, activity);
+hookTestForCaptivePortal(mod, activity);
 
-        
-        try {
+try {
             Class<?> downloadService = Class.forName(
                     "com.android.captiveportallogin.DownloadService", false, cl);
             hookBool(mod, downloadService, "isDirectlyOpenType", false);
