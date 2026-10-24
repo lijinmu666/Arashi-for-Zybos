@@ -83,6 +83,7 @@ public final class SystemUiQsHooks {
         hookShadeBounds(module, loader);
         hookNotificationCorners(module, loader);
         hookLockscreenClipping(module, loader);
+        hookLockscreenNotificationPosition(module, loader);
         hookGlobalStatusBar(module, loader);
         for (String container : new String[] {
                 "com.android.systemui.shade.NotificationsQuickSettingsContainer",
@@ -350,6 +351,45 @@ public final class SystemUiQsHooks {
         } catch (Throwable error) { Log.w(TAG, "Split shade decision unavailable", error); }
     }
 
+
+    private static void hookLockscreenNotificationPosition(XposedModule module, ClassLoader loader) {
+        try {
+            Class<?> type = Class.forName("com.android.systemui.shade.NotificationPanelViewController", false, loader);
+            Method method = Reflect.findMethodExact(type, "updateClockAppearance");
+            if (method == null) return;
+            try { module.deoptimize(method); } catch (Throwable ignored) {}
+            module.hook(method).intercept(chain -> {
+                Object algorithm = null;
+                java.lang.reflect.Field margin = null;
+                int original = 0;
+                if (enabled()) {
+                    Object controller = chain.getThisObject();
+                    Object state = Reflect.getObjectField(controller, "mBarState");
+                    if (Integer.valueOf(1).equals(state)
+                            && SystemUiQsExpansion.flag(controller, "mSplitShadeEnabled")) {
+                        Object owner = Reflect.getObjectField(controller, "mNotificationStackScrollLayoutController");
+                        Object stack = Reflect.getObjectField(owner, "mView");
+                        algorithm = Reflect.getObjectField(controller, "mClockPositionAlgorithm");
+                        if (stack instanceof View && algorithm != null
+                                && ((View) stack).getLayoutParams() instanceof ViewGroup.MarginLayoutParams) {
+                            margin = SystemUiQsExpansion.field(algorithm.getClass(), "mSplitShadeTopNotificationsMargin");
+                            if (margin != null) {
+                                original = margin.getInt(algorithm);
+                                // AOSP subtracts the stack's header-height top margin from clockY.
+                                // Zybos XML places the stack at 0dp instead: subtract its actual
+                                // margin, otherwise notifications move up by an entire header.
+                                int top = ((ViewGroup.MarginLayoutParams) ((View) stack).getLayoutParams()).topMargin;
+                                margin.setInt(algorithm, Math.max(0, top));
+                            }
+                        }
+                    }
+                }
+                try { return chain.proceed(); }
+                finally { if (margin != null) margin.setInt(algorithm, original); }
+            });
+        } catch (ClassNotFoundException ignored) {
+        } catch (Throwable error) { Log.w(TAG, "Lockscreen notification position hook unavailable", error); }
+    }
 
     private static void hookLockscreenClipping(XposedModule module, ClassLoader loader) {
         String stack = "com.android.systemui.statusbar.notification.stack.NotificationStackScrollLayout";

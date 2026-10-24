@@ -185,7 +185,12 @@ public class PhoneStatusBarView extends android.view.View {
  public void onAttachedToWindow(){}public void onDetachedFromWindow(){}
 }''',
  'com/android/systemui/shade/NotificationPanelViewController.java': '''package com.android.systemui.shade;
-public class NotificationPanelViewController {public float mExpandedFraction;public int mBarState;public boolean mHeadsUpPinnedMode,mTracking,mQsExpanded;public Object mQsController;public void updateExpansionAndVisibility(){}}
+public class NotificationPanelViewController {public float mExpandedFraction;public int mBarState;public boolean mHeadsUpPinnedMode,mTracking,mQsExpanded;public Object mQsController;public void updateExpansionAndVisibility(){}
+ public boolean mSplitShadeEnabled,failClock;public Object mNotificationStackScrollLayoutController;
+ public Algorithm mClockPositionAlgorithm=new Algorithm();public int padding;
+ public static class Algorithm {public int mSplitShadeTopNotificationsMargin=56;}
+ public void updateClockAppearance(){padding=72-mClockPositionAlgorithm.mSplitShadeTopNotificationsMargin;if(failClock)throw new IllegalStateException();}
+}
 ''',
  'com/android/systemui/statusbar/StatusBarStateControllerImpl.java': '''package com.android.systemui.statusbar;
 public class StatusBarStateControllerImpl {public int mState;public boolean setState(int state,boolean force){mState=state;return true;}}
@@ -431,6 +436,20 @@ public class Check {
   check(!unchangedMedia.clip&&unchangedMedia.outline==null);
   Drawable outerBackground=new GradientDrawable();footerBar.setBackground(outerBackground);
   call(bindFooter,null,footerBar);check(footerBar.background==outerBackground);ConfigManager.enabled=true;
+  var position=new com.android.systemui.shade.NotificationPanelViewController();
+  class StackOwner {public View mView=new View();}
+  StackOwner positionOwner=new StackOwner();positionOwner.mView.setLayoutParams(new FrameLayout.LayoutParams(-1,-1));
+  position.mNotificationStackScrollLayoutController=positionOwner;position.mBarState=1;position.mSplitShadeEnabled=true;
+  Method clockPosition=position.getClass().getMethod("updateClockAppearance");
+  call(clockPosition,position);check(position.padding==72&&position.mClockPositionAlgorithm.mSplitShadeTopNotificationsMargin==56);
+  ((ViewGroup.MarginLayoutParams)positionOwner.mView.params).topMargin=56;
+  call(clockPosition,position);check(position.padding==16); // Native AOSP header inset already present.
+  ((ViewGroup.MarginLayoutParams)positionOwner.mView.params).topMargin=0;
+  position.mBarState=0;call(clockPosition,position);check(position.padding==16);
+  position.mBarState=1;position.mSplitShadeEnabled=false;call(clockPosition,position);check(position.padding==16);
+  position.mSplitShadeEnabled=true;ConfigManager.enabled=false;call(clockPosition,position);check(position.padding==16);ConfigManager.enabled=true;
+  position.failClock=true;try{call(clockPosition,position);throw new AssertionError();}catch(java.lang.reflect.InvocationTargetException expected){check(expected.getCause() instanceof IllegalStateException);}
+  check(position.mClockPositionAlgorithm.mSplitShadeTopNotificationsMargin==56);
   expansion14.mExpandedFraction=1;call(expansionUpdate,expansion14);
   var vendorRoot=new com.android.systemui.shade.NotificationsQuickSettingsContainer();
   FrameLayout misleadingHeader=new FrameLayout();misleadingHeader.addView(named(new View(),"system_icon_area"));
