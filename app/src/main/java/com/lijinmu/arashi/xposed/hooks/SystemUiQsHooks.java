@@ -14,6 +14,8 @@ import android.util.Log;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.ViewOutlineProvider;
+import android.graphics.Outline;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.RelativeLayout;
@@ -68,6 +70,7 @@ public final class SystemUiQsHooks {
         hookShadeBounds(module, loader);
         hookNotificationCorners(module, loader);
         hookGlobalStatusBar(module, loader);
+        hookMediaAndFooter(module, loader);
         hookExpansion(module, loader, "com.android.systemui.shade.QuickSettingsController", true);
         hookExpansion(module, loader, "com.android.systemui.statusbar.phone.NotificationPanelViewController", false);
         after(module, loader, "com.android.systemui.qs.QSFragment", "updateQsState", instance -> {
@@ -405,6 +408,68 @@ public final class SystemUiQsHooks {
             });
         } catch (ClassNotFoundException ignored) {
         } catch (Throwable error) { Log.w(TAG, "Status bar observer unavailable", error); }
+    }
+
+
+    private static final ViewOutlineProvider MEDIA_OUTLINE = new ViewOutlineProvider() {
+        @Override public void getOutline(View view, Outline outline) {
+            outline.setRoundRect(0, 0, view.getWidth(), view.getHeight(), dp(view, 28));
+        }
+    };
+
+    static void restoreMediaCard(View player) {
+        player.setOutlineProvider(MEDIA_OUTLINE);
+        player.setClipToOutline(true);
+        player.invalidateOutline();
+    }
+
+    static void restoreFooter(View footer) {
+        // Clear only the outer bar, retaining the chip/button drawables and click targets.
+        footer.setBackground(null);
+        footer.setElevation(0f);
+    }
+
+    private static void hookMediaAndFooter(XposedModule module, ClassLoader loader) {
+        for (String name : new String[] {
+                "com.android.systemui.media.controls.models.player.MediaViewHolder",
+                "com.android.systemui.media.PlayerViewHolder",
+                "com.android.systemui.media.MediaViewHolder"}) {
+            try {
+                Class<?> type = Class.forName(name, false, loader);
+                for (Constructor<?> constructor : type.getDeclaredConstructors()) {
+                    module.hook(constructor).intercept(chain -> {
+                        Object result = chain.proceed();
+                        if (enabled()) {
+                            Object player = Reflect.getObjectField(chain.getThisObject(), "player");
+                            if (player instanceof View) restoreMediaCard((View) player);
+                        }
+                        return result;
+                    });
+                }
+            } catch (ClassNotFoundException ignored) {
+            } catch (Throwable error) { Log.w(TAG, "Media card hook unavailable", error); }
+        }
+        // 14 constructs its footer through a static binder rather than a custom view.
+        try {
+            Class<?> type = Class.forName(
+                    "com.android.systemui.qs.footer.ui.binder.FooterActionsViewBinder", false, loader);
+            for (Method method : type.getDeclaredMethods()) {
+                if (!method.getName().equals("bind") || method.getParameterTypes().length == 0
+                        || !View.class.isAssignableFrom(method.getParameterTypes()[0])) continue;
+                try { module.deoptimize(method); } catch (Throwable ignored) {}
+                module.hook(method).intercept(chain -> {
+                    Object result = chain.proceed();
+                    if (enabled() && chain.getArg(0) instanceof View)
+                        restoreFooter((View) chain.getArg(0));
+                    return result;
+                });
+            }
+        } catch (ClassNotFoundException ignored) {
+        } catch (Throwable error) { Log.w(TAG, "Footer background hook unavailable", error); }
+        after(module, loader, "com.android.systemui.qs.FooterActionsView", "onFinishInflate",
+                footer -> restoreFooter((View) footer));
+        after(module, loader, "com.android.systemui.qs.FooterActionsView", "onConfigurationChanged",
+                footer -> restoreFooter((View) footer));
     }
 
     static int neutral(Resources resources, boolean foreground) {

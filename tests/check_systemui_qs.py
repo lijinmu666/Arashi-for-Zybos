@@ -19,6 +19,10 @@ public class XposedModule {public Map<Executable,XposedInterface.Hooker> hooks=n
  public class Builder {Executable m;Builder(Executable x){m=x;}public void intercept(XposedInterface.Hooker h){hooks.put(m,h);}}
  public Builder hook(Executable m){return new Builder(m);}public boolean deoptimize(Executable m){return true;}}
 ''',
+'android/graphics/Outline.java': '''package android.graphics;public class Outline {
+ public float radius;public int width,height;public void setRoundRect(int l,int t,int r,int b,float x){width=r-l;height=b-t;radius=x;}}''',
+'android/view/ViewOutlineProvider.java': '''package android.view;public abstract class ViewOutlineProvider {
+ public abstract void getOutline(View v,android.graphics.Outline o);}''',
 'android/R.java': '''package android;public class R {public static class id {public static int mask=999;}
  public static class color {public static final int system_neutral1_50=50,system_neutral1_100=100,
  system_neutral1_800=800,system_neutral1_900=900;}}
@@ -60,6 +64,10 @@ public class View {public static class MeasureSpec {public static final int EXAC
  public static int makeMeasureSpec(int size,int mode){return size|mode;}public static int getSize(int v){return v&0x3fffffff;}}
  public static final int VISIBLE=0,INVISIBLE=4,GONE=8,NO_ID=-1;public int id=NO_ID,visibility,ps,pt,pe,pb,minHeight;
  public Resources resources=new Resources();public ViewGroup parent;public ViewGroup.LayoutParams params=new ViewGroup.LayoutParams(-1,-2);
+ public ViewOutlineProvider outline;public boolean clip;public float elevation;public int width=400,height=160;
+ public void setOutlineProvider(ViewOutlineProvider p){outline=p;}public void setClipToOutline(boolean v){clip=v;}
+ public void invalidateOutline(){}public int getWidth(){return width;}public int getHeight(){return height;}
+ public void setElevation(float v){elevation=v;}
  public android.graphics.drawable.Drawable background;public Resources getResources(){return resources;}
  public void setBackground(android.graphics.drawable.Drawable d){background=d;}public boolean isClickable(){return true;}
  public void setId(int id){this.id=id;}public int getId(){return id;}public ViewGroup getParent(){return parent;}
@@ -172,6 +180,10 @@ public class NotificationPanelViewController {public float mExpandedFraction;pub
  'com/android/systemui/statusbar/phone/PanelViewController.java': '''package com.android.systemui.statusbar.phone;
 public class PanelViewController {public float mExpandedFraction;public void notifyBarPanelExpansionChanged(){}}
 ''',
+ 'com/android/systemui/media/controls/models/player/MediaViewHolder.java': '''package com.android.systemui.media.controls.models.player;
+public class MediaViewHolder {public android.view.View player;public MediaViewHolder(android.view.View v){player=v;}}''',
+ 'com/android/systemui/qs/footer/ui/binder/FooterActionsViewBinder.java': '''package com.android.systemui.qs.footer.ui.binder;
+public class FooterActionsViewBinder {public static void bind(android.widget.LinearLayout v){}}''',
  'com/android/systemui/util/LargeScreenUtils.java': '''package com.android.systemui.util;
 public class LargeScreenUtils {public static boolean shouldUseSplitNotificationShade(android.content.res.Resources r){return false;}}''',
  'com/android/systemui/qs/QSPanelControllerBase.java': '''package com.android.systemui.qs;
@@ -329,6 +341,27 @@ public class Check {
   call(detach,globalBar);check(globalBar.visibility==0);
   expansion12.mExpandedFraction=0;call(update12,expansion12);check(recreatedBar.visibility==0);
   call(detach,recreatedBar);
+  View player=new View();var mediaHolder=new com.android.systemui.media.controls.models.player.MediaViewHolder(player);
+  var mediaConstructor=mediaHolder.getClass().getConstructor(View.class);
+  module.hooks.get(mediaConstructor).intercept(new XposedInterface.Chain(mediaHolder,new Object[]{player},x->null));
+  check(player.clip&&player.outline!=null);
+  android.graphics.Outline mediaOutline=new android.graphics.Outline();player.outline.getOutline(player,mediaOutline);
+  check(mediaOutline.radius==56f&&mediaOutline.width==400&&mediaOutline.height==160);
+  player.width=600;player.height=200;player.outline.getOutline(player,mediaOutline);
+  check(mediaOutline.width==600&&mediaOutline.height==200);
+  LinearLayout footerBar=new LinearLayout();View activityChip=new View(),settingsButton=new View(),powerButton=new View();
+  Drawable chipBackground=new GradientDrawable();activityChip.setBackground(chipBackground);
+  footerBar.addView(activityChip);footerBar.addView(settingsButton);footerBar.addView(powerButton);
+  footerBar.setBackground(new GradientDrawable());footerBar.setElevation(8f);
+  Method bindFooter=com.android.systemui.qs.footer.ui.binder.FooterActionsViewBinder.class.getMethod("bind",LinearLayout.class);
+  call(bindFooter,null,footerBar);
+  check(footerBar.background==null&&footerBar.elevation==0f&&footerBar.getChildCount()==3&&activityChip.background==chipBackground);
+  ConfigManager.enabled=false;View unchangedMedia=new View();
+  var unchangedHolder=new com.android.systemui.media.controls.models.player.MediaViewHolder(unchangedMedia);
+  module.hooks.get(mediaConstructor).intercept(new XposedInterface.Chain(unchangedHolder,new Object[]{unchangedMedia},x->null));
+  check(!unchangedMedia.clip&&unchangedMedia.outline==null);
+  Drawable outerBackground=new GradientDrawable();footerBar.setBackground(outerBackground);
+  call(bindFooter,null,footerBar);check(footerBar.background==outerBackground);ConfigManager.enabled=true;
   Resources r=new Resources();r.names.put(1,"integer/quick_settings_num_columns");r.names.put(2,"dimen/qs_tile_height");
   Method integer=Resources.class.getMethod("getInteger",int.class),dim=Resources.class.getMethod("getDimensionPixelSize",int.class);
   check((int)call(integer,r,1)==2);check((int)call(dim,r,2)==160);
