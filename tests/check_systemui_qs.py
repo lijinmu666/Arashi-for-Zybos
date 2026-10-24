@@ -162,6 +162,16 @@ public class NotificationBackgroundView extends android.view.View {
  public void updateBackgroundRadii(){original++;}
  public void setCustomBackground(android.graphics.drawable.Drawable d){mBackground=d;}
 }''',
+ 'com/android/systemui/statusbar/phone/PhoneStatusBarView.java': '''package com.android.systemui.statusbar.phone;
+public class PhoneStatusBarView extends android.view.View {
+ public void onAttachedToWindow(){}public void onDetachedFromWindow(){}
+}''',
+ 'com/android/systemui/shade/NotificationPanelViewController.java': '''package com.android.systemui.shade;
+public class NotificationPanelViewController {public float mExpandedFraction;public void updateExpansionAndVisibility(){}}
+''',
+ 'com/android/systemui/statusbar/phone/PanelViewController.java': '''package com.android.systemui.statusbar.phone;
+public class PanelViewController {public float mExpandedFraction;public void notifyBarPanelExpansionChanged(){}}
+''',
  'com/android/systemui/util/LargeScreenUtils.java': '''package com.android.systemui.util;
 public class LargeScreenUtils {public static boolean shouldUseSplitNotificationShade(android.content.res.Resources r){return false;}}''',
  'com/android/systemui/qs/QSPanelControllerBase.java': '''package com.android.systemui.qs;
@@ -295,6 +305,30 @@ public class Check {
   clipResources.booleanDefault=true;check(!(boolean)call(bool,clipResources,1));
   ConfigManager.enabled=false;check((boolean)call(bool,clipResources,1));ConfigManager.enabled=true;
   clipResources.owner="other";check((boolean)call(bool,clipResources,1));
+  var globalBar=new com.android.systemui.statusbar.phone.PhoneStatusBarView();
+  Method attach=globalBar.getClass().getMethod("onAttachedToWindow");
+  Method detach=globalBar.getClass().getMethod("onDetachedFromWindow");
+  Method setVisible=View.class.getMethod("setVisibility",int.class);
+  call(attach,globalBar);check(globalBar.visibility==0);
+  var expansion14=new com.android.systemui.shade.NotificationPanelViewController();
+  Method expansionUpdate=expansion14.getClass().getMethod("updateExpansionAndVisibility");
+  expansion14.mExpandedFraction=.01f;call(expansionUpdate,expansion14);check(globalBar.visibility==4);
+  call(setVisible,globalBar,View.VISIBLE);check(globalBar.visibility==4);
+  expansion14.mExpandedFraction=0;call(expansionUpdate,expansion14);check(globalBar.visibility==0);
+  call(setVisible,globalBar,View.GONE);expansion14.mExpandedFraction=1;
+  call(expansionUpdate,expansion14);expansion14.mExpandedFraction=0;
+  call(expansionUpdate,expansion14);check(globalBar.visibility==8); // preserve native hidden state
+  call(setVisible,globalBar,View.VISIBLE);
+  var expansion12=new com.android.systemui.statusbar.phone.PanelViewController();
+  Method update12=expansion12.getClass().getMethod("notifyBarPanelExpansionChanged");
+  expansion12.mExpandedFraction=1;call(update12,expansion12);check(globalBar.visibility==4);
+  ConfigManager.enabled=false;call(update12,expansion12);check(globalBar.visibility==0);
+  ConfigManager.enabled=true;call(update12,expansion12);check(globalBar.visibility==4);
+  var recreatedBar=new com.android.systemui.statusbar.phone.PhoneStatusBarView();
+  call(attach,recreatedBar);check(recreatedBar.visibility==4);
+  call(detach,globalBar);check(globalBar.visibility==0);
+  expansion12.mExpandedFraction=0;call(update12,expansion12);check(recreatedBar.visibility==0);
+  call(detach,recreatedBar);
   Resources r=new Resources();r.names.put(1,"integer/quick_settings_num_columns");r.names.put(2,"dimen/qs_tile_height");
   Method integer=Resources.class.getMethod("getInteger",int.class),dim=Resources.class.getMethod("getDimensionPixelSize",int.class);
   check((int)call(integer,r,1)==2);check((int)call(dim,r,2)==160);

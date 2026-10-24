@@ -29,10 +29,15 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.WeakHashMap;
 
 /** Restore the retained AOSP QS hierarchy and expansion path in the supplied Zybos 12/14 builds. */
 public final class SystemUiQsHooks {
     private static final String TAG = "[Arashi-AospQs]";
+    private static final Map<View, Integer> STATUS_BARS = new WeakHashMap<>();
+    private static final ThreadLocal<Boolean> APPLYING_BAR_VISIBILITY =
+            ThreadLocal.withInitial(() -> false);
+    private static boolean shadeOpen;
     private static final Map<String, Integer> DIMENSIONS = new HashMap<>();
     static {
         DIMENSIONS.put("notification_corner_radius", 28);
@@ -62,6 +67,7 @@ public final class SystemUiQsHooks {
         hookSplitShade(module, loader);
         hookShadeBounds(module, loader);
         hookNotificationCorners(module, loader);
+        hookGlobalStatusBar(module, loader);
         hookExpansion(module, loader, "com.android.systemui.shade.QuickSettingsController", true);
         hookExpansion(module, loader, "com.android.systemui.statusbar.phone.NotificationPanelViewController", false);
         after(module, loader, "com.android.systemui.qs.QSFragment", "updateQsState", instance -> {
@@ -321,6 +327,84 @@ public final class SystemUiQsHooks {
             return child != null && applyNotificationRadii(child, radii);
         }
         return false;
+    }
+
+
+    private static void hookGlobalStatusBar(XposedModule module, ClassLoader loader) {
+        String bar = "com.android.systemui.statusbar.phone.PhoneStatusBarView";
+        observeAlways(module, loader, bar, "onAttachedToWindow", instance -> {
+            View view = (View) instance;
+            STATUS_BARS.putIfAbsent(view, view.getVisibility());
+            refreshGlobalStatusBars();
+        });
+        observeAlways(module, loader, bar, "onDetachedFromWindow", instance -> {
+            View view = (View) instance;
+            Integer wanted = STATUS_BARS.remove(view);
+            if (wanted != null) applyBarVisibility(view, wanted);
+        });
+        observeAlways(module, loader, "com.android.systemui.shade.NotificationPanelViewController",
+                "updateExpansionAndVisibility", SystemUiQsHooks::onShadeExpansion);
+        observeAlways(module, loader, "com.android.systemui.statusbar.phone.PanelViewController",
+                "notifyBarPanelExpansionChanged", SystemUiQsHooks::onShadeExpansion);
+        // Visibility is inherited from View. Match registered PhoneStatusBarView instances
+        // only, leaving the shade header and the status-bar window/touch surface untouched.
+        try {
+            Method visibility = View.class.getDeclaredMethod("setVisibility", int.class);
+            try { module.deoptimize(visibility); } catch (Throwable ignored) {}
+            module.hook(visibility).intercept(chain -> {
+                View view = (View) chain.getThisObject();
+                if (APPLYING_BAR_VISIBILITY.get() || !STATUS_BARS.containsKey(view))
+                    return chain.proceed();
+                int wanted = (Integer) chain.getArg(0);
+                STATUS_BARS.put(view, wanted);
+                return chain.proceed(new Object[] {
+                        enabled() && shadeOpen && wanted == View.VISIBLE ? View.INVISIBLE : wanted});
+            });
+        } catch (Throwable error) { Log.w(TAG, "Global status bar visibility unavailable", error); }
+    }
+
+    static void onShadeExpansion(Object controller) {
+        Object fraction = Reflect.getObjectField(controller, "mExpandedFraction");
+        if (!(fraction instanceof Number)) return;
+        float value = ((Number) fraction).floatValue();
+        shadeOpen = Float.isFinite(value) && value > 0f;
+        refreshGlobalStatusBars();
+    }
+
+    private static void refreshGlobalStatusBars() {
+        for (Map.Entry<View, Integer> entry : STATUS_BARS.entrySet()) {
+            int wanted = entry.getValue();
+            applyBarVisibility(entry.getKey(),
+                    enabled() && shadeOpen && wanted == View.VISIBLE ? View.INVISIBLE : wanted);
+        }
+    }
+
+    private static void applyBarVisibility(View view, int visibility) {
+        if (view.getVisibility() == visibility) return;
+        APPLYING_BAR_VISIBILITY.set(true);
+        try { view.setVisibility(visibility); }
+        finally { APPLYING_BAR_VISIBILITY.set(false); }
+    }
+
+    // Unlike the feature-gated after() helper, these observers must also restore the
+    // global bar when the setting is turned off while the shade is still expanded.
+    private static void observeAlways(XposedModule module, ClassLoader loader,
+            String name, String target, Action action) {
+        try {
+            Class<?> type = Class.forName(name, false, loader);
+            Method method = Reflect.findMethodExact(type, target);
+            if (method == null) return;
+            try { module.deoptimize(method); } catch (Throwable ignored) {}
+            module.hook(method).intercept(chain -> {
+                Object result = chain.proceed();
+                try { action.run(chain.getThisObject()); }
+                catch (ReflectiveOperationException | RuntimeException error) {
+                    Log.w(TAG, "Status bar state update failed", error);
+                }
+                return result;
+            });
+        } catch (ClassNotFoundException ignored) {
+        } catch (Throwable error) { Log.w(TAG, "Status bar observer unavailable", error); }
     }
 
     static int neutral(Resources resources, boolean foreground) {
