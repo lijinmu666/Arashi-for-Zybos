@@ -28,7 +28,7 @@ internal fun AppPickerFilterMenu(
 ) {
     var expanded by remember { mutableStateOf(false) }
     val tint = if (showSystemApps) MiuixTheme.colorScheme.primary
-        else MiuixTheme.colorScheme.onSurfaceVariantActions
+        else MiuixTheme.colorScheme.onSurface
     Box {
         IconButton(
             onClick = { expanded = !expanded },

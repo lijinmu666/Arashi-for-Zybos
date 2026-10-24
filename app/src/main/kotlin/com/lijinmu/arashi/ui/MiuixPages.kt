@@ -85,6 +85,7 @@ import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.basic.ArrowRight
 import top.yukonga.miuix.kmp.icon.extended.Back
 import top.yukonga.miuix.kmp.icon.extended.Link
+import top.yukonga.miuix.kmp.icon.extended.MoreCircle
 import top.yukonga.miuix.kmp.overlay.OverlayDialog
 import top.yukonga.miuix.kmp.preference.ArrowPreference
 import top.yukonga.miuix.kmp.preference.CheckboxLocation
@@ -531,22 +532,15 @@ private fun HookPage(a: HookSettings) {
 
     Page(a, "Hook 功能设置", a::finish, actions = {
         Box {
-            val actionIconTint = MiuixTheme.colorScheme.onSurface
             IconButton(
                 onClick = { actionsExpanded = !actionsExpanded },
                 modifier = Modifier.semantics { contentDescription = "更多操作" },
             ) {
-                Canvas(Modifier.size(24.dp)) {
-                    val radius = 2.dp.toPx()
-                    val centerX = size.width / 2f
-                    for (index in 0..2) {
-                        drawCircle(
-                            color = actionIconTint,
-                            radius = radius,
-                            center = Offset(centerX, size.height * (0.25f + index * 0.25f)),
-                        )
-                    }
-                }
+                Icon(
+                    imageVector = MiuixIcons.MoreCircle,
+                    contentDescription = "更多操作",
+                    tint = MiuixTheme.colorScheme.onSurfaceVariantActions,
+                )
             }
             OverlayDropdownPopup(
                 entry = DropdownEntry(listOf(
@@ -669,6 +663,7 @@ private fun HookPage(a: HookSettings) {
             HookItem("阻止禁用系统导航与下拉面板", "拦截返回、主页、最近任务及下拉面板的禁用限制，覆盖激活与错误页面等场景。需勾选系统框架、系统界面 和 桌面 作用域", HookConfig.KEY_KEEP_NAVIGATION),
         ),
         "美化" to listOf(
+            HookItem("修复莫奈取色", "恢复基于壁纸的动态配色，适配下拉面板与锁屏密码界面。手动主题色开启时优先使用手动颜色", HookConfig.KEY_SYSTEMUI_MONET),
             HookItem("自定义 SystemUI 主题色", "自定义下拉面板，锁屏密码键盘按下效果与密码圆点的强调色", HookConfig.KEY_SYSTEMUI_THEME),
             HookItem("原版状态栏图标", "将 电池、WLAN、蓝牙图标统一恢复为 AOSP 原版样式", HookConfig.KEY_AOSP_STATUS_ICONS),
             HookItem("解除通知图标数量限制", "取消普通状态栏通知图标的固定数量上限，按可用宽度显示，空间不足时仍折叠为溢出提示", HookConfig.KEY_UNLIMITED_NOTIFICATION_ICONS),

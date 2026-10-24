@@ -18,7 +18,8 @@ stubs = {key: base[key] for key in ['io/github/libxposed/api/XposedInterface.jav
 stubs.update({
 'android/R.java': '''package android;public class R {
  public static class attr {public static final int state_enabled=1,state_pressed=2,state_selected=3;}
- public static class id {public static final int progress=4;}}
+ public static class id {public static final int progress=4;}
+ public static class color {public static final int system_accent1_100=1001,system_accent1_600=1002;}}
 ''',
 'android/util/TypedValue.java': 'package android.util;public class TypedValue {}',
 'android/content/res/ColorStateList.java': '''package android.content.res;
@@ -60,8 +61,10 @@ public class StateListDrawable extends Drawable {public int[][] states;public Dr
 public class Resources {public static class Theme {}public static class NotFoundException extends RuntimeException {}
  public String owner="com.android.systemui";public Map<Integer,String> names=new HashMap<>();public Drawable drawable;
  public String getResourceName(int id){if(!names.containsKey(id))throw new NotFoundException();return owner+":"+names.get(id);}
- public int getIdentifier(String name,String type,String pkg){return Integer.parseInt(name.substring(name.length()-1))+100;}
- public int getColor(int id){return 0xff123456;}public int getColor(int id,Theme t){return getColor(id);}
+ public int getIdentifier(String name,String type,String pkg){if(name.equals("slider"))return 200;return Integer.parseInt(name.substring(name.length()-1))+100;}
+ public Configuration config=new Configuration();public int light=0xff245638,dark=0xffabc9ad;
+ public Configuration getConfiguration(){return config;}public boolean getBoolean(int id){return false;}
+ public int getColor(int id){if(id==android.R.color.system_accent1_100)return dark;if(id==android.R.color.system_accent1_600)return light;return 0xff123456;}public int getColor(int id,Theme t){return getColor(id);}
  public ColorStateList getColorStateList(int id,Theme t){return ColorStateList.valueOf(0xff123456);}
  public Drawable getDrawable(int id){return drawable;}public Drawable getDrawableForDensity(int id,int density,Theme t){return drawable;}
  public Drawable loadDrawable(android.util.TypedValue v,int id,int density,Theme t){return drawable;}}
@@ -78,18 +81,19 @@ public class TextView extends android.view.View {public ColorStateList colors=Co
  public ColorStateList getTextColors(){return colors;}public void setTextColor(ColorStateList c){colors=c;}}
 ''',
 'com/lijinmu/arashi/xposed/ConfigManager.java': '''package com.lijinmu.arashi.xposed;public class ConfigManager {
- public static boolean enabled;public static int color=0xffc8b6ff;public static boolean isEnabledCached(String k){return enabled;}
+ public static boolean enabled,monet;public static int color=0xffc8b6ff;public static boolean isEnabledCached(String k){return HookConfig.KEY_SYSTEMUI_MONET.equals(k)?monet:enabled;}
  public static int systemUiThemeColorCached(){return color;}}
 ''',
 'com/android/systemui/qs/tileimpl/QSTileViewImpl.java': '''package com.android.systemui.qs.tileimpl;
-public class QSTileViewImpl {
+public class QSTileViewImpl extends android.view.View {
+ public int refreshes;public QSIconViewImpl icon=new QSIconViewImpl();public QSIconViewImpl getIcon(){return icon;}
  public int getBackgroundColorForState(int s){return 10;}public int getBackgroundColorForState(int s,boolean disabled){return 10;}
  public int getLabelColorForState(int s){return 11;}public int getLabelColorForState(int s,boolean disabled){return 11;}
  public int getSecondaryLabelColorForState(int s){return 12;}public int getSecondaryLabelColorForState(int s,boolean disabled){return 12;}
- public void handleStateChanged(Object s){}}
+ public void handleStateChanged(Object s){refreshes++;}}
 ''',
 'com/android/systemui/qs/tileimpl/QSIconViewImpl.java': '''package com.android.systemui.qs.tileimpl;
-public class QSIconViewImpl {public static class State {public int state=2;public boolean disabledByPolicy;}
+public class QSIconViewImpl {public int mState=2;public static class State {public int state=2;public boolean disabledByPolicy;}
  public void setIcon(android.widget.ImageView v,State s,boolean animate){}public void setIcon(State s,boolean a){}}
 ''',
 'com/android/keyguard/KeyguardPasswordViewZyb.java': '''package com.android.keyguard;
@@ -114,6 +118,7 @@ public class Check {
    check((fg==0xff000000?(l+.05)/.05:1.05/(l+.05))>=4.5);
   }
   check(!HookConfig.defaultEnabled(HookConfig.KEY_SYSTEMUI_THEME));
+  SystemUiMonetHooks.hookSystemUI(module,Check.class.getClassLoader());
   SystemUiThemeHooks.hookSystemUI(module,Check.class.getClassLoader());
   Resources res=new Resources();res.names.put(1,"color/qs_selected_background");res.names.put(2,"color/qs_tile_text_and_icon_color");
   Method color=Resources.class.getMethod("getColor",int.class);
@@ -121,7 +126,7 @@ public class Check {
   ConfigManager.enabled=true;check((int)call(color,res,1)==ConfigManager.color);check((int)call(color,res,2)==0xff123456);
   res.owner="another.package";check((int)call(color,res,1)==0xff123456);res.owner="com.android.systemui";
   check((int)call(color,res,999)==0xff123456);
-  for(var m:module.hooks.keySet())if(m.getDeclaringClass().getSimpleName().equals("QSTileViewImpl")){
+  for(var m:module.hooks.keySet())if(m.getDeclaringClass().getSimpleName().equals("QSTileViewImpl")&&m.getName().startsWith("get")){
    Object tile=m.getDeclaringClass().getConstructor().newInstance();boolean two=m.getParameterCount()==2;
    int active=(int)(two?call(m,tile,2,false):call(m,tile,2));
    check(active==(m.getName().startsWith("getBackground")?ConfigManager.color:SystemUiThemeColors.foreground(ConfigManager.color)));
@@ -153,19 +158,69 @@ public class Check {
   state.disabledByPolicy=false;
   try{callback.intercept(new XposedInterface.Chain(icon,args,p->{throw new IllegalStateException();}));}catch(IllegalStateException expected){}
   check((int)call(color,res,2)==0xff123456);
-  var password=new com.android.keyguard.KeyguardPasswordViewZyb();var key=new android.widget.TextView();password.children.put(100,key);
+  var password=new com.android.keyguard.KeyguardPasswordViewZyb();var key=new android.widget.TextView();key.resources=password.resources;password.children.put(100,key);
   key.background=new StateListDrawable(new int[][]{{android.R.attr.state_pressed},{}},
     new Drawable[]{new GradientDrawable(30),new GradientDrawable(40)});
   call(password.getClass().getMethod("onFinishInflate"),password);
   check(key.colors.getColorForState(new int[]{1,2},0)==SystemUiThemeColors.foreground(ConfigManager.color));
   check(key.colors.getColorForState(new int[]{1},0)==0xffdddddd);
   check(fill(((StateListDrawable)key.background).children[0])==ConfigManager.color);
+  check(!HookConfig.defaultEnabled(HookConfig.KEY_SYSTEMUI_MONET));
+  ConfigManager.enabled=false;ConfigManager.monet=true;
+  res.names.put(5,"bool/flag_monet");
+  Method flag=Resources.class.getMethod("getBoolean",int.class);
+  check((boolean)call(flag,res,5));res.owner="android";check(!(boolean)call(flag,res,5));res.owner="com.android.systemui";
+  check(!(boolean)call(flag,res,999));
+  check((int)call(color,res,1)==res.light);
+  res.config.uiMode=Configuration.UI_MODE_NIGHT_YES;
+  check((int)call(color,res,1)==res.dark);
+  ConfigManager.enabled=true;check((int)call(color,res,1)==ConfigManager.color);ConfigManager.enabled=false;
+  var nativeController=new com.android.systemui.theme.ThemeOverlayController();
+  Method start=nativeController.getClass().getDeclaredMethod("start");
+  call(start,nativeController);check(nativeController.startedWithMonet&&nativeController.mContext.callbacks.size()==1);
+  var tile=new com.android.systemui.qs.tileimpl.QSTileViewImpl();
+  Method stateChange=tile.getClass().getDeclaredMethod("handleStateChanged",Object.class);
+  call(stateChange,tile,state);check(tile.refreshes==1);
+  class DerivedTile extends com.android.systemui.qs.tileimpl.QSTileViewImpl {}
+  var derivedTile=new DerivedTile();call(stateChange,derivedTile,state);
+  var brightnessView=new com.android.systemui.settings.brightness.BrightnessSliderView();
+  var slider=new android.widget.SeekBar();var rawProgress=new GradientDrawable(50);
+  slider.progress=new LayerDrawable(new DrawableWrapper(rawProgress));brightnessView.children.put(200,slider);
+  call(brightnessView.getClass().getMethod("onFinishInflate"),brightnessView);
+  check(fill(((DrawableWrapper)((LayerDrawable)slider.progress).progress).getDrawable())==brightnessView.resources.light);
+  call(password.getClass().getMethod("onFinishInflate"),password);
+  brightnessView.resources.light=0xff934a24;password.resources.light=0xff934a24;res.dark=0xffe8bd95;
+  nativeController.mContext.callbacks.get(0).onConfigurationChanged(new Configuration());
+  check(tile.refreshes==2&&tile.icon.mState==-1);check(derivedTile.refreshes==2&&derivedTile.icon.mState==-1);
+  check(fill(((DrawableWrapper)((LayerDrawable)slider.progress).progress).getDrawable())==0xff934a24&&rawProgress.color==50);
+  check(fill(((StateListDrawable)key.background).children[0])==0xff934a24);
+  check((int)call(color,res,1)==res.dark);
+  var failedController=new com.android.systemui.theme.ThemeOverlayController();
+  module.hooks.get(start).intercept(new XposedInterface.Chain(failedController,new Object[]{},p->{throw new SecurityException("OMS unavailable");}));
+  check(!failedController.mIsMonetEnabled);
+  ConfigManager.monet=false;check(!(boolean)call(flag,res,5));check((int)call(color,res,1)==0xff123456);
+  var disabledController=new com.android.systemui.theme.ThemeOverlayController();call(start,disabledController);
+  check(!disabledController.startedWithMonet&&disabledController.mContext.callbacks.isEmpty());
+  disabledController.mIsMonetEnabled=true;call(start,disabledController);check(disabledController.startedWithMonet);
+  System.out.println("Monet: scoped flag enablement, native start, failure containment, light/dark palette, manual priority and existing-view refresh passed");
   System.out.println("SystemUI theme: RGB validation, 4096 contrast checks, 12/14 QS state variants, scoped icon color, selector cloning, XML load path and disabled fallback passed");
  }
  static double linear(int c){double x=c/255.;return x<=.04045?x/12.92:Math.pow((x+.055)/1.055,2.4);}
 }
 ''',
 })
+
+stubs.update({
+'android/content/res/Configuration.java': 'package android.content.res;public class Configuration {public int uiMode;public static final int UI_MODE_NIGHT_MASK=48,UI_MODE_NIGHT_YES=32;}',
+'android/content/ComponentCallbacks.java': 'package android.content;public interface ComponentCallbacks {void onConfigurationChanged(android.content.res.Configuration c);void onLowMemory();}',
+'android/content/Context.java': 'package android.content;public class Context {public java.util.List<ComponentCallbacks> callbacks=new java.util.ArrayList<>();public Context getApplicationContext(){return this;}public void registerComponentCallbacks(ComponentCallbacks c){callbacks.add(c);}}',
+'android/os/Looper.java': 'package android.os;public class Looper {public static Looper getMainLooper(){return new Looper();}}',
+'android/os/Handler.java': 'package android.os;public class Handler {public Handler(Looper l){}public boolean post(Runnable r){r.run();return true;}}',
+'android/widget/SeekBar.java': 'package android.widget;public class SeekBar extends android.view.View {public android.graphics.drawable.Drawable progress;public android.graphics.drawable.Drawable getProgressDrawable(){return progress;}public void setProgressDrawable(android.graphics.drawable.Drawable d){progress=d;}}',
+'com/android/systemui/settings/brightness/BrightnessSliderView.java': 'package com.android.systemui.settings.brightness;public class BrightnessSliderView extends android.view.View {public void onFinishInflate(){}}',
+'com/android/systemui/theme/ThemeOverlayController.java': 'package com.android.systemui.theme;public class ThemeOverlayController {public android.content.Context mContext=new android.content.Context();public boolean mIsMonetEnabled,startedWithMonet;public void start(){startedWithMonet=mIsMonetEnabled;}public void reevaluateSystemTheme(boolean force){}public void updateThemeOverlays(){}}',
+})
+
 with tempfile.TemporaryDirectory(prefix='arashi-systemui-theme-') as directory:
     temp = Path(directory)
     for name, source in stubs.items():
@@ -174,7 +229,7 @@ with tempfile.TemporaryDirectory(prefix='arashi-systemui-theme-') as directory:
         path.write_text(source)
     sources = list(temp.rglob('*.java')) + [ROOT / 'app/src/main/java/com/lijinmu/arashi/xposed' / name
                                           for name in ['HookConfig.java', 'Reflect.java',
-                                                       'SystemUiThemeColors.java', 'hooks/SystemUiThemeHooks.java']]
+                                                       'SystemUiThemeColors.java', 'hooks/SystemUiThemeHooks.java', 'hooks/SystemUiMonetHooks.java']]
     compiler = [shutil.which('javac')] if shutil.which('javac') else ['java', 'com.sun.tools.javac.Main']
     subprocess.run(compiler + ['-d', str(temp / 'classes')] + [str(p) for p in sources], check=True)
     subprocess.run(['java', '-cp', str(temp / 'classes'), 'com.lijinmu.arashi.xposed.hooks.Check'], check=True)
