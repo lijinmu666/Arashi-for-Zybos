@@ -49,6 +49,8 @@ public final class SystemUiThemeHooks {
         return ConfigManager.isEnabledCached(HookConfig.KEY_SYSTEMUI_THEME) || SystemUiMonetHooks.enabled();
     }
 
+    private static boolean tilesEnabled() { return enabled() || SystemUiQsHooks.enabled(); }
+
     private static int accent(Resources resources) {
         return ConfigManager.isEnabledCached(HookConfig.KEY_SYSTEMUI_THEME)
                 ? ConfigManager.systemUiThemeColorCached() : SystemUiMonetHooks.accent(resources);
@@ -71,13 +73,17 @@ public final class SystemUiThemeHooks {
                         && types.length > 0 && types[0] == int.class) {
                     method.setAccessible(true);
                     module.hook(method).intercept(chain -> {
-                        if (enabled()) {
+                        if (tilesEnabled()) {
                             Resources resources = (Resources) chain.getThisObject();
                             String entry = resourceName(resources, (Integer) chain.getArg(0));
                             Integer replacement = null;
                             if (entry.equals(PREFIX + "color/qs_selected_background")) replacement = accent(resources);
-                            if (ACTIVE_ICON.get() && entry.equals(PREFIX + "color/qs_tile_text_and_icon_color"))
-                                replacement = foreground(resources);
+                            if (SystemUiQsHooks.enabled() && entry.equals(PREFIX + "color/qs_default_background"))
+                                replacement = SystemUiQsHooks.neutral(resources, false);
+                            if (entry.equals(PREFIX + "color/qs_tile_text_and_icon_color")) {
+                                if (ACTIVE_ICON.get()) replacement = foreground(resources);
+                                else if (SystemUiQsHooks.enabled()) replacement = SystemUiQsHooks.neutral(resources, true);
+                            }
                             if (replacement != null) return name.equals("getColor")
                                     ? replacement : ColorStateList.valueOf(replacement);
                         }
@@ -157,7 +163,7 @@ public final class SystemUiThemeHooks {
                     if (name.equals("handleStateChanged") && method.getParameterTypes().length == 1) {
                         method.setAccessible(true);
                         module.hook(method).intercept(chain -> {
-                            if (SystemUiMonetHooks.enabled() && chain.getThisObject() instanceof View) {
+                            if ((SystemUiMonetHooks.enabled() || SystemUiQsHooks.enabled()) && chain.getThisObject() instanceof View) {
                                 synchronized (TILE_STATES) {
                                     TILE_STATES.put((View) chain.getThisObject(), chain.getArg(0));
                                 }
@@ -174,10 +180,15 @@ public final class SystemUiThemeHooks {
                         || args[0] != int.class || (args.length == 2 && args[1] != boolean.class)) continue;
                 method.setAccessible(true);
                 module.hook(method).intercept(chain -> {
-                    if (enabled() && Integer.valueOf(2).equals(chain.getArg(0))
+                    if (tilesEnabled() && Integer.valueOf(2).equals(chain.getArg(0))
                             && (args.length == 1 || !Boolean.TRUE.equals(chain.getArg(1)))) {
                         Resources resources = ((View) chain.getThisObject()).getResources();
                         return name.equals("getBackgroundColorForState") ? accent(resources) : foreground(resources);
+                    }
+                    if (SystemUiQsHooks.enabled() && Integer.valueOf(1).equals(chain.getArg(0))
+                            && (args.length == 1 || !Boolean.TRUE.equals(chain.getArg(1)))) {
+                        return SystemUiQsHooks.neutral(((View) chain.getThisObject()).getResources(),
+                                !name.equals("getBackgroundColorForState"));
                     }
                     return chain.proceed();
                 });
@@ -199,7 +210,7 @@ public final class SystemUiThemeHooks {
                 module.hook(method).intercept(chain -> {
                     boolean previous = ACTIVE_ICON.get();
                     Object state = chain.getArg(1);
-                    ACTIVE_ICON.set(enabled() && Integer.valueOf(2).equals(Reflect.getObjectField(state, "state"))
+                    ACTIVE_ICON.set(tilesEnabled() && Integer.valueOf(2).equals(Reflect.getObjectField(state, "state"))
                             && !Boolean.TRUE.equals(Reflect.getObjectField(state, "disabledByPolicy")));
                     try { return chain.proceed(); }
                     finally { ACTIVE_ICON.set(previous); }
@@ -259,9 +270,9 @@ public final class SystemUiThemeHooks {
             inflate.setAccessible(true);
             module.hook(inflate).intercept(chain -> {
                 Object result = chain.proceed();
-                if (enabled() && chain.getThisObject() instanceof View) {
+                if (tilesEnabled() && chain.getThisObject() instanceof View) {
                     View root = (View) chain.getThisObject();
-                    if (SystemUiMonetHooks.enabled()) {
+                    if (SystemUiMonetHooks.enabled() || SystemUiQsHooks.enabled()) {
                         synchronized (BRIGHTNESS_VIEWS) { BRIGHTNESS_VIEWS.put(root, true); }
                     }
                     applyBrightnessColor(root);
@@ -273,6 +284,10 @@ public final class SystemUiThemeHooks {
 
     private static void applyBrightnessColor(View root) {
         try {
+            if (SystemUiQsHooks.enabled()) {
+                SystemUiQsHooks.restoreBrightness(root);
+                return;
+            }
             int id = root.getResources().getIdentifier("slider", "id", "com.android.systemui");
             View view = id == 0 ? null : root.findViewById(id);
             if (!(view instanceof SeekBar)) return;
@@ -286,7 +301,7 @@ public final class SystemUiThemeHooks {
     }
 
     static void refreshDynamicColors() {
-        if (!enabled()) return;
+        if (!tilesEnabled()) return;
         Map<View, Object> tiles;
         ArrayList<View> brightness;
         ArrayList<View> passwords;

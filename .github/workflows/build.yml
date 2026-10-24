@@ -40,6 +40,8 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
       - name: 验证失效应用选择清理规则
         run: python3 tests/check_installed_selections.py
+      - name: 验证 Android 12 与 14 原版下拉面板
+        run: python3 tests/check_systemui_qs.py
       - name: 验证 SystemUI 自定义主题色
         run: python3 tests/check_systemui_theme.py
       - name: 验证 Android 12 与 14 传统电源菜单
