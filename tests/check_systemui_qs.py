@@ -19,6 +19,8 @@ public class XposedModule {public Map<Executable,XposedInterface.Hooker> hooks=n
  public class Builder {Executable m;Builder(Executable x){m=x;}public void intercept(XposedInterface.Hooker h){hooks.put(m,h);}}
  public Builder hook(Executable m){return new Builder(m);}public boolean deoptimize(Executable m){return true;}}
 ''',
+'com/android/systemui/util/animation/TransitionLayout.java': '''package com.android.systemui.util.animation;
+public class TransitionLayout extends android.view.View {public void applyCurrentState(){setClipToOutline(false);}}''',
 'android/graphics/Outline.java': '''package android.graphics;public class Outline {
  public float radius;public int width,height;public void setRoundRect(int l,int t,int r,int b,float x){width=r-l;height=b-t;radius=x;}}''',
 'android/view/ViewOutlineProvider.java': '''package android.view;public abstract class ViewOutlineProvider {
@@ -369,10 +371,13 @@ public class Check {
   call(detach,globalBar);check(globalBar.visibility==0);
   expansion12.mExpandedFraction=0;call(update12,expansion12);check(recreatedBar.visibility==0);
   call(detach,recreatedBar);
-  View player=new View();var mediaHolder=new com.android.systemui.media.controls.models.player.MediaViewHolder(player);
+  View player=new com.android.systemui.util.animation.TransitionLayout();var mediaHolder=new com.android.systemui.media.controls.models.player.MediaViewHolder(player);
   var mediaConstructor=mediaHolder.getClass().getConstructor(View.class);
   module.hooks.get(mediaConstructor).intercept(new XposedInterface.Chain(mediaHolder,new Object[]{player},x->null));
   check(player.clip&&player.outline!=null);
+  Method applyMedia=player.getClass().getMethod("applyCurrentState");
+  call(applyMedia,player);check(player.clip&&player.outline!=null);
+  ConfigManager.enabled=false;call(applyMedia,player);check(!player.clip);ConfigManager.enabled=true;
   android.graphics.Outline mediaOutline=new android.graphics.Outline();player.outline.getOutline(player,mediaOutline);
   check(mediaOutline.radius==56f&&mediaOutline.width==400&&mediaOutline.height==160);
   player.width=600;player.height=200;player.outline.getOutline(player,mediaOutline);
@@ -398,14 +403,24 @@ public class Check {
   FrameLayout nestedRoot=new FrameLayout(),nativeHeader=new FrameLayout();View nativeIcons=named(new View(),"system_icon_area");
   nativeHeader.addView(nativeIcons);nestedRoot.addView(nativeHeader);
   SystemUiQsHooks.hideVendorStatusRow(nestedRoot);check(nativeIcons.visibility==View.VISIBLE);
+  var wrappedRoot=new com.android.systemui.shade.NotificationsQuickSettingsContainer();
+  FrameLayout protectedHeader=named(new FrameLayout(),"large_screen_shade_header");
+  View protectedIcons=named(new View(),"system_icon_area");protectedHeader.addView(protectedIcons);wrappedRoot.addView(protectedHeader);
+  FrameLayout vendorWrapper=new FrameLayout();View wrappedBattery=named(new View(),"system_icons");
+  vendorWrapper.addView(wrappedBattery);wrappedRoot.addView(vendorWrapper);
+  View secondDuplicate=named(new View(),"system_icon_area");wrappedRoot.addView(secondDuplicate);
+  SystemUiQsHooks.hideVendorStatusRow(wrappedRoot);
+  check(protectedIcons.visibility==View.VISIBLE&&wrappedBattery.visibility==View.GONE&&secondDuplicate.visibility==View.GONE);
+  call(setVisible,wrappedBattery,View.VISIBLE);check(wrappedBattery.visibility==View.GONE);
+  call(setVisible,protectedIcons,View.VISIBLE);check(protectedIcons.visibility==View.VISIBLE);
   Resources portraitResources=new Resources();portraitResources.config.orientation=1;
   portraitResources.names.put(1,"dimen/qs_tile_margin_vertical");
   check((int)call(Resources.class.getMethod("getDimensionPixelSize",int.class),portraitResources,1)==24);
   portraitResources.config.orientation=2;check((int)call(Resources.class.getMethod("getDimensionPixelSize",int.class),portraitResources,1)==16);
   View portraitMedia=new View();portraitMedia.resources.config.orientation=1;
   FrameLayout.LayoutParams mediaMargins=new FrameLayout.LayoutParams(-1,-2);portraitMedia.setLayoutParams(mediaMargins);
-  SystemUiQsHooks.restoreMediaCard(portraitMedia);check(mediaMargins.topMargin==48&&mediaMargins.bottomMargin==48);
-  SystemUiQsHooks.restoreMediaCard(portraitMedia);check(mediaMargins.topMargin==48&&mediaMargins.bottomMargin==48);
+  SystemUiQsHooks.restoreMediaCard(portraitMedia);check(mediaMargins.topMargin==0&&mediaMargins.bottomMargin==0);
+  SystemUiQsHooks.restoreMediaCard(portraitMedia);check(mediaMargins.topMargin==0&&mediaMargins.bottomMargin==0);
   var interactionRow=new com.android.systemui.statusbar.notification.row.ExpandableNotificationRowController(false);
   var interactionConstructor=interactionRow.getClass().getConstructor(boolean.class);
   module.hooks.get(interactionConstructor).intercept(new XposedInterface.Chain(interactionRow,new Object[]{false},x->{
@@ -521,3 +536,4 @@ with tempfile.TemporaryDirectory(prefix='arashi-aosp-qs-') as directory:
     compiler = [shutil.which('javac')] if shutil.which('javac') else ['java', 'com.sun.tools.javac.Main']
     subprocess.run(compiler + ['-d', str(temp / 'classes')] + [str(p) for p in sources], check=True)
     subprocess.run(['java', '-cp', str(temp / 'classes'), 'com.lijinmu.arashi.xposed.hooks.Check'], check=True)
+

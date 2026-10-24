@@ -40,6 +40,7 @@ public final class SystemUiQsHooks {
     private static final ThreadLocal<Boolean> APPLYING_BAR_VISIBILITY =
             ThreadLocal.withInitial(() -> false);
     private static boolean shadeOpen;
+    private static final Map<View, Boolean> MEDIA_PLAYERS = new WeakHashMap<>();
     private static final Map<View, NotificationTopInset> NOTIFICATION_TOP_INSETS = new WeakHashMap<>();
     private static final class NotificationTopInset {
         int nativeTop;
@@ -139,18 +140,37 @@ public final class SystemUiQsHooks {
     }
 
     private static boolean isVendorStatusRow(View view) {
-        Object parent = view.getParent();
-        if (!(parent instanceof ViewGroup) || !parent.getClass().getName()
-                .endsWith(".NotificationsQuickSettingsContainer")) return false;
-        int id = view.getResources().getIdentifier("system_icon_area", "id", "com.android.systemui");
-        return id != 0 && view.getId() == id;
+        boolean icons = false;
+        for (String name : new String[] {"system_icon_area", "system_icons", "statusIcons"}) {
+            int id = view.getResources().getIdentifier(name, "id", "com.android.systemui");
+            if (id != 0 && view.getId() == id) icons = true;
+        }
+        if (!icons) return false;
+        View ancestor = view;
+        while (ancestor != null) {
+            // The AOSP header owns its own icons. Only suppress the vendor's extra row.
+            for (String name : new String[] {"qs_frame", "header", "quick_qs_status_icons",
+                    "large_screen_shade_header", "shade_header"}) {
+                int id = view.getResources().getIdentifier(name, "id", "com.android.systemui");
+                if (id != 0 && ancestor.getId() == id) return false;
+            }
+            String type = ancestor.getClass().getName();
+            if (type.endsWith(".QuickStatusBarHeader")) return false;
+            if (type.endsWith(".NotificationsQuickSettingsContainer")) return true;
+            Object parent = ancestor.getParent();
+            ancestor = parent instanceof View ? (View) parent : null;
+        }
+        return false;
     }
 
     static void hideVendorStatusRow(ViewGroup root) {
-        View row = find(root, "system_icon_area");
-        // Vendor 14 adds this direct child to status_bar_expanded.xml. Do not match
-        // identically named icon groups nested in the restored AOSP shade header.
-        if (row != null && row.getParent() == root) row.setVisibility(View.GONE);
+        // Inspect every branch: findViewById may return a native header's identically
+        // named group before the vendor row, and the vendor may wrap its icons.
+        for (int i = 0; i < root.getChildCount(); i++) {
+            View child = root.getChildAt(i);
+            if (isVendorStatusRow(child)) child.setVisibility(View.GONE);
+            else if (child instanceof ViewGroup) hideVendorStatusRow((ViewGroup) child);
+        }
     }
 
     static boolean splitShade(Resources resources) {
@@ -475,18 +495,9 @@ public final class SystemUiQsHooks {
         player.setOutlineProvider(MEDIA_OUTLINE);
         player.setClipToOutline(true);
         player.invalidateOutline();
-        ViewGroup.LayoutParams params = player.getLayoutParams();
-        if (params instanceof ViewGroup.MarginLayoutParams) {
-            ViewGroup.MarginLayoutParams margins = (ViewGroup.MarginLayoutParams) params;
-            int space = dp(player, portrait(player.getResources()) ? 24 : 16);
-            int top = Math.max(margins.topMargin, space);
-            int bottom = Math.max(margins.bottomMargin, space);
-            if (margins.topMargin != top || margins.bottomMargin != bottom) {
-                margins.topMargin = top;
-                margins.bottomMargin = bottom;
-                player.setLayoutParams(params);
-            }
-        }
+        // TransitionLayout/MediaCarousel measure their host from TransitionViewState,
+        // without player margins. Extra margins consume space outside that measured
+        // height and get clipped by the carousel and QS container.
     }
 
     static void restoreFooter(View footer) {
@@ -496,6 +507,12 @@ public final class SystemUiQsHooks {
     }
 
     private static void hookMediaAndFooter(XposedModule module, ClassLoader loader) {
+        // TransitionLayout reapplies animated bounds on layout and pre-draw. Restore
+        // the outline after that pass, scoped to players registered by their holder.
+        after(module, loader, "com.android.systemui.util.animation.TransitionLayout",
+                "applyCurrentState", player -> {
+                    if (MEDIA_PLAYERS.containsKey((View) player)) restoreMediaCard((View) player);
+                });
         for (String name : new String[] {
                 "com.android.systemui.media.controls.models.player.MediaViewHolder",
                 "com.android.systemui.media.PlayerViewHolder",
@@ -507,7 +524,10 @@ public final class SystemUiQsHooks {
                         Object result = chain.proceed();
                         if (enabled()) {
                             Object player = Reflect.getObjectField(chain.getThisObject(), "player");
-                            if (player instanceof View) restoreMediaCard((View) player);
+                            if (player instanceof View) {
+                                MEDIA_PLAYERS.put((View) player, Boolean.TRUE);
+                                restoreMediaCard((View) player);
+                            }
                         }
                         return result;
                     });
@@ -963,3 +983,4 @@ public final class SystemUiQsHooks {
         else if (drawable instanceof DrawableWrapper) round(((DrawableWrapper) drawable).getDrawable(), radius);
     }
 }
+
