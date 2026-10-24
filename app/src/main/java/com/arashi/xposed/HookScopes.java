@@ -102,7 +102,8 @@ public final class HookScopes {
     }
 
     private static boolean usesSystemServer(String key) {
-        return !HookConfig.KEY_RECORD_INTERNAL_AUDIO.equals(key)
+        return !HookConfig.KEY_BLOCK_TCP_LOGIN_FAIL.equals(key)
+                && !HookConfig.KEY_RECORD_INTERNAL_AUDIO.equals(key)
                 && !HookConfig.KEY_STATUS_BAR_DATE.equals(key)
                 && !HookConfig.KEY_IOS_ICONS.equals(key)
                 && !HookConfig.KEY_EXTERNAL_INSTALL.equals(key)
@@ -115,6 +116,9 @@ public final class HookScopes {
     }
 
     private static String[] applicationScopes(String key) {
+        if (HookConfig.KEY_BLOCK_TCP_LOGIN_FAIL.equals(key)) {
+            return new String[] { "com.zuoyebang.iot.zptcpservice" };
+        }
         if (HookConfig.KEY_EXTERNAL_INSTALL.equals(key)) {
             return new String[] { "com.android.packageinstaller" };
         }

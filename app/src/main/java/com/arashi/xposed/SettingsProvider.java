@@ -26,6 +26,7 @@ public final class SettingsProvider extends ContentProvider {
     public static final String METHOD_GET_ALL = "get_all_settings";
     public static final String METHOD_GET_UNINSTALL = "get_uninstall_validation";
     public static final String METHOD_ADD_UNINSTALL_RECORD = "add_uninstall_record";
+    public static final String METHOD_ADD_TCP_RECORD = "add_tcp_login_record";
     public static final String STATUS_PREF_NAME = "hook_runtime";
     public static final String KEY_SYSTEM_SERVER_BOOT = "system_server_boot";
 
@@ -48,6 +49,17 @@ private static final Map<Integer, Boolean> TRUSTED_UID_CACHE = new ConcurrentHas
 
     @Override
     public Bundle call(String method, String arg, Bundle extras) {
+        if (METHOD_ADD_TCP_RECORD.equals(method)) {
+            Context context = getContext();
+            if (context == null || extras == null || !isTcpRecordCaller(context)) return null;
+            try {
+                com.arashi.tcp.TcpHistoryStore.append(context, extras);
+                return Bundle.EMPTY;
+            } catch (RuntimeException error) {
+                Log.w(TAG, "TCP record unavailable", error);
+                return null;
+            }
+        }
         if (METHOD_ADD_UNINSTALL_RECORD.equals(method)) {
             if (Binder.getCallingUid() != Process.SYSTEM_UID || extras == null) {
                 return null;
@@ -116,6 +128,8 @@ Log.w(TAG, "reject untrusted caller uid=" + Binder.getCallingUid());
         SharedPreferences prefs = context.getSharedPreferences(HookConfig.PREF_NAME, Context.MODE_PRIVATE);
         
         Bundle result = new Bundle();
+        result.putBoolean(HookConfig.KEY_BLOCK_TCP_LOGIN_FAIL,
+                prefs.getBoolean(HookConfig.KEY_BLOCK_TCP_LOGIN_FAIL, false));
         result.putBoolean(HookConfig.KEY_ANDROID12_BLACKLIST_HOOK,
                 prefs.getBoolean(HookConfig.KEY_ANDROID12_BLACKLIST_HOOK, false));
         result.putBoolean(HookConfig.KEY_EXTERNAL_INSTALL, prefs.getBoolean(HookConfig.KEY_EXTERNAL_INSTALL, HookConfig.DEFAULT_ENABLED));
@@ -143,6 +157,18 @@ Log.w(TAG, "reject untrusted caller uid=" + Binder.getCallingUid());
         result.putBoolean(HookConfig.KEY_NO_TIMEOUT_LOCK, prefs.getBoolean(HookConfig.KEY_NO_TIMEOUT_LOCK, HookConfig.defaultEnabled(HookConfig.KEY_NO_TIMEOUT_LOCK)));
         result.putBoolean(HookConfig.KEY_BLOCK_DEFAULT_BROWSER, prefs.getBoolean(HookConfig.KEY_BLOCK_DEFAULT_BROWSER, HookConfig.DEFAULT_ENABLED));
         return result;
+    }
+
+    private boolean isTcpRecordCaller(Context context) {
+        int uid = Binder.getCallingUid();
+        if (uid == Process.myUid()) return true;
+        String[] packages = context.getPackageManager().getPackagesForUid(uid);
+        if (packages != null) {
+            for (String name : packages) {
+                if ("com.zuoyebang.iot.zptcpservice".equals(name)) return true;
+            }
+        }
+        return false;
     }
 
 private boolean isTrustedCaller() {

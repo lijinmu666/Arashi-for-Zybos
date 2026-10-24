@@ -56,6 +56,8 @@ jobs:
           set -euo pipefail
           javac -d "$RUNNER_TEMP/clock-tests" app/src/main/java/com/arashi/xposed/StatusBarClockFormat.java tests/StatusBarClockFormatCheck.java
           java -cp "$RUNNER_TEMP/clock-tests" StatusBarClockFormatCheck
+      - name: 验证 TCP 登录失败拦截与记录
+        run: python3 tests/check_tcp_login.py
       - name: 安装 Android SDK
         shell: bash
         run: |
@@ -115,6 +117,7 @@ jobs:
             cp app/build/outputs/apk/debug/app-debug.apk dist/Arashi-1.0.0-test.apk
           fi
           for apk in dist/*.apk; do
+            python3 tests/check_release_apk.py "$apk"
             "$tools/aapt" dump badging "$apk" > "$RUNNER_TEMP/arashi-badging.txt"
             grep "package: name='com.arashi' versionCode='37' versionName='v1.0.0'" "$RUNNER_TEMP/arashi-badging.txt"
             test "$(unzip -p "$apk" META-INF/xposed/java_init.list)" = 'com.arashi.xposed.HookEntry'
