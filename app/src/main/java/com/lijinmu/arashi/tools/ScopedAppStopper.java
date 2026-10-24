@@ -13,7 +13,7 @@ public final class ScopedAppStopper {
     public static RootResult stop() {
         RootShell.Result result = RootShell.run(buildCommand());
         return new RootResult(result.ok, result.ok
-                ? "已终止目标应用进程，Arashi 将稍后关闭" : result.output);
+                ? "已终止目标应用进程" : result.output);
     }
 
     static String buildCommand() {
@@ -35,11 +35,7 @@ public final class ScopedAppStopper {
                 // Already-exited processes are successful, not a permission failure.
                 .append("kill -9 \"$pid\" 2>/dev/null || { [ ! -d \"$proc\" ] || failed=1; };; ")
                 .append("esac; done; ")
-                .append("if [ \"$failed\" != 0 ]; then echo APP_KILL_FAILED; exit 1; fi; ")
-                // Capture our PID now, avoiding a later kill of a newly launched instance.
-                .append("self_pids=$(pidof com.lijinmu.arashi); ")
-                .append("if [ -n \"$self_pids\" ]; then ")
-                .append("(sleep 2; kill -9 $self_pids) </dev/null >/dev/null 2>&1 & fi; ");
+                .append("if [ \"$failed\" != 0 ]; then echo APP_KILL_FAILED; exit 1; fi; ");
         return command.toString();
     }
 

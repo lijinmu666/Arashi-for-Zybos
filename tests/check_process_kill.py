@@ -29,6 +29,7 @@ public class Check {public static void main(String[] args){
     command = subprocess.check_output(["java", "-cp", str(temp),
             "com.lijinmu.arashi.tools.Check"], text=True)
     assert "force-stop" not in command and "am kill" not in command
+    assert "com.lijinmu.arashi" not in command and "self_pids" not in command and "pidof" not in command
     fake = temp / "proc"
     names = {
         101: "com.android.systemui",
@@ -44,6 +45,7 @@ public class Check {public static void main(String[] args){
         202: "com.android.systemui.fake",
         203: "unrelated",
         204: "com.lijinmu.arashi",
+        205: "com.lijinmu.arashi:worker",
     }
     for pid, name in names.items():
         folder = fake / str(pid)
