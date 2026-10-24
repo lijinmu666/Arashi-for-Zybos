@@ -29,7 +29,7 @@ public class XposedModule {public Map<Executable,XposedInterface.Hooker> hooks=n
 ''',
 'android/util/DisplayMetrics.java': 'package android.util;public class DisplayMetrics {public float density=2;}',
 'android/content/res/Configuration.java': '''package android.content.res;public class Configuration {
- public static final int UI_MODE_NIGHT_MASK=48,UI_MODE_NIGHT_YES=32;public static final int ORIENTATION_LANDSCAPE=2;public int uiMode,screenWidthDp,orientation=2;}
+ public static final int UI_MODE_NIGHT_MASK=48,UI_MODE_NIGHT_YES=32;public static final int ORIENTATION_LANDSCAPE=2,ORIENTATION_PORTRAIT=1;public int uiMode,screenWidthDp,orientation=2;}
 ''',
 'android/content/res/Resources.java': '''package android.content.res;import java.util.*;
 public class Resources {public static class NotFoundException extends RuntimeException {}public static class Theme {}
@@ -288,10 +288,10 @@ public class Check {
   check(((FrameLayout.LayoutParams)stackBounds.params).leftMargin==504);
   check(((FrameLayout.LayoutParams)stackBounds.params).topMargin==0);
   bounds.resources.config.orientation=1;bounds.resources.config.screenWidthDp=640;
-  SystemUiQsHooks.restoreShadeBounds(bounds,1280);check(qsBounds.params.width==1216&&stackBounds.params.width==1216);
-  check(((FrameLayout.LayoutParams)qsBounds.params).leftMargin==32);
+  SystemUiQsHooks.restoreShadeBounds(bounds,1280);check(qsBounds.params.width==1184&&stackBounds.params.width==1184);
+  check(((FrameLayout.LayoutParams)qsBounds.params).leftMargin==48);
   check(((FrameLayout.LayoutParams)stackBounds.params).topMargin==0);
-  SystemUiQsHooks.restoreShadeBounds(bounds,0);check(qsBounds.params.width==1216);
+  SystemUiQsHooks.restoreShadeBounds(bounds,0);check(qsBounds.params.width==1184);
   class Constraints extends ViewGroup.MarginLayoutParams {
    public int startToStart=0,startToEnd=-1,endToStart=-1,endToEnd=0;
    public int leftToLeft=-1,leftToRight=-1,rightToLeft=-1,rightToRight=-1;
@@ -376,6 +376,22 @@ public class Check {
   check(!unchangedMedia.clip&&unchangedMedia.outline==null);
   Drawable outerBackground=new GradientDrawable();footerBar.setBackground(outerBackground);
   call(bindFooter,null,footerBar);check(footerBar.background==outerBackground);ConfigManager.enabled=true;
+  var vendorRoot=new com.android.systemui.shade.NotificationsQuickSettingsContainer();View duplicate=named(new View(),"system_icon_area");vendorRoot.addView(duplicate);
+  SystemUiQsHooks.hideVendorStatusRow(vendorRoot);check(duplicate.visibility==View.GONE);
+  call(setVisible,duplicate,View.VISIBLE);check(duplicate.visibility==View.GONE);
+  ConfigManager.enabled=false;call(setVisible,duplicate,View.VISIBLE);check(duplicate.visibility==View.VISIBLE);
+  ConfigManager.enabled=true;call(setVisible,duplicate,View.VISIBLE);check(duplicate.visibility==View.GONE);
+  FrameLayout nestedRoot=new FrameLayout(),nativeHeader=new FrameLayout();View nativeIcons=named(new View(),"system_icon_area");
+  nativeHeader.addView(nativeIcons);nestedRoot.addView(nativeHeader);
+  SystemUiQsHooks.hideVendorStatusRow(nestedRoot);check(nativeIcons.visibility==View.VISIBLE);
+  Resources portraitResources=new Resources();portraitResources.config.orientation=1;
+  portraitResources.names.put(1,"dimen/qs_tile_margin_vertical");
+  check((int)call(Resources.class.getMethod("getDimensionPixelSize",int.class),portraitResources,1)==24);
+  portraitResources.config.orientation=2;check((int)call(Resources.class.getMethod("getDimensionPixelSize",int.class),portraitResources,1)==16);
+  View portraitMedia=new View();portraitMedia.resources.config.orientation=1;
+  FrameLayout.LayoutParams mediaMargins=new FrameLayout.LayoutParams(-1,-2);portraitMedia.setLayoutParams(mediaMargins);
+  SystemUiQsHooks.restoreMediaCard(portraitMedia);check(mediaMargins.topMargin==48&&mediaMargins.bottomMargin==48);
+  SystemUiQsHooks.restoreMediaCard(portraitMedia);check(mediaMargins.topMargin==48&&mediaMargins.bottomMargin==48);
   Resources r=new Resources();r.names.put(1,"integer/quick_settings_num_columns");r.names.put(2,"dimen/qs_tile_height");
   Method integer=Resources.class.getMethod("getInteger",int.class),dim=Resources.class.getMethod("getDimensionPixelSize",int.class);
   check((int)call(integer,r,1)==2);check((int)call(dim,r,2)==160);

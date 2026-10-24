@@ -132,6 +132,26 @@ public final class SystemUiQsHooks {
 
     // Use one decision for layout, notification padding, QS expansion and scrim controllers.
     // Resource interception also covers R8-inlined LargeScreenUtils callers.
+    static boolean portrait(Resources resources) {
+        return resources.getConfiguration().orientation
+                == android.content.res.Configuration.ORIENTATION_PORTRAIT;
+    }
+
+    private static boolean isVendorStatusRow(View view) {
+        Object parent = view.getParent();
+        if (!(parent instanceof ViewGroup) || !parent.getClass().getName()
+                .endsWith(".NotificationsQuickSettingsContainer")) return false;
+        int id = view.getResources().getIdentifier("system_icon_area", "id", "com.android.systemui");
+        return id != 0 && view.getId() == id;
+    }
+
+    static void hideVendorStatusRow(ViewGroup root) {
+        View row = find(root, "system_icon_area");
+        // Vendor 14 adds this direct child to status_bar_expanded.xml. Do not match
+        // identically named icon groups nested in the restored AOSP shade header.
+        if (row != null && row.getParent() == root) row.setVisibility(View.GONE);
+    }
+
     static boolean splitShade(Resources resources) {
         return resources.getConfiguration().orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
                 && resources.getConfiguration().screenWidthDp >= 600;
@@ -179,11 +199,12 @@ public final class SystemUiQsHooks {
     // existing views before measuring; do not reparent notification rows or media controls.
     static void restoreShadeBounds(ViewGroup root, int width) throws ReflectiveOperationException {
         if (width <= 0) return;
+        hideVendorStatusRow(root);
         View qs = find(root, "qs_frame");
         View notifications = find(root, "notification_stack_scroller");
         if (qs == null || notifications == null || qs.getParent() != root
                 || notifications.getParent() != root) return;
-        int edge = dp(root, 16);
+        int edge = dp(root, portrait(root.getResources()) ? 24 : 16);
         int gap = dp(root, 16);
         boolean split = splitShade(root.getResources());
         int column = split ? Math.max(1, (width - edge * 2 - gap) / 2)
@@ -386,6 +407,8 @@ public final class SystemUiQsHooks {
             try { module.deoptimize(visibility); } catch (Throwable ignored) {}
             module.hook(visibility).intercept(chain -> {
                 View view = (View) chain.getThisObject();
+                if (enabled() && isVendorStatusRow(view))
+                    return chain.proceed(new Object[] {View.GONE});
                 if (APPLYING_BAR_VISIBILITY.get() || !STATUS_BARS.containsKey(view))
                     return chain.proceed();
                 int wanted = (Integer) chain.getArg(0);
@@ -451,6 +474,18 @@ public final class SystemUiQsHooks {
         player.setOutlineProvider(MEDIA_OUTLINE);
         player.setClipToOutline(true);
         player.invalidateOutline();
+        ViewGroup.LayoutParams params = player.getLayoutParams();
+        if (params instanceof ViewGroup.MarginLayoutParams) {
+            ViewGroup.MarginLayoutParams margins = (ViewGroup.MarginLayoutParams) params;
+            int space = dp(player, portrait(player.getResources()) ? 24 : 16);
+            int top = Math.max(margins.topMargin, space);
+            int bottom = Math.max(margins.bottomMargin, space);
+            if (margins.topMargin != top || margins.bottomMargin != bottom) {
+                margins.topMargin = top;
+                margins.bottomMargin = bottom;
+                player.setLayoutParams(params);
+            }
+        }
     }
 
     static void restoreFooter(View footer) {
@@ -650,6 +685,15 @@ public final class SystemUiQsHooks {
                                 return chain.proceed();
                             }
                             Integer value = name.equals("getInteger") ? integer(entry) : dimension(entry);
+                            if (!name.equals("getInteger") && portrait(resources)) {
+                                switch (entry) {
+                                    case "com.android.systemui:dimen/qs_tile_margin_vertical": value = 12; break;
+                                    case "com.android.systemui:dimen/qs_tile_margin_top_bottom": value = 6; break;
+                                    case "com.android.systemui:dimen/qqs_layout_margin_top": value = 24; break;
+                                    case "com.android.systemui:dimen/qqs_layout_padding_bottom": value = 32; break;
+                                    default: break;
+                                }
+                            }
                             if (value != null) {
                                 if (name.equals("getInteger")) return value;
                                 float pixels = value * resources.getDisplayMetrics().density;
@@ -728,7 +772,7 @@ public final class SystemUiQsHooks {
         View quick = find(header, "quick_qs_panel");
         if (quick == null) return;
         hideQuickExtras(quick);
-        quick.setPaddingRelative(quick.getPaddingStart(), quick.getPaddingTop(), quick.getPaddingEnd(), dp(quick, 24));
+        quick.setPaddingRelative(quick.getPaddingStart(), quick.getPaddingTop(), quick.getPaddingEnd(), dp(quick, portrait(quick.getResources()) ? 32 : 24));
         View status = find(header, "quick_qs_status_icons");
         if (status != null) {
             // 12: restore the two overlapping native rows and their existing animators.
@@ -751,7 +795,7 @@ public final class SystemUiQsHooks {
             if (quick.getLayoutParams() instanceof RelativeLayout.LayoutParams) {
                 RelativeLayout.LayoutParams params = (RelativeLayout.LayoutParams) quick.getLayoutParams();
                 params.addRule(RelativeLayout.BELOW, status.getId());
-                params.topMargin = dp(header, 16);
+                params.topMargin = dp(header, portrait(header.getResources()) ? 24 : 16);
                 quick.setLayoutParams(params);
             }
         } else {
@@ -760,13 +804,13 @@ public final class SystemUiQsHooks {
             if (quick.getParent() != header) {
                 ((ViewGroup) quick.getParent()).removeView(quick);
                 FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(-1, -2);
-                params.topMargin = dp(header, 16);
+                params.topMargin = dp(header, portrait(header.getResources()) ? 24 : 16);
                 header.addView(quick, params);
                 if (oldParent != null && oldParent.getParent() instanceof View) hide((View) oldParent.getParent());
             }
             if (quick.getLayoutParams() instanceof FrameLayout.LayoutParams) {
                 FrameLayout.LayoutParams params = (FrameLayout.LayoutParams) quick.getLayoutParams();
-                params.topMargin = dp(header, 16);
+                params.topMargin = dp(header, portrait(header.getResources()) ? 24 : 16);
                 quick.setLayoutParams(params);
             }
         }
