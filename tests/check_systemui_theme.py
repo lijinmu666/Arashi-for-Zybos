@@ -82,8 +82,8 @@ public class TextView extends android.view.View {public ColorStateList colors=Co
  public ColorStateList getTextColors(){return colors;}public void setTextColor(ColorStateList c){colors=c;}}
 ''',
 'com/lijinmu/arashi/xposed/ConfigManager.java': '''package com.lijinmu.arashi.xposed;public class ConfigManager {
- public static boolean enabled,monet,qs;public static int color=0xffc8b6ff;public static boolean isEnabledCached(String k){return HookConfig.KEY_AOSP_QS.equals(k)?qs:HookConfig.KEY_SYSTEMUI_MONET.equals(k)?monet:enabled;}
- public static int systemUiThemeColorCached(){return color;}}
+ public static boolean enabled,monet,qs;public static int color=0xff245638;public static boolean isEnabledCached(String k){return HookConfig.KEY_AOSP_QS.equals(k)?qs:HookConfig.KEY_SYSTEMUI_MONET.equals(k)?monet:enabled;}
+}
 ''',
 'com/android/systemui/qs/tileimpl/QSTileViewImpl.java': '''package com.android.systemui.qs.tileimpl;
 public class QSTileViewImpl extends android.view.View {
@@ -118,13 +118,13 @@ public class Check {
    double l=.2126*linear(r)+.7152*linear(g)+.0722*linear(b);
    check((fg==0xff000000?(l+.05)/.05:1.05/(l+.05))>=4.5);
   }
-  check(!HookConfig.defaultEnabled(HookConfig.KEY_SYSTEMUI_THEME));
+  check(!HookConfig.defaultEnabled(HookConfig.KEY_SYSTEMUI_MONET));
   SystemUiMonetHooks.hookSystemUI(module,Check.class.getClassLoader());
   SystemUiThemeHooks.hookSystemUI(module,Check.class.getClassLoader());
   Resources res=new Resources();res.names.put(1,"color/qs_selected_background");res.names.put(2,"color/qs_tile_text_and_icon_color");
   Method color=Resources.class.getMethod("getColor",int.class);
-  ConfigManager.enabled=false;check((int)call(color,res,1)==0xff123456);
-  ConfigManager.enabled=true;check((int)call(color,res,1)==ConfigManager.color);check((int)call(color,res,2)==0xff123456);
+  ConfigManager.monet=false;check((int)call(color,res,1)==0xff123456);
+  ConfigManager.monet=true;check((int)call(color,res,1)==ConfigManager.color);check((int)call(color,res,2)==0xff123456);
   res.owner="another.package";check((int)call(color,res,1)==0xff123456);res.owner="com.android.systemui";
   check((int)call(color,res,999)==0xff123456);
   for(var m:module.hooks.keySet())if(m.getDeclaringClass().getSimpleName().equals("QSTileViewImpl")&&m.getName().startsWith("get")){
@@ -142,7 +142,7 @@ public class Check {
    var copy=(StateListDrawable)call(load,res,new android.util.TypedValue(),3,320,null);
    check(copy!=original&&fill(copy.children[0])==ConfigManager.color&&fill(copy.children[1])==40);
    check(fill(original.children[0])==30&&((GradientDrawable)copy.children[0]).radius==18);
-   ConfigManager.enabled=false;check(call(load,res,new android.util.TypedValue(),3,320,null)==original);ConfigManager.enabled=true;
+   ConfigManager.monet=false;check(call(load,res,new android.util.TypedValue(),3,320,null)==original);ConfigManager.monet=true;
    original.fail=true;check(call(load,res,new android.util.TypedValue(),3,320,null)==original);original.fail=false;
    check(call(load,res,new android.util.TypedValue(),3,320,null)!=original);
   }
@@ -175,7 +175,7 @@ public class Check {
   check((int)call(color,res,1)==res.light);
   res.config.uiMode=Configuration.UI_MODE_NIGHT_YES;
   check((int)call(color,res,1)==res.dark);
-  ConfigManager.enabled=true;check((int)call(color,res,1)==ConfigManager.color);ConfigManager.enabled=false;
+  ConfigManager.enabled=true;check((int)call(color,res,1)==res.dark);ConfigManager.enabled=false;
   var nativeController=new com.android.systemui.theme.ThemeOverlayController();
   Method start=nativeController.getClass().getDeclaredMethod("start");
   call(start,nativeController);check(nativeController.startedWithMonet&&nativeController.mContext.callbacks.size()==1);
@@ -211,11 +211,11 @@ public class Check {
   check((int)call(background,tile,1,false)==0xff222222);
   check((int)call(background,tile,2,false)==tile.resources.light);
   check((int)call(background,tile,2,true)==10);check((int)call(background,tile,0,false)==10);
-  ConfigManager.enabled=true;check((int)call(background,tile,2,false)==ConfigManager.color);ConfigManager.enabled=false;
+  ConfigManager.enabled=true;check((int)call(background,tile,2,false)==tile.resources.light);ConfigManager.enabled=false;
   int previous=tile.refreshes;call(stateChange,tile,state);SystemUiThemeHooks.refreshDynamicColors();check(tile.refreshes==previous+2);
   ConfigManager.qs=false;check((int)call(color,res,6)==0xff123456);check((int)call(background,tile,1,false)==10);
-  System.out.println("AOSP QS colors: active/inactive resources, manual priority, policy and configuration refresh passed");
-  System.out.println("Monet: scoped flag enablement, native start, failure containment, light/dark palette, manual priority and existing-view refresh passed");
+  System.out.println("AOSP QS colors: active/inactive resources, removed manual override ignored, policy and configuration refresh passed");
+  System.out.println("Monet: scoped flag enablement, native start, failure containment, light/dark palette, removed manual override ignored and existing-view refresh passed");
   System.out.println("SystemUI theme: RGB validation, 4096 contrast checks, 12/14 QS state variants, scoped icon color, selector cloning, XML load path and disabled fallback passed");
  }
  static double linear(int c){double x=c/255.;return x<=.04045?x/12.92:Math.pow((x+.055)/1.055,2.4);}

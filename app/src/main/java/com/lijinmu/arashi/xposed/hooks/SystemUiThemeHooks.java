@@ -46,14 +46,13 @@ public final class SystemUiThemeHooks {
     }
 
     private static boolean enabled() {
-        return ConfigManager.isEnabledCached(HookConfig.KEY_SYSTEMUI_THEME) || SystemUiMonetHooks.enabled();
+        return SystemUiMonetHooks.enabled();
     }
 
     private static boolean tilesEnabled() { return enabled() || SystemUiQsHooks.enabled(); }
 
     private static int accent(Resources resources) {
-        return ConfigManager.isEnabledCached(HookConfig.KEY_SYSTEMUI_THEME)
-                ? ConfigManager.systemUiThemeColorCached() : SystemUiMonetHooks.accent(resources);
+        return SystemUiMonetHooks.accent(resources);
     }
     private static int foreground(Resources resources) {
         return SystemUiThemeColors.foreground(accent(resources));

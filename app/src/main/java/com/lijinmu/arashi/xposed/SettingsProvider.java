@@ -157,12 +157,9 @@ Log.w(TAG, "reject untrusted caller uid=" + Binder.getCallingUid());
         result.putBoolean(HookConfig.KEY_RECORD_INTERNAL_AUDIO, prefs.getBoolean(HookConfig.KEY_RECORD_INTERNAL_AUDIO, HookConfig.defaultEnabled(HookConfig.KEY_RECORD_INTERNAL_AUDIO)));
         result.putBoolean(HookConfig.KEY_NOTIFICATION_REPLY, prefs.getBoolean(HookConfig.KEY_NOTIFICATION_REPLY, false));
         result.putBoolean(HookConfig.KEY_AOSP_STATUS_ICONS, HookConfig.statusBarIconsEnabled(prefs.getAll()));
-        result.putBoolean(HookConfig.KEY_SYSTEMUI_THEME, prefs.getBoolean(HookConfig.KEY_SYSTEMUI_THEME, false));
         result.putBoolean(HookConfig.KEY_LEGACY_POWER_MENU, prefs.getBoolean(HookConfig.KEY_LEGACY_POWER_MENU, false));
         result.putBoolean(HookConfig.KEY_UNLIMITED_NOTIFICATION_ICONS,
                 prefs.getBoolean(HookConfig.KEY_UNLIMITED_NOTIFICATION_ICONS, false));
-        result.putInt(HookConfig.KEY_SYSTEMUI_THEME_COLOR, SystemUiThemeColors.opaque(prefs.getInt(
-                HookConfig.KEY_SYSTEMUI_THEME_COLOR, SystemUiThemeColors.DEFAULT_COLOR)));
         result.putBoolean(HookConfig.KEY_STATUS_BAR_DATE, prefs.getBoolean(HookConfig.KEY_STATUS_BAR_DATE, false));
         result.putBoolean(HookConfig.KEY_IOS_ICONS, prefs.getBoolean(HookConfig.KEY_IOS_ICONS, false));
         result.putBoolean(HookConfig.KEY_ALLOW_WALLPAPER, prefs.getBoolean(HookConfig.KEY_ALLOW_WALLPAPER, HookConfig.DEFAULT_ENABLED));

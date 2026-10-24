@@ -1142,8 +1142,7 @@ public final class SystemUiQsHooks {
         View view = find(root, "slider");
         if (!(view instanceof SeekBar)) return;
         SeekBar slider = (SeekBar) view;
-        int accent = ConfigManager.isEnabledCached(HookConfig.KEY_SYSTEMUI_THEME)
-                ? ConfigManager.systemUiThemeColorCached() : SystemUiMonetHooks.accent(root.getResources());
+        int accent = SystemUiMonetHooks.accent(root.getResources());
         int size = dp(root, 48);
         GradientDrawable track = new GradientDrawable();
         track.setColor(neutral(root.getResources(), false));

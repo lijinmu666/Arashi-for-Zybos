@@ -526,7 +526,6 @@ private data class HookItem(val title: String, val summary: String, val key: Str
 @Composable
 private fun HookPage(a: HookSettings) {
     var actionsExpanded by remember { mutableStateOf(false) }
-    var confirmStopScopes by remember { mutableStateOf(false) }
     var stoppingScopes by remember { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
 
@@ -549,7 +548,16 @@ private fun HookPage(a: HookSettings) {
                         selected = false,
                         onClick = {
                             actionsExpanded = false
-                            confirmStopScopes = true
+                            if (!stoppingScopes) {
+                                stoppingScopes = true
+                                coroutineScope.launch {
+                                    try {
+                                        withContext(Dispatchers.IO) { ScopedAppStopper.stop() }
+                                    } finally {
+                                        stoppingScopes = false
+                                    }
+                                }
+                            }
                         },
                     ),
                 )),
@@ -587,55 +595,6 @@ private fun HookPage(a: HookSettings) {
             delay(1000)
         }
     }
-    if (confirmStopScopes) {
-        OverlayDialog(
-            show = true,
-            title = "杀死作用域的进程",
-            summary = "终止 SystemUI 、系统设置、桌面、 PackageInstaller、登录到网络、管控服务和TCP服务的后台进程，以此使 Hook 设置生效",
-            onDismissRequest = { confirmStopScopes = false },
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                TextButton(
-                    "取消",
-                    { confirmStopScopes = false },
-                    Modifier.weight(1f),
-                )
-                TextButton(
-                    "确定",
-                    {
-                        confirmStopScopes = false
-                        if (!stoppingScopes) {
-                            stoppingScopes = true
-                            MiuixPages.showProgress(a, "杀死后台进程", "正在请求 root 权限并终止固定应用的进程")
-                            coroutineScope.launch {
-                                val result = withContext(Dispatchers.IO) {
-                                    ScopedAppStopper.stop()
-                                }
-                                stoppingScopes = false
-                                if (result.ok) {
-                                    MiuixPages.showMessage(a, "操作已完成", result.output)
-                                } else if (result.output.contains("ROOT_REQUIRED")
-                                    || !result.output.contains("ROOT_GRANTED")
-                                    || result.output.contains("无法执行 su")
-                                    || result.output.contains("Permission denied", ignoreCase = true)
-                                    || result.output.contains("permission denied", ignoreCase = true)
-                                ) {
-                                    MiuixPages.showMessage(a, "没有权限", "未获得 root 权限，请在 root 管理器中允许 Arashi 使用 root 后重试")
-                                } else {
-                                    MiuixPages.showMessage(a, "停止失败", result.output.ifBlank { "root 命令执行失败" })
-                                }
-                            }
-                        }
-                    },
-                    Modifier.weight(1f),
-                    colors = ButtonDefaults.textButtonColorsPrimary(),
-                )
-            }
-        }
-    }
     val groups = listOf(
         "安装" to listOf(
             HookItem("允许外部应用安装", "绕过 PackageInstaller 安装限制，允许安装外部应用", HookConfig.KEY_EXTERNAL_INSTALL),
@@ -643,6 +602,7 @@ private fun HookPage(a: HookSettings) {
             HookItem("解除安装黑名单限制", "允许安装被硬编码在 mZybBlacklistApp 中的包名", HookConfig.KEY_CLEAR_BLACKLIST),
         ),
         "行为" to listOf(
+            HookItem("修复 Monet 颜色", "恢复基于壁纸的动态配色", HookConfig.KEY_SYSTEMUI_MONET),
             HookItem("允许打开开发者选项", "绕过系统设置检查，允许打开开发者选项的 Activity", HookConfig.KEY_DEV_OPTIONS),
             HookItem("保留后台进程", "拦截系统在划卡后杀死应用后台进程。开关控制立即生效", HookConfig.KEY_KEEP_BACKGROUND),
             HookItem("允许 USB 文件传输", "允许挂载外部 USB 设备和使用数据传输。开关控制立即生效", HookConfig.KEY_ALLOW_USB),
@@ -658,8 +618,6 @@ private fun HookPage(a: HookSettings) {
         ),
         "美化" to listOf(
             HookItem("原版下拉面板", "恢复 AOSP 快捷设置布局，二次下拉展开完整磁贴，保留原生分页与编辑", HookConfig.KEY_AOSP_QS),
-            HookItem("修复 Monet 颜色", "恢复基于壁纸的动态配色。手动主题色开启时优先使用手动颜色", HookConfig.KEY_SYSTEMUI_MONET),
-            HookItem("自定义 SystemUI 主题色", "自定义下拉面板，锁屏密码键盘按下效果与密码圆点的强调色", HookConfig.KEY_SYSTEMUI_THEME),
             HookItem("原版状态栏图标", "将 电池、WLAN、蓝牙图标统一恢复为 AOSP 原版样式", HookConfig.KEY_AOSP_STATUS_ICONS),
             HookItem("解除通知图标数量限制", "取消普通状态栏通知图标的固定数量上限，按可用宽度显示", HookConfig.KEY_UNLIMITED_NOTIFICATION_ICONS),
             HookItem("桌面图标圆角", "桌面应用图标与文件夹的改成 iOS 样式的圆角，文件夹使用半透明底色", HookConfig.KEY_IOS_ICONS),
@@ -704,9 +662,6 @@ private fun HookPage(a: HookSettings) {
                         else entry.summary + "。" + scopes.unavailableReason(entry.key),
                     enabled = available,
                 )
-                if (entry.key == HookConfig.KEY_SYSTEMUI_THEME) {
-                    SystemUiThemeColorPreference(prefs, available && checked)
-                }
                 if (entry.key == HookConfig.KEY_BLOCK_TCP_LOGIN_FAIL) {
                     ArrowPreference(
                         title = "TCP 拦截记录",
