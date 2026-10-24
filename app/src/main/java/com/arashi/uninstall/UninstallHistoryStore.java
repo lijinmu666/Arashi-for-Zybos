@@ -26,8 +26,8 @@ public final class UninstallHistoryStore {
     private UninstallHistoryStore() {
     }
 
-    public static synchronized void append(Context context, Bundle data) {
-        if (data == null) return;
+    public static synchronized long append(Context context, Bundle data) {
+        if (data == null) throw new IllegalArgumentException("Missing uninstall record");
         ContentValues values = new ContentValues();
         values.put(TIME, data.getLong(TIME, System.currentTimeMillis()));
         values.put(CALLER_UID, data.getInt(CALLER_UID, -1));
@@ -37,7 +37,7 @@ public final class UninstallHistoryStore {
         values.put(TARGET_NAME, data.getString(TARGET_NAME));
         values.put(ALLOWED, data.getBoolean(ALLOWED, false) ? 1 : 0);
         values.put(REASON, data.getString(REASON));
-        database(context).insertOrThrow(TABLE, null, values);
+        return database(context).insertOrThrow(TABLE, null, values);
     }
 
     public static synchronized List<Record> read(Context context, long beforeId, int limit) {

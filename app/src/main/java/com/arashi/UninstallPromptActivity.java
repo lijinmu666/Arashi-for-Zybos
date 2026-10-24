@@ -2,6 +2,11 @@ package com.arashi;
 
 import com.arashi.ui.MiuixPages;
 
+import android.content.BroadcastReceiver;
+import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
+import com.arashi.uninstall.UninstallScreenState;
 import android.os.Bundle;
 import android.os.ResultReceiver;
 
@@ -13,6 +18,14 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public final class UninstallPromptActivity extends ComponentActivity {
     private final AtomicBoolean decided = new AtomicBoolean(false);
     private ResultReceiver receiver;
+    private boolean screenReceiverRegistered;
+    private final BroadcastReceiver screenReceiver = new BroadcastReceiver() {
+        @Override public void onReceive(Context context, Intent intent) {
+            if (Intent.ACTION_SCREEN_OFF.equals(intent.getAction())) {
+                sendDecision(UninstallScreenState.SCREEN_OFF_RESULT);
+            }
+        }
+    };
 
     @Override protected void onCreate(Bundle state) {
         super.onCreate(state);
@@ -28,11 +41,22 @@ public final class UninstallPromptActivity extends ComponentActivity {
         // A queued request may arrive after the user has switched validation off.
         if (!getSharedPreferences(com.arashi.uninstall.UninstallConfig.PREF_NAME, MODE_PRIVATE)
                 .getBoolean(com.arashi.uninstall.UninstallConfig.ENABLED, false)) {
-            decide(true);
+            sendDecision(1);
+            return;
+        }
+        IntentFilter filter = new IntentFilter(Intent.ACTION_SCREEN_OFF);
+        if (android.os.Build.VERSION.SDK_INT >= 33) {
+            registerReceiver(screenReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
+        } else {
+            registerReceiver(screenReceiver, filter);
+        }
+        screenReceiverRegistered = true;
+        // Register before checking to cover a screen-off during activity startup.
+        if (UninstallScreenState.isScreenOff(this)) {
+            sendDecision(UninstallScreenState.SCREEN_OFF_RESULT);
             return;
         }
         setShowWhenLocked(true);
-        setTurnScreenOn(true);
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
             @Override public void handleOnBackPressed() {
                 decide(false);
@@ -46,11 +70,13 @@ public final class UninstallPromptActivity extends ComponentActivity {
     }
 
     public void decide(boolean allow) {
-        sendDecision(allow ? 1 : 0);
+        sendDecision(UninstallScreenState.isScreenOff(this)
+                ? UninstallScreenState.SCREEN_OFF_RESULT : allow ? 1 : 0);
     }
 
     public void timeout() {
-        sendDecision(2);
+        sendDecision(UninstallScreenState.isScreenOff(this)
+                ? UninstallScreenState.SCREEN_OFF_RESULT : 2);
     }
 
     private void sendDecision(int result) {
@@ -61,6 +87,10 @@ public final class UninstallPromptActivity extends ComponentActivity {
     }
 
     @Override protected void onDestroy() {
+        if (screenReceiverRegistered) {
+            unregisterReceiver(screenReceiver);
+            screenReceiverRegistered = false;
+        }
         if (receiver != null && decided.compareAndSet(false, true)) {
             receiver.send(3, Bundle.EMPTY);
         }

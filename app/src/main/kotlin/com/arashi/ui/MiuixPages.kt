@@ -114,6 +114,8 @@ object MiuixPages {
     @JvmStatic fun renderZybosTools(a: ZybosTools) = render(a) { ZybosPage(a) }
     @JvmStatic fun renderZybosUninstallPicker(a: ZybosUninstallPickerActivity) =
         render(a) { ZybosUninstallPickerPage(a) }
+    @JvmStatic fun renderNotificationSettings(a: com.arashi.settings.NotificationSettings) = render(a) { NotificationSettingsPage(a) }
+
     @JvmStatic fun renderSettings(a: ArashiSettings) = render(a) { SettingsPage(a) }
     @JvmStatic fun renderAbout(a: About) = render(a) { AboutPage(a) }
     @JvmStatic fun renderUnsupportedDevice(a: Main) = render(a) { UnsupportedDevicePage(a) }
@@ -514,6 +516,10 @@ private fun HookPage(a: HookSettings) = Page(a, "Hook 功能设置", a::finish) 
                         if (scopes.isAvailable(entry.key)) {
                             checked = it
                             prefs.edit().putBoolean(entry.key, it).apply()
+                            if (entry.key == HookConfig.KEY_BLOCK_TCP_LOGIN_FAIL && it &&
+                                com.arashi.notifications.NotificationPreferences.enabled(a, com.arashi.notifications.NotificationPreferences.TCP)) {
+                                com.arashi.notifications.AppNotifications.requestPermissionIfNeeded(a)
+                            }
                         }
                     },
                     title = entry.title,
@@ -776,6 +782,9 @@ private fun UninstallPage(a: UninstallSettings) = Page(a, "卸载验证", a::fin
                 enabled = requested && moduleActive
                 prefs.edit().putBoolean(UninstallConfig.ENABLED, enabled)
                     .putBoolean(UninstallConfig.RESTORE_ENABLED, requested && !moduleActive).apply()
+                if (enabled && com.arashi.notifications.NotificationPreferences.uninstallEnabled(a)) {
+                    com.arashi.notifications.AppNotifications.requestPermissionIfNeeded(a)
+                }
             },
             title = "启用卸载验证",
             summary = if (moduleActive) "每次卸载请求将会弹窗向你确认"
@@ -1543,6 +1552,11 @@ private fun SettingsPage(a: ArashiSettings) = Page(a, "应用偏好设置", a::f
             enabled = isAndroid12,
         )
     }
+    Group("通知") {
+        Link("通知设置", "管理卸载验证与 TCP 拦截通知") {
+            a.startActivity(Intent(a, com.arashi.settings.NotificationSettings::class.java))
+        }
+    }
     Group("其他") {
         SwitchPreference(
             checked = hidden,
@@ -1728,6 +1742,50 @@ private fun InstallerProgressPage(
                 "安装包较大时可能需要一些时间",
                 color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
             )
+        }
+    }
+}
+
+
+@Composable
+private fun NotificationSettingsPage(a: com.arashi.settings.NotificationSettings) = Page(a, "通知设置", a::finish) {
+    val prefs = a.getSharedPreferences(com.arashi.notifications.NotificationPreferences.PREFS, Context.MODE_PRIVATE)
+    IntroCard("通知开关仅控制消息提醒，不影响卸载验证、TCP 拦截与记录保存，点按通知可查看对应记录")
+    Group("卸载验证") {
+        listOf(
+            com.arashi.notifications.NotificationPreferences.BLACKLIST to "黑名单拒绝",
+            com.arashi.notifications.NotificationPreferences.WHITELIST to "白名单放行",
+            com.arashi.notifications.NotificationPreferences.TIMEOUT to "倒计时自动拒绝",
+            com.arashi.notifications.NotificationPreferences.SCREEN_OFF to "息屏自动拒绝",
+        ).forEach { (key, title) ->
+            var checked by remember(key) { mutableStateOf(prefs.getBoolean(key, true)) }
+            SwitchPreference(
+                checked = checked,
+                onCheckedChange = {
+                    checked = it
+                    prefs.edit().putBoolean(key, it).apply()
+                    if (it) com.arashi.notifications.AppNotifications.requestPermissionIfNeeded(a)
+                },
+                title = title,
+            )
+        }
+    }
+    Group("TCP 服务") {
+        val key = com.arashi.notifications.NotificationPreferences.TCP
+        var checked by remember { mutableStateOf(prefs.getBoolean(key, true)) }
+        SwitchPreference(
+            checked = checked,
+            onCheckedChange = {
+                checked = it
+                prefs.edit().putBoolean(key, it).apply()
+                if (it) com.arashi.notifications.AppNotifications.requestPermissionIfNeeded(a)
+            },
+            title = "login.fail 拦截成功",
+        )
+    }
+    Group("系统") {
+        Link("系统通知权限", "允许 Arashi 发送通知，或调整各类通知的声音与显示方式") {
+            com.arashi.notifications.AppNotifications.openSettings(a)
         }
     }
 }

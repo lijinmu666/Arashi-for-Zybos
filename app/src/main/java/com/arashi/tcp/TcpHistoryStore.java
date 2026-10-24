@@ -22,7 +22,7 @@ public final class TcpHistoryStore {
 
     private TcpHistoryStore() {}
 
-    public static synchronized void append(Context context, Bundle data) {
+    public static synchronized long append(Context context, Bundle data) {
         ContentValues values = new ContentValues();
         values.put(TIME, data.getLong(TIME, System.currentTimeMillis()));
         values.put(ERROR_TYPE, data.getInt(ERROR_TYPE, -1));
@@ -32,7 +32,7 @@ public final class TcpHistoryStore {
         values.put(STACK, text(data.getString(STACK), 12000));
         values.put(PROCESS, text(data.getString(PROCESS), 256));
         values.put(PID, data.getInt(PID, -1));
-        database(context).insertOrThrow("records", null, values);
+        return database(context).insertOrThrow("records", null, values);
     }
 
     private static String text(String value, int limit) {

@@ -53,7 +53,16 @@ private static final Map<Integer, Boolean> TRUSTED_UID_CACHE = new ConcurrentHas
             Context context = getContext();
             if (context == null || extras == null || !isTcpRecordCaller(context)) return null;
             try {
-                com.arashi.tcp.TcpHistoryStore.append(context, extras);
+                long recordId = com.arashi.tcp.TcpHistoryStore.append(context, extras);
+                // Attribute notification permission and PendingIntent ownership to Arashi,
+                // not the remote TCP caller. Authenticate before clearing Binder identity.
+                long identity = Binder.clearCallingIdentity();
+                try {
+                    com.arashi.tcp.TcpBlockNotifications.post(context, recordId,
+                            extras.getString(com.arashi.tcp.TcpHistoryStore.ERROR_CODE));
+                } finally {
+                    Binder.restoreCallingIdentity(identity);
+                }
                 return Bundle.EMPTY;
             } catch (RuntimeException error) {
                 Log.w(TAG, "TCP record unavailable", error);
@@ -67,7 +76,15 @@ private static final Map<Integer, Boolean> TRUSTED_UID_CACHE = new ConcurrentHas
             Context context = getContext();
             if (context == null) return null;
             try {
-                UninstallHistoryStore.append(context, extras);
+                long recordId = UninstallHistoryStore.append(context, extras);
+                long identity = Binder.clearCallingIdentity();
+                try {
+                    com.arashi.notifications.UninstallNotifications.post(context, recordId, extras);
+                } catch (RuntimeException error) {
+                    Log.w(TAG, "Uninstall notification unavailable", error);
+                } finally {
+                    Binder.restoreCallingIdentity(identity);
+                }
                 return Bundle.EMPTY;
             } catch (RuntimeException error) {
                 Log.w(TAG, "Uninstall record unavailable", error);
