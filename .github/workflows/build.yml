@@ -50,6 +50,12 @@ jobs:
           set -euo pipefail
           javac -d "$RUNNER_TEMP/settings-tests" app/src/main/java/com/arashi/xposed/Reflect.java app/src/main/java/com/arashi/xposed/SettingsHeaderCompat.java tests/SettingsHeaderCompatCheck.java
           java -cp "$RUNNER_TEMP/settings-tests" SettingsHeaderCompatCheck
+      - name: 验证状态栏日期格式
+        shell: bash
+        run: |
+          set -euo pipefail
+          javac -d "$RUNNER_TEMP/clock-tests" app/src/main/java/com/arashi/xposed/StatusBarClockFormat.java tests/StatusBarClockFormatCheck.java
+          java -cp "$RUNNER_TEMP/clock-tests" StatusBarClockFormatCheck
       - name: 安装 Android SDK
         shell: bash
         run: |

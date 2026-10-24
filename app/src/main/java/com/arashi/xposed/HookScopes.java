@@ -103,6 +103,7 @@ public final class HookScopes {
 
     private static boolean usesSystemServer(String key) {
         return !HookConfig.KEY_RECORD_INTERNAL_AUDIO.equals(key)
+                && !HookConfig.KEY_STATUS_BAR_DATE.equals(key)
                 && !HookConfig.KEY_IOS_ICONS.equals(key)
                 && !HookConfig.KEY_EXTERNAL_INSTALL.equals(key)
                 && !HookConfig.KEY_CAPTIVE_PORTAL.equals(key)
@@ -134,6 +135,7 @@ public final class HookScopes {
             return new String[] { "com.zuoyebang.iot.pad.launcher14", "com.android.launcher3" };
         }
         if (HookConfig.KEY_BLOCK_DEFAULT_BROWSER.equals(key)
+                || HookConfig.KEY_STATUS_BAR_DATE.equals(key)
                 || HookConfig.KEY_RECORD_INTERNAL_AUDIO.equals(key)) {
             return new String[] { "com.android.systemui" };
         }

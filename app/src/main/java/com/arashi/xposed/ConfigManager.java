@@ -108,6 +108,16 @@ public final class ConfigManager {
         worker.start();
     }
 
+/** Hot UI paths only read snapshots; init/polling and the remote listener refresh them. */
+    public static boolean isEnabledCached(String key) {
+        Boolean value;
+        Snapshot remote = remoteCache;
+        if (remote != null && (value = remote.enabled.get(key)) != null) return value;
+        Snapshot local = cache;
+        if (local != null && (value = local.enabled.get(key)) != null) return value;
+        return HookConfig.defaultEnabled(key);
+    }
+
 public static boolean isEnabled(String key) {
         return isEnabled(key, HookConfig.defaultEnabled(key));
     }
