@@ -107,7 +107,9 @@ public final class HookScopes {
                 && !HookConfig.KEY_DEV_OPTIONS.equals(key)
                 && !HookConfig.KEY_NEUTRALIZE_POLICY.equals(key)
                 && !HookConfig.KEY_NEUTRALIZE_ADVANCE.equals(key)
-                && !HookConfig.KEY_NO_TIMEOUT_LOCK.equals(key);
+                && !HookConfig.KEY_NO_TIMEOUT_LOCK.equals(key)
+                && !HookConfig.KEY_BLOCK_USAGE_REPORT.equals(key)
+                && !HookConfig.KEY_BLOCK_SYSTEM_APP_AUTO_UPDATE.equals(key);
     }
 
     private static String[] applicationScopes(String key) {
@@ -122,7 +124,8 @@ public final class HookScopes {
         }
         if (HookConfig.KEY_NEUTRALIZE_POLICY.equals(key)
                 || HookConfig.KEY_NEUTRALIZE_ADVANCE.equals(key)
-                || HookConfig.KEY_NO_TIMEOUT_LOCK.equals(key)) {
+                || HookConfig.KEY_NO_TIMEOUT_LOCK.equals(key)
+                || HookConfig.KEY_BLOCK_USAGE_REPORT.equals(key)) {
             return new String[] { "com.zuoyebang.iot.pad.supervise" };
         }
         if (HookConfig.KEY_HIDE_ADB.equals(key)) {
@@ -131,8 +134,8 @@ public final class HookScopes {
         if (HookConfig.KEY_BLOCK_DEFAULT_BROWSER.equals(key)) {
             return new String[] { "com.android.systemui" };
         }
-        if (HookConfig.KEY_HIDE_ALERT.equals(key)) {
-            return new String[] { "com.android.settings", "com.android.systemui" };
+        if (HookConfig.KEY_BLOCK_SYSTEM_APP_AUTO_UPDATE.equals(key)) {
+            return new String[] { "com.zuoyebang.iot.pad.appstore" };
         }
         return new String[0];
     }
@@ -170,7 +173,7 @@ public final class HookScopes {
             if (usesSystemServer(key)) {
                 return "未检测到系统框架 Hook，且未勾选应用作用域：" + targets;
             }
-            return "未勾选对应作用域：" + targets + "。请在 LSPosed 中勾选后重启目标应用";
+            return "未勾选对应作用域：" + targets + "；请在 LSPosed 中勾选后重启目标应用";
         }
     }
 }

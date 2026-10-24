@@ -44,6 +44,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.ComposeView
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.Lifecycle
@@ -68,6 +69,7 @@ import top.yukonga.miuix.kmp.basic.TopAppBar
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.basic.ArrowRight
 import top.yukonga.miuix.kmp.icon.extended.Back
+import top.yukonga.miuix.kmp.icon.extended.Link
 import top.yukonga.miuix.kmp.overlay.OverlayDialog
 import top.yukonga.miuix.kmp.preference.ArrowPreference
 import top.yukonga.miuix.kmp.preference.CheckboxLocation
@@ -148,8 +150,8 @@ object MiuixPages {
         a.runOnUiThread {
             messageState(a).value = Message(
                 "签名验证",
-                "当前应用与原作者签名不匹配，安装包可能被篡改，请确保从官方渠道安装 Arashi！点击确定可继续使用",
-                "确定",
+                "当前应用与原作者签名不匹配，安装包可能被篡改！点击仍可继续使用",
+                "哦",
             )
         }
     }
@@ -298,7 +300,7 @@ private fun InfoCard(text: String) {
 }
 
 @Composable
-private fun InfoCard(title: String, text: String) {
+private fun IntroCard(text: String) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         insideMargin = PaddingValues(16.dp),
@@ -307,12 +309,6 @@ private fun InfoCard(title: String, text: String) {
             contentColor = MiuixTheme.colorScheme.onSurface,
         ),
     ) {
-        Text(
-            title,
-            color = MiuixTheme.colorScheme.onSurface,
-            style = MiuixTheme.textStyles.body1,
-        )
-        Spacer(Modifier.height(6.dp))
         Text(text, color = MiuixTheme.colorScheme.onSurfaceVariantSummary)
     }
 }
@@ -330,11 +326,11 @@ private fun StatusLine(name: String, value: String, available: Boolean) {
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(name, style = MiuixTheme.textStyles.main)
+        Text(name, style = MiuixTheme.textStyles.main.copy(fontWeight = FontWeight.SemiBold))
         Text(
             value,
             color = if (available) Color(0xFF36A866) else Color(0xFFE05252),
-            style = MiuixTheme.textStyles.main,
+            style = MiuixTheme.textStyles.main.copy(fontWeight = FontWeight.SemiBold),
         )
     }
 }
@@ -367,7 +363,11 @@ private fun HomePage(a: Main) = Page(a, "Arashi") {
             contentColor = MiuixTheme.colorScheme.onSurface,
         ),
     ) {
-        Text("版本 ${BuildConfig.VERSION_NAME}", color = MiuixTheme.colorScheme.onSurfaceVariantSummary)
+        Text(
+            "版本 ${BuildConfig.VERSION_NAME}",
+            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+            style = MiuixTheme.textStyles.main.copy(fontWeight = FontWeight.SemiBold),
+        )
         Spacer(Modifier.height(18.dp))
         val moduleActive by rememberSystemServerActivation(a)
         StatusLine("LSPosed", if (moduleActive) "已激活" else "未激活", moduleActive)
@@ -380,7 +380,7 @@ private fun HomePage(a: Main) = Page(a, "Arashi") {
         Link("卸载验证设置", "验证发起的卸载请求") { a.startActivity(Intent(a, UninstallSettings::class.java)) }
         Link("快捷指令执行", "调整设置、冻结应用等快捷操作") { a.startActivity(Intent(a, QuickCommands::class.java)) }
         Link("系统特权工具", "利用 ZybosSysApiManager 执行系统操作") { a.startActivity(Intent(a, ZybosTools::class.java)) }
-        Link("应用偏好设置", "配置主题、外观等") { a.startActivity(Intent(a, ArashiSettings::class.java)) }
+        Link("应用偏好设置", "配置外观等") { a.startActivity(Intent(a, ArashiSettings::class.java)) }
     }
 }
 
@@ -388,11 +388,11 @@ private fun HomePage(a: Main) = Page(a, "Arashi") {
 private fun UnsupportedDevicePage(a: Main) = Page(a, "Arashi") {
     OverlayDialog(
         show = true,
-        summary = "当前系统无法正常使用 Arashi 功能",
+        summary = "当前系统可能无法正常使用 Arashi 功能",
         onDismissRequest = a::continueAfterCompatibilityWarning,
     ) {
         TextButton(
-            "确定",
+            "哦",
             a::continueAfterCompatibilityWarning,
             Modifier.fillMaxWidth(),
             colors = ButtonDefaults.textButtonColorsPrimary(),
@@ -404,7 +404,7 @@ private data class HookItem(val title: String, val summary: String, val key: Str
 
 @Composable
 private fun HookPage(a: HookSettings) = Page(a, "Hook 功能设置", a::finish) {
-    InfoCard("LSPosed", "系统框架按本次开机的 Hook 状态检测，应用作用域在此页面实时检测。未检测到对应作用域时开关不可用，原设置保留。修改应用作用域后请重启目标应用；系统框架需重启设备。首次使用请启用模块、勾选作用域并重启")
+    IntroCard("首次使用请启用模块、勾选推荐作用域并重启系统\n系统框架按本次开机的 Hook 状态检测，应用作用域在此页面实时检测\n未检测到对应作用域时开关不可用，已保存的设置会保留\n修改应用作用域后需重启对应应用，修改系统框架作用域后需重启系统")
     val prefs = a.getSharedPreferences(HookConfig.PREF_NAME, Context.MODE_PRIVATE)
     var backgroundSelected by remember {
         mutableStateOf(prefs.getStringSet(HookConfig.KEY_KEEP_BACKGROUND_WHITELIST, emptySet()).orEmpty().toSet())
@@ -431,30 +431,27 @@ private fun HookPage(a: HookSettings) = Page(a, "Hook 功能设置", a::finish) 
     }
     val groups = listOf(
         "安装" to listOf(
-            HookItem("外部应用安装支持", "允许直接在软件包安装程序中安装应用", HookConfig.KEY_EXTERNAL_INSTALL),
-            HookItem("Shell 安装支持", "允许 adb install 和 pm install 安装应用", HookConfig.KEY_SHELL_INSTALL),
-            HookItem("清除安装黑名单", "允许安装并硬编码在系统里的 5 个黑名单应用", HookConfig.KEY_CLEAR_BLACKLIST),
+            HookItem("外部应用安装支持", "跳过系统安装器的设备限制检查，允许通过安装器安装外部 APK", HookConfig.KEY_EXTERNAL_INSTALL),
+            HookItem("允许 Shell 安装", "放行 adb install 和 pm install 的安装权限检查，允许通过电脑或终端安装应用", HookConfig.KEY_SHELL_INSTALL),
+            HookItem("清除安装黑名单", "清空系统内置的安装黑名单和相关限制列表，允许安装被这些名单拦截的应用\n开关控制重启系统后生效", HookConfig.KEY_CLEAR_BLACKLIST),
         ),
         "行为" to listOf(
-            HookItem("开发者选项支持", "允许打开 “开发者选项” 设置的活动", HookConfig.KEY_DEV_OPTIONS),
-            HookItem("保留后台进程", "划卡后不杀白名单中的应用进程；白名单为空时保留全部", HookConfig.KEY_KEEP_BACKGROUND),
-            HookItem("USB 设备支持", "允许挂载和使用外部 USB 设备", HookConfig.KEY_ALLOW_USB),
-            HookItem("壁纸设置支持", "允许任意应用设置壁纸（可以用壁纸引擎等）", HookConfig.KEY_ALLOW_WALLPAPER),
-            HookItem("WiFi 登录支持", "允许正常连接认证型 WiFi", HookConfig.KEY_CAPTIVE_PORTAL),
-            HookItem("清除详情页黑名单", "允许打开 WebView、report服务、PadMs 的应用设置详情页", HookConfig.KEY_CLEAR_DETAIL_BLACK),
-            HookItem("阻止重置默认浏览器", "阻止 SystemUI 每次开机强制设置“学习网站”为默认浏览器", HookConfig.KEY_BLOCK_DEFAULT_BROWSER),
-            HookItem("隐藏调试状态", "普通应用 (UID≥10000) 只会读取到 开发者模式 和 ADB 已关闭", HookConfig.KEY_HIDE_ADB),
+            HookItem("开发者选项支持", "放行开发者选项的开启状态检查，允许打开开发者选项及其子页面", HookConfig.KEY_DEV_OPTIONS),
+            HookItem("保留后台进程", "拦截划卡时对所选应用的强停请求，保留其后台进程\n白名单为空时保留全部应用", HookConfig.KEY_KEEP_BACKGROUND),
+            HookItem("USB 设备支持", "跳过系统的 USB 禁用判断，允许连接和使用外部 USB 设备", HookConfig.KEY_ALLOW_USB),
+            HookItem("壁纸设置支持", "放行应用设置壁纸的权限检查，允许壁纸应用修改系统壁纸", HookConfig.KEY_ALLOW_WALLPAPER),
+            HookItem("Wi-Fi 认证登录支持", "跳过认证页面的设备校验和 VPN 检测，允许打开需要网页认证的 Wi-Fi 登录页面", HookConfig.KEY_CAPTIVE_PORTAL),
+            HookItem("解除应用详情页限制", "跳过应用详情页黑名单判断，允许打开 WebView、report 服务和 PadMs 等应用的详情页", HookConfig.KEY_CLEAR_DETAIL_BLACK),
+            HookItem("阻止 SystemUI 重设默认浏览器", "拦截 SystemUI 开机时设置默认浏览器的请求，保留当前默认浏览器\n开关控制重启系统后生效", HookConfig.KEY_BLOCK_DEFAULT_BROWSER),
+            HookItem("阻止系统应用自动更新", "从应用商店的自动更新队列中移除系统应用，阻止自动下载和更新\n用户应用仍按商店原有开关自动更新，手动更新不受影响", HookConfig.KEY_BLOCK_SYSTEM_APP_AUTO_UPDATE),
+            HookItem("隐藏开发者模式和 ADB 状态", "向普通应用返回开发者模式、USB 调试和无线调试均已关闭，隐藏对应设置状态", HookConfig.KEY_HIDE_ADB),
         ),
         "管控" to listOf(
-            HookItem("阻止管控服务", "从 SystemServer 层拦截管控服务强杀应用、清理任务行为", HookConfig.KEY_BLOCK_SUPERVISE),
-            HookItem("应用禁用失效", "时间限额、应用禁用不生效，允许打开当前不可用的应用。被禁用的应用需要从其它应用打开一次后才能从桌面打开", HookConfig.KEY_NEUTRALIZE_POLICY),
-            HookItem("页面屏蔽失效", "按页面屏蔽的功能不生效，允许访问被禁止的某一个页面", HookConfig.KEY_NEUTRALIZE_ADVANCE),
-            HookItem("解除超时锁屏", "允许整机超时或越过可用时段后继续使用", HookConfig.KEY_NO_TIMEOUT_LOCK),
-            HookItem("屏蔽行为上报", "阻止 SystemUI 和 Settings 等应用行为上报", HookConfig.KEY_HIDE_ALERT),
-        ),
-        "实验" to listOf(
-            HookItem("虚拟屏幕支持", "解除360浏览器的虚拟显示器创建限制", HookConfig.KEY_ALLOW_DISPLAY),
-            HookItem("跨包通知支持", "允许任意应用以其他应用名义发送通知", HookConfig.KEY_UNRESTRICT_NOTIFY),
+            HookItem("拦截管控强停和任务清理", "在系统框架中拦截管控服务的强停应用和移除任务请求，保留应用进程及最近任务", HookConfig.KEY_BLOCK_SUPERVISE),
+            HookItem("阻止使用时长上报", "拦截管控服务的使用时长上传方法，阻止向服务器上报应用使用时长", HookConfig.KEY_BLOCK_USAGE_REPORT),
+            HookItem("解除应用禁用", "将应用可用性查询结果改为允许，绕过应用禁用和时长限制\n已禁用的应用可能需要先从其他应用打开一次，才能从桌面启动", HookConfig.KEY_NEUTRALIZE_POLICY),
+            HookItem("解除页面屏蔽", "将受限页面查询结果置空，允许打开被管控规则屏蔽的应用页面", HookConfig.KEY_NEUTRALIZE_ADVANCE),
+            HookItem("拦截超时锁屏", "拦截管控服务的超时处理，避免达到整机时长限制或超出可用时段后触发锁屏", HookConfig.KEY_NO_TIMEOUT_LOCK),
         ),
     )
     groups.forEach { (name, entries) ->
@@ -479,6 +476,52 @@ private fun HookPage(a: HookSettings) = Page(a, "Hook 功能设置", a::finish) 
                         else entry.summary + "\n" + scopes.unavailableReason(entry.key),
                     enabled = available,
                 )
+                if (entry.key == HookConfig.KEY_DEV_OPTIONS) {
+                    var injectDeveloperMenu by remember {
+                        mutableStateOf(
+                            prefs.getBoolean(
+                                HookConfig.KEY_DEV_OPTIONS_MENU,
+                                HookConfig.defaultEnabled(HookConfig.KEY_DEV_OPTIONS_MENU),
+                            ),
+                        )
+                    }
+                    DisposableEffect(prefs) {
+                        val listener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+                            if (key == HookConfig.KEY_DEV_OPTIONS_MENU) {
+                                injectDeveloperMenu = prefs.getBoolean(
+                                    HookConfig.KEY_DEV_OPTIONS_MENU,
+                                    HookConfig.defaultEnabled(HookConfig.KEY_DEV_OPTIONS_MENU),
+                                )
+                            }
+                        }
+                        prefs.registerOnSharedPreferenceChangeListener(listener)
+                        onDispose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
+                    }
+                    AnimatedVisibility(
+                        visible = checked,
+                        enter = expandVertically(
+                            animationSpec = tween(250, easing = FastOutSlowInEasing),
+                            expandFrom = Alignment.Top,
+                        ) + fadeIn(animationSpec = tween(200)),
+                        exit = shrinkVertically(
+                            animationSpec = tween(250, easing = FastOutSlowInEasing),
+                            shrinkTowards = Alignment.Top,
+                        ) + fadeOut(animationSpec = tween(150)),
+                    ) {
+                        SwitchPreference(
+                            checked = injectDeveloperMenu,
+                            onCheckedChange = {
+                                if (available) {
+                                    injectDeveloperMenu = it
+                                    prefs.edit().putBoolean(HookConfig.KEY_DEV_OPTIONS_MENU, it).apply()
+                                }
+                            },
+                            title = "注入开发者选项入口",
+                            summary = "向设置侧边菜单加入入口，在右侧面板打开开发者选项\n修改后重启设置应用生效",
+                            enabled = available,
+                        )
+                    }
+                }
                 AnimatedVisibility(
                     visible = entry.key == HookConfig.KEY_KEEP_BACKGROUND && checked,
                     enter = expandVertically(
@@ -502,7 +545,7 @@ private fun HookPage(a: HookSettings) = Page(a, "Hook 功能设置", a::finish) 
             }
         }
     }
-    InfoCard("开关修改后立即保存")
+    InfoCard("开关修改后自动保存，生效方式见各项说明")
 }
 
 private data class BackgroundChoice(val packageName: String, val label: String)
@@ -566,8 +609,8 @@ private fun BackgroundWhitelistPage(a: BackgroundWhitelistActivity) {
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             item {
-                InfoCard("仅控制划卡后的进程保留",
-                    "选中的应用划卡后不会被强杀；一个也不选时默认保留全部。系统原有豁免应用不显示，仍按系统规则保留。选择后立即保存")
+                IntroCard(
+                    "选中的应用划卡后不会被强杀；一个也不选时默认保留全部；系统原有豁免应用不显示，仍按系统规则保留；选择后立即保存")
             }
             item {
                 TextField(value = query, onValueChange = { query = it },
@@ -581,7 +624,7 @@ private fun BackgroundWhitelistPage(a: BackgroundWhitelistActivity) {
             if (loading) {
                 item { InfoCard("正在加载应用…") }
             } else if (error != null) {
-                item { InfoCard("加载失败", error.orEmpty()) }
+                item { InfoCard("加载失败：" + error.orEmpty()) }
             } else {
                 items(visible, key = { it.packageName }) { choice ->
                     val icon = remember(choice.packageName) {
@@ -657,7 +700,7 @@ private fun UninstallPage(a: UninstallSettings) = Page(a, "卸载验证", a::fin
     var duration by remember {
         mutableIntStateOf(durations.indexOf(prefs.getInt(UninstallConfig.TIMEOUT_SECONDS, 10)).coerceAtLeast(0))
     }
-    InfoCard("卸载验证", "当系统尝试卸载应用时，会向你询问是否允许。细化并管理每一次卸载请求")
+    IntroCard("当系统尝试卸载应用时，会向你询问是否允许；细化并管理每一次卸载请求")
     Group("验证") {
         SwitchPreference(
             checked = enabled && moduleActive,
@@ -669,7 +712,7 @@ private fun UninstallPage(a: UninstallSettings) = Page(a, "卸载验证", a::fin
             },
             title = "启用卸载验证",
             summary = if (moduleActive) "每次卸载请求将会弹窗向你确认"
-                else "未检测到 system_server Hook，卸载验证暂时关闭。激活后会恢复此前的开启状态",
+                else "未检测到 system_server Hook，卸载验证暂时关闭；激活后会恢复此前的开启状态",
             enabled = moduleActive,
         )
         SwitchPreference(
@@ -679,7 +722,7 @@ private fun UninstallPage(a: UninstallSettings) = Page(a, "卸载验证", a::fin
                 prefs.edit().putBoolean(UninstallConfig.TIMEOUT_ENABLED, it).apply()
             },
             title = "启用超时计时",
-            summary = "验证弹窗在设定秒数内未确认默认拒绝。关闭后仍有 30 秒系统安全上限，超时默认拒绝",
+            summary = "验证弹窗在设定秒数内未确认默认拒绝；关闭后仍有 30 秒系统安全上限，超时默认拒绝",
         )
         AnimatedVisibility(
             visible = timeoutEnabled,
@@ -707,7 +750,7 @@ private fun UninstallPage(a: UninstallSettings) = Page(a, "卸载验证", a::fin
         Link("白名单", "白名单中的发起方不会弹窗向你确认，直接允许") {
             a.startActivity(Intent(a, UninstallListActivity::class.java).putExtra("blacklist", false))
         }
-        Link("黑名单", "与白名单排斥，黑名单直接拒绝卸载。优先于白名单") {
+        Link("黑名单", "与白名单排斥，黑名单直接拒绝卸载；优先于白名单") {
             a.startActivity(Intent(a, UninstallListActivity::class.java).putExtra("blacklist", true))
         }
     }
@@ -782,7 +825,7 @@ private fun UninstallHistoryPage(a: UninstallHistoryActivity) {
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             item {
-                InfoCard("卸载验证决定", "记录已捕获的卸载请求，包括黑白名单、弹窗、超时及验证未启用时的放行；允许不代表系统最终卸载成功。")
+                IntroCard("记录已捕获的卸载请求，包括黑白名单、弹窗、超时及验证未启用时的放行；允许不代表系统最终卸载成功")
             }
             item {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -857,7 +900,7 @@ private fun UninstallHistoryPage(a: UninstallHistoryActivity) {
     OverlayDialog(
         show = confirmClear,
         title = "清空卸载记录",
-        summary = "确定清空全部卸载记录吗？此操作无法撤销。",
+        summary = "确定清空全部卸载记录吗？此操作无法撤销",
         onDismissRequest = { confirmClear = false },
     ) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -952,9 +995,8 @@ private fun UninstallListPage(a: UninstallListActivity, blacklist: Boolean) {
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             item {
-                InfoCard(
-                    title,
-                    if (blacklist) "选中的发起方直接拒绝卸载" else "选中的发起方直接允许卸载。黑名单优先",
+                IntroCard(
+                    if (blacklist) "选中的发起方直接拒绝卸载" else "选中的发起方直接允许卸载；黑名单优先",
                 )
             }
             item {
@@ -1157,7 +1199,7 @@ private fun UninstallPrompt(
 
 @Composable
 private fun QuickPage(a: QuickCommands) = Page(a, "快捷指令执行", a::finish) {
-    InfoCard("Shell 指令", "以下功能使用 root 权限执行，第一次使用请授予 Arashi 权限")
+    IntroCard("以下功能使用 root 权限执行，第一次使用请授予 Arashi 权限")
     Group("应用相关") {
         Link("禁用 PadMs", "冻结 com.zuoyebang.padms") { a.run("禁用 PadMs", "pm disable com.zuoyebang.padms") }
         Link("禁用 report服务", "冻结 com.zuoyebang.iot.pad.zpreport") { a.run("禁用 report服务", "pm disable com.zuoyebang.iot.pad.zpreport") }
@@ -1180,7 +1222,7 @@ private fun QuickPage(a: QuickCommands) = Page(a, "快捷指令执行", a::finis
             a.run("关闭投屏", "settings put global wifi_display_on 0 && am broadcast --user current -a com.android.systemui.cast.Remove -p com.android.systemui")
         }
     }
-    InfoCard("KSU 请手动授权，Magisk 弹窗时请允许授权。官方版 Arashi 不会执行危险指令")
+    InfoCard("KSU 请手动授权，Magisk 弹窗时请允许授权；官方版 Arashi 不会执行危险指令")
 }
 
 @Composable
@@ -1188,7 +1230,7 @@ private fun ZybosPage(a: ZybosTools) = Page(a, "系统特权工具", a::finish) 
     var dialog by remember { mutableStateOf<String?>(null) }
     var input by remember { mutableStateOf("") }
     var packageInput by remember { mutableStateOf("") }
-    InfoCard("系统特权工具", "利用 ZybosSysApiManager 无需权限为本设备执行安装、卸载应用等操作")
+    IntroCard("利用 ZybosSysApiManager 无需权限为本设备执行安装、卸载应用等操作")
     Group("安装") {
         Link("选择 APK 文件安装", "从文件管理器中选择 APK 安装") { a.pickApk() }
         Link("输入 APK 路径安装", "输入 APK 的路径") {
@@ -1304,7 +1346,7 @@ private fun ZybosUninstallPickerPage(a: ZybosUninstallPickerActivity) {
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 item {
-                    InfoCard("卸载应用", "可选择用户应用或已更新的系统应用执行卸载")
+                    IntroCard("可选择用户应用或已更新的系统应用执行卸载")
                 }
                 item {
                     TextField(
@@ -1378,7 +1420,7 @@ private fun ZybosUninstallPickerPage(a: ZybosUninstallPickerActivity) {
                 title = "确认卸载",
                 summary = pending?.let {
                     it.title + "\n" + it.key +
-                        (if (it.kind == 2) "\n将卸载更新并恢复系统预装版本。" else "\n将卸载此应用。")
+                        (if (it.kind == 2) "\n将卸载更新并恢复系统预装版本" else "\n将卸载此应用")
                 },
                 onDismissRequest = { pending = null },
             ) {
@@ -1404,8 +1446,11 @@ private fun ZybosUninstallPickerPage(a: ZybosUninstallPickerActivity) {
 private fun SettingsPage(a: ArashiSettings) = Page(a, "应用偏好设置", a::finish) {
     val prefs = a.getSharedPreferences("ui", Context.MODE_PRIVATE)
     val hookPrefs = a.getSharedPreferences(HookConfig.PREF_NAME, Context.MODE_PRIVATE)
-    val themeNames = listOf("系统", "浅色", "深色")
-    var selectedTheme by remember { mutableIntStateOf(prefs.getInt("mode", 0).coerceIn(0, 2)) }
+    val themeNames = listOf("默认", "开启", "关闭")
+    val themeModes = listOf(0, 2, 1)
+    var selectedTheme by remember {
+        mutableIntStateOf(themeModes.indexOf(prefs.getInt("mode", 0)).coerceAtLeast(0))
+    }
     var hidden by remember { mutableStateOf(a.isLauncherHidden) }
     var installer by remember { mutableStateOf(a.isInstallerEnabled) }
     var android12BlacklistHook by remember {
@@ -1427,10 +1472,10 @@ private fun SettingsPage(a: ArashiSettings) = Page(a, "应用偏好设置", a::f
         OverlayDropdownPreference(
             items = themeNames,
             selectedIndex = selectedTheme,
-            title = "配色设置",
+            title = "夜间模式",
             onSelectedIndexChange = { index ->
                 selectedTheme = index
-                prefs.edit().putInt("mode", index).apply()
+                prefs.edit().putInt("mode", themeModes[index]).apply()
                 a.recreate()
             },
         )
@@ -1444,7 +1489,7 @@ private fun SettingsPage(a: ArashiSettings) = Page(a, "应用偏好设置", a::f
             },
             title = "兼容安卓12清除安装黑名单",
             summary = if (isAndroid12) {
-                "安卓12 改用 PMS 方法，是否清除仍由 Hook 功能设置控制。修改后重启生效"
+                "安卓12 改用 PMS 方法，是否清除仍由 Hook 功能设置控制；修改后重启生效"
             } else {
                 "本功能仅适用于安卓12，当前系统自动使用对应的 Hook 路径"
             },
@@ -1492,6 +1537,7 @@ private fun AboutCard(
     title: String,
     value: String,
     arrow: Boolean = false,
+    externalLink: Boolean = false,
     compactValue: Boolean = false,
     onClick: () -> Unit,
 ) {
@@ -1509,12 +1555,13 @@ private fun AboutCard(
                     style = if (compactValue) MiuixTheme.textStyles.body1 else MiuixTheme.textStyles.title2,
                 )
             }
-            if (arrow) {
+            if (arrow || externalLink) {
                 Spacer(Modifier.width(12.dp))
                 Icon(
-                    MiuixIcons.Basic.ArrowRight,
+                    if (externalLink) MiuixIcons.Link else MiuixIcons.Basic.ArrowRight,
                     contentDescription = null,
-                    modifier = Modifier.size(width = 10.dp, height = 16.dp),
+                    modifier = if (externalLink) Modifier.size(22.dp)
+                        else Modifier.size(width = 10.dp, height = 16.dp),
                     tint = MiuixTheme.colorScheme.onSurfaceVariantActions,
                 )
             }
@@ -1524,7 +1571,6 @@ private fun AboutCard(
 
 @Composable
 private fun AboutPage(a: About) = Page(a, "关于 Arashi", a::finish) {
-    var qq by remember { mutableStateOf(false) }
     var versionTapCount by remember { mutableIntStateOf(0) }
     var lastVersionTapAt by remember { mutableLongStateOf(0L) }
     AboutCard("版本号", BuildConfig.VERSION_NAME, onClick = {
@@ -1534,28 +1580,20 @@ private fun AboutPage(a: About) = Page(a, "关于 Arashi", a::finish) {
             if (versionTapCount >= 7) {
                 versionTapCount = 0
                 lastVersionTapAt = 0L
-                MiuixPages.showMessage(a, "I LOVE U , Starry Sky", "肖肖我爱你") //棍母
+                MiuixPages.showMessage(a, "棍母棍母棍母", "棍母棍母棍母")
             }
     })
-    AboutCard("作者", "LiJinMu", arrow = true, onClick = {
-        MiuixPages.showMessage(a, "关于作者", "开发者 : 李瑾沐\n小红书 & 抖音 : failgacha\nQQ 昵称 : H...Hey")
+    AboutCard("作者", "李瑾沐", arrow = true, onClick = {
+        MiuixPages.showMessage(a, "关于作者", "首席开发者 : 李瑾沐\n小红书号 : failgacha\nQQ 昵称 : H...Hey")
     })
-    AboutCard("QQ 群聊", "加入 Arashi 用户交流与反馈群", arrow = true, compactValue = true, onClick = {
-        qq = true
+    AboutCard("QQ 群聊", "加入 Arashi 用户交流与反馈群", externalLink = true, compactValue = true, onClick = {
+        val url = "https://qun.qq.com/universal-share/share?ac=1&authKey=i%2Bh3ZyTelsMfhjWvc8srNCHnS4BMGrsr4hj1fDcEXx0fC5ECgHyUjh45kS5qiQ3W&busi_data=eyJncm91cENvZGUiOiIxMTI1MTkwMzUwIiwidG9rZW4iOiIrRFg2KzdBTHhRRlZKODZjUUt2U2gySFRBaHFBeFNIYTdFTFc0emcydXJuTEZsN1dvS3MwT1J4ZFF2dnNJNUhOIiwidWluIjoiODQxNTYzNjAifQ%3D%3D&data=PB0LIOhizgFR_GzQFzdDn6FEbw0rzkzMw5JbqCzMZp0t72lHOOiSfSqMcISpvsGOvjkcACA_44t9aKGSV3GaNQ&svctype=4&tempid=h5_group_info"
+        try {
+            a.startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse(url)))
+        } catch (_: android.content.ActivityNotFoundException) {
+            MiuixPages.showMessage(a, "无法打开链接", "请先安装可打开网页的应用")
+        }
     })
-    OverlayDialog(
-        show = qq,
-        title = "QQ 群聊",
-        summary = "群号：1125190350",
-        onDismissRequest = { qq = false },
-    ) {
-        TextButton(
-            "知道了",
-            { qq = false },
-            Modifier.fillMaxWidth(),
-            colors = ButtonDefaults.textButtonColorsPrimary(),
-        )
-    }
 }
 
 @Composable
@@ -1632,7 +1670,7 @@ private fun InstallerProgressPage(
     }
     Card(Modifier.fillMaxWidth(), insideMargin = PaddingValues(18.dp)) {
         Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-            Text("正在安装，请稍候", style = MiuixTheme.textStyles.title3)
+            Text("正在安装…", style = MiuixTheme.textStyles.title3)
             LinearProgressIndicator(modifier = Modifier.fillMaxWidth(), height = 8.dp)
             Text(
                 "安装包较大时可能需要一些时间",

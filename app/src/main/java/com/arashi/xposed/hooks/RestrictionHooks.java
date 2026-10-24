@@ -20,80 +20,13 @@ public final class RestrictionHooks {
     }
 
 public static void hookSystemServer(XposedModule mod, ClassLoader cl) {
-        
-        hookUnrestrictNotify(mod, cl);
-
-hookZybReporting(mod, cl);
-
 hookAllowUsb(mod, cl);
-
-hookAllowDisplay(mod, cl);
 
 hookAllowWallpaper(mod, cl);
 
 hookDetailBlacklist(mod, cl);
 
         Log.i(TAG, "restriction hooks initialized");
-    }
-
-private static void hookUnrestrictNotify(XposedModule mod, ClassLoader cl) {
-        try {
-            Class<?> clz = Class.forName(
-                    "com.android.server.notification.NotificationManagerService", false, cl);
-            Method m = Reflect.findMethodExact(clz, "isCallerZyb",
-                    String.class, int.class, int.class);
-            if (m == null) {
-                Log.w(TAG, "isCallerZyb not found");
-                return;
-            }
-            mod.hook(m).intercept(chain -> {
-                if (ConfigManager.isEnabled(HookConfig.KEY_UNRESTRICT_NOTIFY)) {
-                    Log.i(TAG, "isCallerZyb -> true");
-                    return true;
-                }
-                return chain.proceed();
-            });
-        } catch (Throwable t) {
-            Log.w(TAG, "isCallerZyb hook failed: " + t);
-        }
-    }
-
-public static void hookZybReporting(XposedModule mod, ClassLoader cl) {
-        Class<?> clz;
-        try {
-            clz = Class.forName("android.os.ZybosSysApiManager", false, cl);
-        } catch (Throwable t) {
-            Log.w(TAG, "ZybosSysApiManager not found: " + t);
-            return;
-        }
-        hookAllByName(mod, clz, "sendAlertBroadcast");
-        hookAllByName(mod, clz, "sendZybosReportCallback");
-        hookAllByName(mod, clz, "sendZybosStateWakeUpCallback");
-    }
-
-private static void hookAllByName(XposedModule mod, Class<?> clz, String methodName) {
-        int hooked = 0;
-        for (Class<?> c = clz; c != null && c != Object.class; c = c.getSuperclass()) {
-            for (Method m : c.getDeclaredMethods()) {
-                if (!methodName.equals(m.getName())) {
-                    continue;
-                }
-                try {
-                    m.setAccessible(true);
-                    mod.hook(m).intercept(chain -> {
-                        if (ConfigManager.isEnabled(HookConfig.KEY_HIDE_ALERT)) {
-                            Log.i(TAG, methodName + " blocked");
-                            return Reflect.defaultReturnValue(m.getReturnType());
-                        }
-                        return chain.proceed();
-                    });
-                    hooked++;
-                } catch (Throwable ignored) {
-                    
-                }
-            }
-        }
-        Log.i(TAG, methodName + " hooked: " + hooked);
     }
 
     private static void hookAllowUsb(XposedModule mod, ClassLoader cl) {
@@ -113,27 +46,6 @@ private static void hookAllByName(XposedModule mod, Class<?> clz, String methodN
             });
         } catch (Throwable t) {
             Log.w(TAG, "isDisallowUSB hook failed: " + t);
-        }
-    }
-
-    private static void hookAllowDisplay(XposedModule mod, ClassLoader cl) {
-        try {
-            Class<?> clz = Class.forName(
-                    "com.android.server.display.ZybDisplayInjector", false, cl);
-            Method m = findStaticBool(clz, "allowedCreateDisplay", 3);
-            if (m == null) {
-                Log.w(TAG, "allowedCreateDisplay not found");
-                return;
-            }
-            mod.hook(m).intercept(chain -> {
-                if (ConfigManager.isEnabled(HookConfig.KEY_ALLOW_DISPLAY)) {
-                    Log.i(TAG, "allowedCreateDisplay -> true");
-                    return true;
-                }
-                return chain.proceed();
-            });
-        } catch (Throwable t) {
-            Log.w(TAG, "allowedCreateDisplay hook failed: " + t);
         }
     }
 
@@ -181,16 +93,17 @@ private static void hookAllByName(XposedModule mod, Class<?> clz, String methodN
         }
     }
 
-private static Method findStaticBool(Class<?> clz, String name, int paramCount) {
-        for (Method m : clz.getDeclaredMethods()) {
-            if (m.getName().equals(name)
-                    && Modifier.isStatic(m.getModifiers())
-                    && m.getParameterCount() == paramCount
-                    && m.getReturnType() == boolean.class) {
-                m.setAccessible(true);
-                return m;
+    private static Method findStaticBool(Class<?> clz, String name, int paramCount) {
+        for (Method method : clz.getDeclaredMethods()) {
+            if (name.equals(method.getName())
+                    && Modifier.isStatic(method.getModifiers())
+                    && method.getParameterCount() == paramCount
+                    && method.getReturnType() == boolean.class) {
+                method.setAccessible(true);
+                return method;
             }
         }
         return null;
     }
+
 }

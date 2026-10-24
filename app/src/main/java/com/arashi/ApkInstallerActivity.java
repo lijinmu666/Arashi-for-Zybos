@@ -87,7 +87,7 @@ public final class ApkInstallerActivity extends ComponentActivity {
             if (needsStaging) {
                 File staged = stageApk(uri);
                 if (staged == null) {
-                    fail("无法从此文件来源读取 APK，或无法暂存到共享存储。请检查文件访问权限。");
+                    fail("无法从此文件来源读取 APK，或无法暂存到共享存储；请检查文件访问权限");
                     return;
                 }
                 if (!retainStagedApk(staged)) return;
@@ -95,7 +95,7 @@ public final class ApkInstallerActivity extends ComponentActivity {
             }
             ApkDetails apk = readApk(uri, path);
             if (apk == null) {
-                fail("无法从所选文件解析 APK 包名。请确认文件完整，或使用特权工具中的文件选择器安装。");
+                fail("无法从所选文件解析 APK 包名；请确认文件完整，或使用特权工具中的文件选择器安装");
                 return;
             }
             Log.i(TAG, "APK path=" + path + ", package=" + apk.packageName);
@@ -158,7 +158,7 @@ public final class ApkInstallerActivity extends ComponentActivity {
                     return;
                 }
                 if (apk.packageName == null) {
-                    fail("无法读取 APK 包名，无法确认安装目标。请检查 APK 文件是否完整。");
+                    fail("无法读取 APK 包名，无法确认安装目标；请检查 APK 文件是否完整");
                     return;
                 }
                 PackageInfo before = installedPackageInfo(apk.packageName);
@@ -181,13 +181,13 @@ public final class ApkInstallerActivity extends ComponentActivity {
                     installed = installedPackageInfo(apk.packageName);
                 }
                 if (installationChanged(before, installed)) {
-                    showResult("安装成功", apk.packageName + " 已安装到当前用户。");
+                    showResult("安装成功", apk.packageName + " 已安装到当前用户");
                 } else if (before != null && installed != null) {
                     showResult("暂未确认安装", apk.packageName
-                            + " 原本已安装，尚未检测到版本或更新时间变化。");
+                            + " 原本已安装，尚未检测到版本或更新时间变化");
                 } else {
                     showResult("未检测到安装", "请求已发送，但尚未检测到 "
-                            + apk.packageName + " 安装到当前用户。");
+                            + apk.packageName + " 安装到当前用户");
                 }
             } finally {
                 cleanupStagedApk();
@@ -220,7 +220,7 @@ public final class ApkInstallerActivity extends ComponentActivity {
                         Uri.parse("package:" + getPackageName()));
                 startActivityForResult(settings, REQ_ALL_FILES);
             } catch (Throwable ignored) {
-                fail("无法打开所有文件访问权限设置页。");
+                fail("无法打开所有文件访问权限设置页");
             }
         });
     }

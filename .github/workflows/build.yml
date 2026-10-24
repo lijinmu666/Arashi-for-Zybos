@@ -1,4 +1,4 @@
-name: 编译 Arashi 0.9.4 APK
+name: 编译 Arashi 0.9.5 APK
 
 on:
   push:
@@ -12,6 +12,11 @@ on:
       - 'gradlew'
       - '.github/workflows/build.yml'
   workflow_dispatch:
+    inputs:
+      unsigned_release:
+        description: 生成未签名 Release APK
+        type: boolean
+        default: true
 
 permissions:
   contents: read
@@ -24,6 +29,8 @@ jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    env:
+      ARASHI_UNSIGNED_RELEASE: ${{ github.event_name == 'push' || inputs.unsigned_release }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -46,6 +53,7 @@ jobs:
           grep -E 'platforms;android-|build-tools;37|cmdline-tools;' "$RUNNER_TEMP/sdk-packages.txt"
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --channel=3 'platforms;android-37.0' 'build-tools;37.0.0'
       - name: 准备签名
+        if: env.ARASHI_UNSIGNED_RELEASE != 'true'
         id: signing
         env:
           KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
@@ -79,7 +87,7 @@ jobs:
         run: |
           set -euo pipefail
           chmod +x gradlew
-          ./gradlew :app:assembleRelease :app:assembleDebug --no-daemon --stacktrace
+          ./gradlew :app:assembleRelease :app:assembleDebug -ParashiUnsignedRelease="$ARASHI_UNSIGNED_RELEASE" --no-daemon --stacktrace
       - name: 校验并整理 APK
         env:
           OFFICIAL_SIGNED: ${{ steps.signing.outputs.signed }}
@@ -89,23 +97,26 @@ jobs:
           mkdir -p dist
           tools="$ANDROID_HOME/build-tools/37.0.0"
           if [[ "$OFFICIAL_SIGNED" == 'true' ]]; then
-            cp app/build/outputs/apk/release/app-release.apk dist/Arashi-0.9.4-release.apk
+            cp app/build/outputs/apk/release/app-release.apk dist/Arashi-0.9.5-release.apk
           else
-            cp app/build/outputs/apk/release/app-release-unsigned.apk dist/Arashi-0.9.4-release-unsigned.apk
-            cp app/build/outputs/apk/debug/app-debug.apk dist/Arashi-0.9.4-test.apk
+            cp app/build/outputs/apk/release/app-release-unsigned.apk dist/Arashi-0.9.5-release-unsigned.apk
+            cp app/build/outputs/apk/debug/app-debug.apk dist/Arashi-0.9.5-test.apk
           fi
           for apk in dist/*.apk; do
             "$tools/aapt" dump badging "$apk" > "$RUNNER_TEMP/arashi-badging.txt"
-            grep "package: name='com.arashi' versionCode='35' versionName='v0.9.4'" "$RUNNER_TEMP/arashi-badging.txt"
+            grep "package: name='com.arashi' versionCode='36' versionName='v0.9.5'" "$RUNNER_TEMP/arashi-badging.txt"
             test "$(unzip -p "$apk" META-INF/xposed/java_init.list)" = 'com.arashi.xposed.HookEntry'
             if [[ "$apk" != *-unsigned.apk ]]; then
               "$tools/apksigner" verify --verbose --print-certs "$apk"
+            elif "$tools/apksigner" verify "$apk" >/dev/null 2>&1; then
+              echo '预期未签名的 Release APK 包含有效签名'
+              exit 1
             fi
           done
           sha256sum dist/*.apk > dist/SHA256SUMS.txt
       - uses: actions/upload-artifact@v4
         with:
-          name: Arashi-0.9.4-APKs
+          name: Arashi-0.9.5-APKs
           path: dist/*
           if-no-files-found: error
           retention-days: 14

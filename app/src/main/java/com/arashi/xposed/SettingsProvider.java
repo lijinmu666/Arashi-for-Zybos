@@ -122,14 +122,15 @@ Log.w(TAG, "reject untrusted caller uid=" + Binder.getCallingUid());
         result.putBoolean(HookConfig.KEY_CLEAR_BLACKLIST, prefs.getBoolean(HookConfig.KEY_CLEAR_BLACKLIST, HookConfig.DEFAULT_ENABLED));
         result.putBoolean(HookConfig.KEY_CAPTIVE_PORTAL, prefs.getBoolean(HookConfig.KEY_CAPTIVE_PORTAL, HookConfig.DEFAULT_ENABLED));
         result.putBoolean(HookConfig.KEY_HIDE_ADB, prefs.getBoolean(HookConfig.KEY_HIDE_ADB, HookConfig.DEFAULT_ENABLED));
-        result.putBoolean(HookConfig.KEY_UNRESTRICT_NOTIFY, prefs.getBoolean(HookConfig.KEY_UNRESTRICT_NOTIFY, HookConfig.defaultEnabled(HookConfig.KEY_UNRESTRICT_NOTIFY)));
-        result.putBoolean(HookConfig.KEY_HIDE_ALERT, prefs.getBoolean(HookConfig.KEY_HIDE_ALERT, HookConfig.DEFAULT_ENABLED));
         result.putBoolean(HookConfig.KEY_ALLOW_USB, prefs.getBoolean(HookConfig.KEY_ALLOW_USB, HookConfig.DEFAULT_ENABLED));
-        result.putBoolean(HookConfig.KEY_ALLOW_DISPLAY, prefs.getBoolean(HookConfig.KEY_ALLOW_DISPLAY, HookConfig.defaultEnabled(HookConfig.KEY_ALLOW_DISPLAY)));
         result.putBoolean(HookConfig.KEY_ALLOW_WALLPAPER, prefs.getBoolean(HookConfig.KEY_ALLOW_WALLPAPER, HookConfig.DEFAULT_ENABLED));
         result.putBoolean(HookConfig.KEY_CLEAR_DETAIL_BLACK, prefs.getBoolean(HookConfig.KEY_CLEAR_DETAIL_BLACK, HookConfig.DEFAULT_ENABLED));
         result.putBoolean(HookConfig.KEY_BLOCK_SUPERVISE, prefs.getBoolean(HookConfig.KEY_BLOCK_SUPERVISE, HookConfig.DEFAULT_ENABLED));
+        result.putBoolean(HookConfig.KEY_BLOCK_USAGE_REPORT, prefs.getBoolean(HookConfig.KEY_BLOCK_USAGE_REPORT, HookConfig.defaultEnabled(HookConfig.KEY_BLOCK_USAGE_REPORT)));
         result.putBoolean(HookConfig.KEY_DEV_OPTIONS, prefs.getBoolean(HookConfig.KEY_DEV_OPTIONS, HookConfig.DEFAULT_ENABLED));
+        result.putBoolean(HookConfig.KEY_DEV_OPTIONS_MENU,
+                prefs.getBoolean(HookConfig.KEY_DEV_OPTIONS_MENU,
+                        HookConfig.defaultEnabled(HookConfig.KEY_DEV_OPTIONS_MENU)));
         result.putBoolean(HookConfig.KEY_KEEP_BACKGROUND, prefs.getBoolean(HookConfig.KEY_KEEP_BACKGROUND, HookConfig.defaultEnabled(HookConfig.KEY_KEEP_BACKGROUND)));
         result.putStringArrayList(HookConfig.KEY_KEEP_BACKGROUND_WHITELIST,
                 new java.util.ArrayList<>(prefs.getStringSet(
@@ -138,6 +139,9 @@ Log.w(TAG, "reject untrusted caller uid=" + Binder.getCallingUid());
         result.putBoolean(HookConfig.KEY_NEUTRALIZE_ADVANCE, prefs.getBoolean(HookConfig.KEY_NEUTRALIZE_ADVANCE, HookConfig.DEFAULT_ENABLED));
         result.putBoolean(HookConfig.KEY_NO_TIMEOUT_LOCK, prefs.getBoolean(HookConfig.KEY_NO_TIMEOUT_LOCK, HookConfig.DEFAULT_ENABLED));
         result.putBoolean(HookConfig.KEY_BLOCK_DEFAULT_BROWSER, prefs.getBoolean(HookConfig.KEY_BLOCK_DEFAULT_BROWSER, HookConfig.DEFAULT_ENABLED));
+        result.putBoolean(HookConfig.KEY_BLOCK_SYSTEM_APP_AUTO_UPDATE,
+                prefs.getBoolean(HookConfig.KEY_BLOCK_SYSTEM_APP_AUTO_UPDATE,
+                        HookConfig.defaultEnabled(HookConfig.KEY_BLOCK_SYSTEM_APP_AUTO_UPDATE)));
         return result;
     }
 

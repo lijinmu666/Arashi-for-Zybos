@@ -89,7 +89,7 @@ public void pickApk() {
                 path = resolveDescriptorPath(uri);
             }
             if (path == null || path.isEmpty()) {
-                showResult("无法解析路径", "此文件来源只提供 content:// 地址，解析真实路径时出错。请在本机文件管理器中选择共享存储里的 APK，或使用「输入 APK 路径安装」。");
+                showResult("无法解析路径", "此文件来源只提供 content:// 地址，解析真实路径时出错；请在本机文件管理器中选择共享存储里的 APK，或使用「输入 APK 路径安装」");
             } else {
                 installApk(path, uri, null);
             }
@@ -158,15 +158,15 @@ return path;
     private void installApk(String path, Uri sourceUri, String packageName) {
         new Thread(() -> {
             if (path == null || path.trim().isEmpty()) {
-                showResult("路径无效", "请输入要安装的 APK 路径。");
+                showResult("路径无效", "请输入要安装的 APK 路径");
                 return;
             }
             if (packageName != null && !packageName.isEmpty()
                     && !packageName.matches("[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)+")) {
-                showResult("包名无效", "请输入正确的应用包名。");
+                showResult("包名无效", "请输入正确的应用包名");
                 return;
             }
-            showResult("正在安装", "正在处理 " + path + "，请稍候。");
+            showResult("正在安装", "正在处理 " + path + "，请稍候");
             if (!ZybosService.detect(this)) {
                 showResult("不可用", "未检测到 ZybosSysApiManager");
                 return;
@@ -174,7 +174,7 @@ return path;
             String parsedPackage = resolvePackageName(path, sourceUri);
             if (parsedPackage != null && packageName != null && !packageName.isEmpty()
                     && !parsedPackage.equals(packageName)) {
-                showResult("包名不一致", "APK 中的包名是 " + parsedPackage + "，与填写的包名不同。");
+                showResult("包名不一致", "APK 中的包名是 " + parsedPackage + "，与填写的包名不同");
                 return;
             }
             String pkg = parsedPackage != null ? parsedPackage : packageName;
@@ -182,14 +182,14 @@ return path;
             boolean isSdcard = path.startsWith("/sdcard/")
                     || path.startsWith("/storage/");
             if (!ZybosService.silentInstallApk(path, isSdcard, pkg)) {
-                showResult("请求发送失败", "调用 silentInstallApk 未成功下发。"
+                showResult("请求发送失败", "调用 silentInstallApk 未成功下发"
                         + "\n" + ZybosService.getLastError());
                 return;
             }
             if (pkg == null) {
                 showResult("请求已发送", sourceUri == null
-                        ? "无法读取 APK 包名，因此无法核对安装结果。可以改用文件选择器，或在输入路径时填写包名。"
-                        : "仍无法从所选文件解析包名，因此无法核对安装结果。请确认所选文件是有效 APK。");
+                        ? "无法读取 APK 包名，因此无法核对安装结果；可以改用文件选择器，或在输入路径时填写包名"
+                        : "仍无法从所选文件解析包名，因此无法核对安装结果；请确认所选文件是有效 APK");
                 return;
             }
             PackageInfo installed = installedPackageInfo(pkg);
@@ -203,7 +203,7 @@ return path;
                 installed = installedPackageInfo(pkg);
             }
             if (installationChanged(before, installed)) {
-                showResult("安装成功", pkg + " 已安装到当前用户。");
+                showResult("安装成功", pkg + " 已安装到当前用户");
             } else if (before != null && installed != null) {
                 showResult("暂未确认安装", pkg + " 原本已安装，尚未检测到版本或更新时间变化");
             } else {

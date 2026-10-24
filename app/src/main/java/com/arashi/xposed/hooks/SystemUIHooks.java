@@ -26,7 +26,6 @@ private static final String BROWSER_TARGET = "android.os.ZybosSysApiManager";
 public static void hookSystemUI(XposedModule mod, ClassLoader cl) {
         hookDefaultBrowser(mod, cl, "SystemUI");
         
-        RestrictionHooks.hookZybReporting(mod, cl);
         Log.i(TAG, "systemui hooks initialized");
     }
 

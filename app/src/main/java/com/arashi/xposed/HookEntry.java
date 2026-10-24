@@ -7,6 +7,7 @@ import io.github.libxposed.api.XposedModuleInterface.PackageReadyParam;
 import io.github.libxposed.api.XposedModuleInterface.SystemServerStartingParam;
 
 import com.arashi.xposed.hooks.AdbHideHooks;
+import com.arashi.xposed.hooks.AppStoreHooks;
 import com.arashi.xposed.hooks.CaptivePortalHooks;
 import com.arashi.xposed.hooks.ControlHooks;
 import com.arashi.xposed.hooks.DevOptionsHooks;
@@ -29,6 +30,7 @@ public final class HookEntry extends XposedModule {
     private static final String PKG_SETTINGS_PROVIDER = "com.android.providers.settings";
     private static final String PKG_SUPERVISE = "com.zuoyebang.iot.pad.supervise";
     private static final String PKG_SYSTEMUI = "com.android.systemui";
+    private static final String PKG_APPSTORE = "com.zuoyebang.iot.pad.appstore";
 
     @Override
     public void onModuleLoaded(ModuleLoadedParam param) {
@@ -80,6 +82,9 @@ public final class HookEntry extends XposedModule {
         } else if (PKG_SYSTEMUI.equals(pkg)) {
             ConfigManager.init(pkg);
             SystemUIHooks.hookSystemUI(this, param.getClassLoader());
+        } else if (PKG_APPSTORE.equals(pkg)) {
+            ConfigManager.init(pkg);
+            AppStoreHooks.hookAppStore(this, param.getClassLoader());
         }
     }
 

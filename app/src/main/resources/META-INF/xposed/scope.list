@@ -5,4 +5,5 @@ com.android.settings
 com.android.providers.settings
 com.android.systemui
 com.zuoyebang.iot.pad.supervise
+com.zuoyebang.iot.pad.appstore
 com.arashi
