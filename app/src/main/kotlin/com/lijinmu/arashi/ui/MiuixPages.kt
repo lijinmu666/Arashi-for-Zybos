@@ -590,8 +590,8 @@ private fun HookPage(a: HookSettings) {
     if (confirmStopScopes) {
         OverlayDialog(
             show = true,
-            title = "杀死后台进程",
-            summary = "使用 root 终止系统界面、设置、桌面、安装器、网络登录、管控服务和 TCP 服务的进程，Arashi 将稍后关闭",
+            title = "杀死作用域的进程",
+            summary = "终止 SystemUI 、系统设置、桌面、 PackageInstaller、登录到网络、管控服务和TCP服务的后台进程，以此使 Hook 设置生效",
             onDismissRequest = { confirmStopScopes = false },
         ) {
             Row(
@@ -661,8 +661,8 @@ private fun HookPage(a: HookSettings) {
             HookItem("修复 Monet 颜色", "恢复基于壁纸的动态配色。手动主题色开启时优先使用手动颜色", HookConfig.KEY_SYSTEMUI_MONET),
             HookItem("自定义 SystemUI 主题色", "自定义下拉面板，锁屏密码键盘按下效果与密码圆点的强调色", HookConfig.KEY_SYSTEMUI_THEME),
             HookItem("原版状态栏图标", "将 电池、WLAN、蓝牙图标统一恢复为 AOSP 原版样式", HookConfig.KEY_AOSP_STATUS_ICONS),
-            HookItem("解除通知图标数量限制", "取消普通状态栏通知图标的固定数量上限，按可用宽度显示，空间不足时仍折叠为溢出提示", HookConfig.KEY_UNLIMITED_NOTIFICATION_ICONS),
-            HookItem("桌面图标圆角", "桌面应用图标与文件夹的改成 iOS 样式的圆角，文件夹使用半透明底色。强行停止桌面后生效", HookConfig.KEY_IOS_ICONS),
+            HookItem("解除通知图标数量限制", "取消普通状态栏通知图标的固定数量上限，按可用宽度显示", HookConfig.KEY_UNLIMITED_NOTIFICATION_ICONS),
+            HookItem("桌面图标圆角", "桌面应用图标与文件夹的改成 iOS 样式的圆角，文件夹使用半透明底色", HookConfig.KEY_IOS_ICONS),
             HookItem("状态栏显示日期", "仿 iPadOS 在状态栏左侧时间后显示月日与星期，如 16:40  10月17日周六。开关控制在下次时钟刷新时生效", HookConfig.KEY_STATUS_BAR_DATE),
         ),
         "TCP 服务" to listOf(
