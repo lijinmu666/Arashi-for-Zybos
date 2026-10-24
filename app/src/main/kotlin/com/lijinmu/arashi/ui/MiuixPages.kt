@@ -84,6 +84,10 @@ import java.util.WeakHashMap
 import java.util.Date
 import java.util.Locale
 import java.text.SimpleDateFormat
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.job
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
@@ -479,16 +483,16 @@ private fun HookPage(a: HookSettings) = Page(a, "Hook 功能设置", a::finish) 
             HookItem("解除安装黑名单限制", "允许安装被硬编码在 mZybBlacklistApp 中的包名。开关控制重启系统后生效", HookConfig.KEY_CLEAR_BLACKLIST),
         ),
         "行为" to listOf(
-            HookItem("通知快捷回复支持", "尝试修复横屏通知回复框出现后立即关闭的问题。需勾选系统界面作用域，开关控制立即生效", HookConfig.KEY_NOTIFICATION_REPLY),
             HookItem("允许打开开发者选项", "绕过系统设置检查，允许打开开发者选项的 Activity", HookConfig.KEY_DEV_OPTIONS),
             HookItem("保留后台进程", "拦截划卡后强杀应用进程。开关控制立即生效", HookConfig.KEY_KEEP_BACKGROUND),
             HookItem("允许 USB 文件传输", "允许挂载外部 USB 设备和使用数据传输。开关控制立即生效", HookConfig.KEY_ALLOW_USB),
             HookItem("允许任意应用设置壁纸", "允许任意应用设置壁纸，并移除新版桌面覆盖系统壁纸的静态背景。需勾选系统框架与作业帮桌面作用域，开关控制立即生效", HookConfig.KEY_ALLOW_WALLPAPER),
             HookItem("允许 WiFi 网页登录", "允许连接到认证型 WiFi 正常跳转到 “登录到网络” 登录验证网页", HookConfig.KEY_CAPTIVE_PORTAL),
             HookItem("解除应用详情页限制", "允许打开 WebView、report服务 和 PadMs 的应用设置详情页。开关控制立即生效", HookConfig.KEY_CLEAR_DETAIL_BLACK),
-            HookItem("录屏系统声音支持", "恢复 SystemUI 录屏菜单的设备声音、麦克风及混合音源选择选项", HookConfig.KEY_RECORD_INTERNAL_AUDIO),
+            HookItem("修复录屏的声音选项", "恢复 SystemUI 录屏菜单的设备声音、麦克风及混合音源选择选项", HookConfig.KEY_RECORD_INTERNAL_AUDIO),
+						HookItem("修复通知快捷回复", "尝试修复 SystemUI 通知回复框出现后立即关闭的问题。开关控制立即生效", HookConfig.KEY_NOTIFICATION_REPLY),
             HookItem("阻止重设默认浏览器", "拦截 SystemUI 开机时将 “学习网站” 设为默认浏览器", HookConfig.KEY_BLOCK_DEFAULT_BROWSER),
-            HookItem("阻止禁用系统导航与下拉面板", "拦截返回、主页、最近任务及下拉面板的禁用限制，覆盖激活与错误页面场景。需勾选系统框架、系统界面与对应桌面作用域，开关控制重启系统后生效", HookConfig.KEY_KEEP_NAVIGATION),
+            HookItem("阻止禁用系统导航与下拉面板", "拦截返回、主页、最近任务及下拉面板的禁用限制，覆盖激活与错误页面等场景。需勾选系统框架、系统界面 和 桌面 作用域，开关控制重启系统后生效", HookConfig.KEY_KEEP_NAVIGATION),
         ),
         "美化" to listOf(
             HookItem("桌面图标圆角", "桌面应用图标与文件夹的改成 iOS 样式的圆角，文件夹使用半透明底色。强行停止桌面后生效", HookConfig.KEY_IOS_ICONS),
@@ -792,7 +796,7 @@ private fun UninstallPage(a: UninstallSettings) = Page(a, "卸载验证", a::fin
             },
             title = "启用卸载验证",
             summary = if (moduleActive) "每次卸载请求将会弹窗向你确认"
-                else "未检测到 system_server Hook，卸载验证暂时关闭；激活后会恢复此前的开启状态",
+                else "未检测到 system_server Hook，卸载验证暂时关闭。激活后会恢复此前的开启状态",
             enabled = moduleActive,
         )
         OverlayDropdownPreference(
@@ -819,7 +823,7 @@ private fun UninstallPage(a: UninstallSettings) = Page(a, "卸载验证", a::fin
         Link("白名单", "白名单中的发起方不会弹窗向你确认，直接允许") {
             a.startActivity(Intent(a, UninstallListActivity::class.java).putExtra("blacklist", false))
         }
-        Link("黑名单", "与白名单排斥，黑名单直接拒绝卸载；优先于白名单") {
+        Link("黑名单", "与白名单排斥，黑名单直接拒绝卸载，并且优先于白名单") {
             a.startActivity(Intent(a, UninstallListActivity::class.java).putExtra("blacklist", true))
         }
     }
@@ -840,40 +844,51 @@ private fun UninstallHistoryPage(a: UninstallHistoryActivity) {
     var hasMore by remember { mutableStateOf(true) }
     var loadError by remember { mutableStateOf<String?>(null) }
     var clearError by remember { mutableStateOf<String?>(null) }
-    // A single effect serializes refresh, pagination and deletion. Changing the
-    // request cancels any old read before it can repopulate a cleared list.
+    val scope = rememberCoroutineScope()
+    var readJob by remember { mutableStateOf<Job?>(null) }
     LaunchedEffect(request) {
-        val deleting = clearing
-        loading = !deleting
+        if (clearing) return@LaunchedEffect
+        readJob = currentCoroutineContext().job
+        loading = true
         try {
-            if (deleting) {
-                val count = withContext(Dispatchers.IO) { UninstallHistoryStore.clear(a) }
-                records = emptyList()
-                hasMore = false
-                loadError = null
-                clearError = null
-                MiuixPages.showMessage(a, "清空完成", "已清空 $count 条卸载记录")
-            } else {
-                val before = records.lastOrNull()?.id ?: Long.MAX_VALUE
-                val batch = withContext(Dispatchers.IO) {
-                    UninstallHistoryStore.read(a, before, 101)
-                }
-                records = records + batch.take(100)
-                hasMore = batch.size > 100
-                loadError = null
-            }
+            val before = records.lastOrNull()?.id ?: Long.MAX_VALUE
+            val batch = withContext(Dispatchers.IO) { UninstallHistoryStore.read(a, before, 101) }
+            records = records + batch.take(100)
+            hasMore = batch.size > 100
+            loadError = null
         } catch (error: CancellationException) {
             throw error
         } catch (error: Exception) {
-            if (deleting) {
+            loadError = error.message ?: "读取记录失败"
+        } finally {
+            loading = false
+        }
+    }
+    fun clearRecords() {
+        if (clearing) return
+        clearing = true
+        scope.launch {
+            try {
+                readJob?.cancelAndJoin()
+                val (count, batch) = withContext(Dispatchers.IO) {
+                    val count = UninstallHistoryStore.clear(a)
+                    count to UninstallHistoryStore.read(a, Long.MAX_VALUE, 101)
+                }
+                records = batch.take(100)
+                hasMore = batch.size > 100
+                loadError = null
+                clearError = null
+                MiuixPages.showMessage(a, "清空完成", "已清空 $count 条卸载记录")
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
                 clearError = error.message ?: "清空记录失败"
                 MiuixPages.showMessage(a, "清空失败", clearError.orEmpty())
-            } else {
-                loadError = error.message ?: "读取记录失败"
+            } finally {
+                clearing = false
+                loading = false
             }
         }
-        loading = false
-        clearing = false
     }
     Scaffold(
         modifier = Modifier.fillMaxSize(),
@@ -909,7 +924,7 @@ private fun UninstallHistoryPage(a: UninstallHistoryActivity) {
                         enabled = !loading && !clearing,
                     )
                     TextButton(
-                        "清空记录",
+                        if (clearing) "正在清空" else "清空记录",
                         { confirmClear = true },
                         Modifier.weight(1f),
                         enabled = records.isNotEmpty() && !loading && !clearing,
@@ -979,10 +994,7 @@ private fun UninstallHistoryPage(a: UninstallHistoryActivity) {
                 "清空",
                 {
                     confirmClear = false
-                    if (!clearing) {
-                        clearing = true
-                        request++
-                    }
+                    clearRecords()
                 },
                 Modifier.weight(1f),
                 colors = ButtonDefaults.textButtonColorsPrimary(),
@@ -1069,7 +1081,7 @@ private fun UninstallListPage(a: UninstallListActivity, blacklist: Boolean) {
         ) {
             item {
                 IntroCard(
-                    if (blacklist) "选中的发起方直接拒绝卸载" else "选中的发起方直接允许卸载；黑名单优先",
+                    if (blacklist) "选中的发起方直接拒绝卸载" else "选中的发起方直接允许卸载，并且黑名单优先",
                 )
             }
             item {
