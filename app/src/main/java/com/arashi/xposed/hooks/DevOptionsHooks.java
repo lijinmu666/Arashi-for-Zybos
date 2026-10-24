@@ -10,6 +10,7 @@ import io.github.libxposed.api.XposedModule;
 import com.arashi.xposed.ConfigManager;
 import com.arashi.xposed.HookConfig;
 import com.arashi.xposed.Reflect;
+import com.arashi.xposed.SettingsHeaderCompat;
 
 import java.lang.reflect.Method;
 import java.lang.reflect.Constructor;
@@ -62,6 +63,34 @@ public final class DevOptionsHooks {
     private static final String DEV_FRAGMENT =
             "com.android.settings.development.DevelopmentSettingsDashboardFragment";
 
+    private static boolean isZybSettingsHost(Object host) {
+        if (host == null) return false;
+        for (Class<?> type = host.getClass(); type != null; type = type.getSuperclass()) {
+            String name = type.getName();
+            if ("com.android.settings.ZybSettings".equals(name)
+                    || "com.android.settings.zyb.ZybSettings".equals(name)) return true;
+        }
+        return false;
+    }
+
+    private static Object getHostSwitchBar(Object host) throws Exception {
+        Method getter = Reflect.findMethodExact(host.getClass(), "getSwitchBar");
+        if (getter != null) {
+            Object switchBar = getter.invoke(host);
+            if (switchBar != null) return switchBar;
+        }
+        // Android 12's ZybSettings has the same widget, but exposes no getter.
+        Object switchBar = Reflect.getObjectField(host, "mMainSwitch");
+        if (switchBar != null) return switchBar;
+        if (host instanceof android.app.Activity) {
+            android.app.Activity activity = (android.app.Activity) host;
+            int id = activity.getResources().getIdentifier(
+                    "switch_bar", "id", "com.android.settings");
+            if (id != 0) return activity.findViewById(id);
+        }
+        return null;
+    }
+
     private static void hookSettingsSideMenu(XposedModule mod, ClassLoader cl) {
         try {
             Class<?> headListClass = Class.forName("com.android.settings.zyb.ui.ZybHeadList", false, cl);
@@ -70,6 +99,20 @@ public final class DevOptionsHooks {
                 Log.w(TAG, "getZybSettingsHeaders not found");
                 return;
             }
+            // OTA 7.10 checks a fixed built-in list when routing an existing Activity's intent.
+            // Treat the injected dashboard as a top-level page, not a nested destination.
+            Method isTopFragment = Reflect.findMethodExact(headListClass,
+                    "isZybSettingsTopFragment", String.class);
+            if (isTopFragment != null) {
+                mod.hook(isTopFragment).intercept(chain -> {
+                    if (DEV_FRAGMENT.equals(chain.getArg(0))
+                            && ConfigManager.isEnabled(HookConfig.KEY_DEV_OPTIONS)
+                            && ConfigManager.isEnabled(HookConfig.KEY_DEV_OPTIONS_MENU)) {
+                        return true;
+                    }
+                    return chain.proceed();
+                });
+            }
             mod.hook(method).intercept(chain -> {
                 Object original = chain.proceed();
                 if (!(original instanceof List)
@@ -77,43 +120,39 @@ public final class DevOptionsHooks {
                         || !ConfigManager.isEnabled(HookConfig.KEY_DEV_OPTIONS_MENU)) {
                     return original;
                 }
-                List<?> headers = (List<?>) original;
-                for (Object header : headers) {
-                    Object fragment = Reflect.callMethod(header, "getFragmentName");
-                    if (DEV_FRAGMENT.equals(fragment)) return original;
-                }
+                try {
+                    List<?> headers = (List<?>) original;
+                    for (Object header : headers) {
+                        Object fragment = Reflect.callMethod(header, "getFragmentName");
+                        if (DEV_FRAGMENT.equals(fragment)) return original;
+                    }
 
-                Context context = (Context) chain.getArg(0);
-                int title = context.getResources().getIdentifier(
-                        "development_settings_title", "string", "com.android.settings");
-                int icon = context.getResources().getIdentifier(
-                        "ic_settings_development", "drawable", "com.android.settings");
-                if (title == 0 || icon == 0) {
-                    Log.w(TAG, "developer menu title or icon resource missing");
+                    Context context = (Context) chain.getArg(0);
+                    int title = context.getResources().getIdentifier(
+                            "development_settings_title", "string", "com.android.settings");
+                    int icon = context.getResources().getIdentifier(
+                            "ic_settings_development", "drawable", "com.android.settings");
+                    if (title == 0 || icon == 0) {
+                        Log.w(TAG, "developer menu title or icon resource missing");
+                        return original;
+                    }
+
+                    Class<?> headerClass = Class.forName("com.android.settings.zyb.ui.ZybSettingsHeader", false, cl);
+                    Object injected = SettingsHeaderCompat.create(
+                            headerClass, headers, title, icon, DEV_FRAGMENT);
+                    List<Object> result = new ArrayList<>(headers);
+                    result.add(injected);
+                    Log.i(TAG, "developer options side menu entry injected");
+                    return result;
+                } catch (Exception error) {
+                    Log.w(TAG, "developer menu injection failed; keeping Settings headers", error);
                     return original;
                 }
-
-                Class<?> headerClass = Class.forName("com.android.settings.zyb.ui.ZybSettingsHeader", false, cl);
-                Object injected = headerClass.getDeclaredConstructor().newInstance();
-                setHeaderValue(headerClass, injected, "setTitleResId", int.class, title);
-                setHeaderValue(headerClass, injected, "setImgResId", int.class, icon);
-                setHeaderValue(headerClass, injected, "setFragmentName", String.class, DEV_FRAGMENT);
-                setHeaderValue(headerClass, injected, "setVisible", boolean.class, true);
-                List<Object> result = new ArrayList<>(headers);
-                result.add(injected);
-                Log.i(TAG, "developer options side menu entry injected");
-                return result;
             });
             Log.i(TAG, "settings side menu hook registered");
         } catch (Throwable error) {
             Log.w(TAG, "settings side menu hook failed: " + error);
         }
-    }
-
-    private static void setHeaderValue(Class<?> owner, Object instance, String name,
-                                       Class<?> parameter, Object value) throws Exception {
-        Method setter = owner.getMethod(name, parameter);
-        setter.invoke(instance, value);
     }
 
     /** ZybSettings is a two-pane host, while the stock dashboard assumes SettingsActivity. */
@@ -131,12 +170,11 @@ public final class DevOptionsHooks {
                 } catch (ClassCastException error) {
                     Object fragment = chain.getThisObject();
                     Object activity = Reflect.callMethod(fragment, "getActivity");
-                    if (activity == null || !"com.android.settings.zyb.ZybSettings".equals(
-                            activity.getClass().getName())) {
+                    if (!isZybSettingsHost(activity)) {
                         throw error;
                     }
                     try {
-                        Object switchBar = Reflect.callMethod(activity, "getSwitchBar");
+                        Object switchBar = getHostSwitchBar(activity);
                         if (switchBar == null) throw error;
                         setField(fragment, "mSwitchBar", switchBar);
                         switchBar.getClass().getMethod("setTitle", CharSequence.class).invoke(
@@ -197,9 +235,8 @@ public final class DevOptionsHooks {
             mod.hook(method).intercept(chain -> {
                 Object result = chain.proceed();
                 Object activity = Reflect.callMethod(chain.getThisObject(), "getActivity");
-                if (activity != null && "com.android.settings.zyb.ZybSettings".equals(
-                        activity.getClass().getName())) {
-                    Object switchBar = Reflect.callMethod(activity, "getSwitchBar");
+                if (isZybSettingsHost(activity)) {
+                    Object switchBar = getHostSwitchBar(activity);
                     if (switchBar != null) Reflect.callMethod(switchBar, "hide");
                 }
                 return result;
@@ -224,8 +261,7 @@ public final class DevOptionsHooks {
             mod.hook(method).intercept(chain -> {
                 Object launcher = chain.getThisObject();
                 Object context = Reflect.getObjectField(launcher, "mContext");
-                if (context == null || !"com.android.settings.zyb.ZybSettings".equals(
-                        context.getClass().getName())) {
+                if (!isZybSettingsHost(context)) {
                     return chain.proceed();
                 }
                 android.content.Intent intent = (android.content.Intent) chain.getArg(0);
@@ -261,8 +297,7 @@ public final class DevOptionsHooks {
                     return chain.proceed();
                 }
                 Object activity = Reflect.callMethod(fragment, "getActivity");
-                if (activity == null || !"com.android.settings.zyb.ZybSettings".equals(
-                        activity.getClass().getName())) return chain.proceed();
+                if (!isZybSettingsHost(activity)) return chain.proceed();
                 Object preference = chain.getArg(0);
                 String destination = (String) Reflect.callMethod(preference, "getFragment");
                 if (destination == null || destination.isEmpty()) return chain.proceed();
@@ -298,12 +333,11 @@ public final class DevOptionsHooks {
                 } catch (ClassCastException error) {
                     Object fragment = chain.getThisObject();
                     Object activity = Reflect.callMethod(fragment, "getActivity");
-                    if (activity == null || !"com.android.settings.zyb.ZybSettings".equals(
-                            activity.getClass().getName())) {
+                    if (!isZybSettingsHost(activity)) {
                         throw error;
                     }
                     try {
-                        Object switchBar = Reflect.callMethod(activity, "getSwitchBar");
+                        Object switchBar = getHostSwitchBar(activity);
                         if (switchBar == null) throw error;
                         int titleId = ((Context) activity).getResources().getIdentifier(
                                 "wireless_debugging_main_switch_title", "string", "com.android.settings");
@@ -346,9 +380,8 @@ public final class DevOptionsHooks {
                 mod.hook(onPause).intercept(chain -> {
                     Object result = chain.proceed();
                     Object activity = Reflect.callMethod(chain.getThisObject(), "getActivity");
-                    if (activity != null && "com.android.settings.zyb.ZybSettings".equals(
-                            activity.getClass().getName())) {
-                        Object switchBar = Reflect.callMethod(activity, "getSwitchBar");
+                    if (isZybSettingsHost(activity)) {
+                        Object switchBar = getHostSwitchBar(activity);
                         if (switchBar != null) Reflect.callMethod(switchBar, "hide");
                     }
                     return result;
@@ -373,9 +406,8 @@ public final class DevOptionsHooks {
                 } catch (ClassCastException error) {
                     Object fragment = chain.getThisObject();
                     Object activity = Reflect.callMethod(fragment, "getActivity");
-                    if (activity == null || !"com.android.settings.zyb.ZybSettings".equals(
-                            activity.getClass().getName())) throw error;
-                    Object switchBar = Reflect.callMethod(activity, "getSwitchBar");
+                    if (!isZybSettingsHost(activity)) throw error;
+                    Object switchBar = getHostSwitchBar(activity);
                     if (switchBar == null) throw error;
                     Class<?> switchControllerClass = Class.forName(
                             "com.android.settings.widget.MainSwitchBarController", false, cl);
@@ -428,8 +460,7 @@ public final class DevOptionsHooks {
                 Object fragment = chain.getThisObject();
                 Object activity = Reflect.callMethod(fragment, "getActivity");
                 Object preference = chain.getArg(0);
-                if (activity == null || !"com.android.settings.zyb.ZybSettings".equals(
-                        activity.getClass().getName()) || !statsPreferenceClass.isInstance(preference)) {
+                if (!isZybSettingsHost(activity) || !statsPreferenceClass.isInstance(preference)) {
                     return chain.proceed();
                 }
                 Object manager = Reflect.getObjectField(fragment, "mStatsManager");
@@ -521,9 +552,8 @@ public final class DevOptionsHooks {
                                                boolean hidden) {
         try {
             Object activity = Reflect.callMethod(fragment, "getActivity");
-            if (activity == null || !"com.android.settings.zyb.ZybSettings".equals(
-                    activity.getClass().getName())) return;
-            Object switchBar = Reflect.callMethod(activity, "getSwitchBar");
+            if (!isZybSettingsHost(activity)) return;
+            Object switchBar = getHostSwitchBar(activity);
             if (switchBar == null) return;
             if (hidden || (Boolean) Reflect.callMethod(fragment, "isHidden")) {
                 Reflect.callMethod(switchBar, "hide");
@@ -577,7 +607,19 @@ public final class DevOptionsHooks {
         if (fragmentView == null) return;
         int titleId = activity.getResources().getIdentifier(
                 "title_container", "id", "com.android.settings");
-        android.view.View emptyTitle = fragmentView.findViewById(titleId);
+        android.view.View emptyTitle = titleId == 0 ? null : fragmentView.findViewById(titleId);
+        if (emptyTitle == null) {
+            // The Android 12 layout uses an unnamed 96dp header around tv_title.
+            int textId = activity.getResources().getIdentifier(
+                    "tv_title", "id", "com.android.settings");
+            android.view.View title = textId == 0 ? null : fragmentView.findViewById(textId);
+            if (title != null && title.getParent() instanceof android.view.ViewGroup) {
+                android.view.ViewGroup header = (android.view.ViewGroup) title.getParent();
+                if (header != fragmentView && header.findViewById(android.R.id.list_container) == null) {
+                    emptyTitle = header;
+                }
+            }
+        }
         if (emptyTitle != null) emptyTitle.setVisibility(android.view.View.GONE);
         android.view.View list = fragmentView.findViewById(android.R.id.list_container);
         if (list != null && list.getLayoutParams() instanceof android.view.ViewGroup.MarginLayoutParams) {

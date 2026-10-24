@@ -163,13 +163,30 @@ object MiuixPages {
     private fun render(a: Activity, page: @Composable () -> Unit) {
         a.setContentView(ComposeView(a).apply {
             setContent {
-                val mode = a.getSharedPreferences("ui", Context.MODE_PRIVATE).getInt("mode", 0)
+                val uiPrefs = remember(a) { a.getSharedPreferences("ui", Context.MODE_PRIVATE) }
+                var mode by remember(uiPrefs) { mutableIntStateOf(uiPrefs.getInt("mode", 0)) }
+                var colorScheme by remember(uiPrefs) {
+                    mutableIntStateOf(uiPrefs.getInt("color_scheme", 0))
+                }
+                DisposableEffect(uiPrefs) {
+                    val listener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { prefs, key ->
+                        when (key) {
+                            "mode" -> mode = prefs.getInt("mode", 0)
+                            "color_scheme" -> colorScheme = prefs.getInt("color_scheme", 0)
+                        }
+                    }
+                    uiPrefs.registerOnSharedPreferenceChangeListener(listener)
+                    onDispose { uiPrefs.unregisterOnSharedPreferenceChangeListener(listener) }
+                }
+                val usePurple = colorScheme != 1
                 val dark = when (mode) {
                     1 -> false
                     2 -> true
                     else -> isSystemInDarkTheme()
                 }
-                val colors = if (dark) {
+                val colors = if (!usePurple) {
+                    if (dark) darkColorScheme() else lightColorScheme()
+                } else if (dark) {
                     darkColorScheme(
                         primary = Color(0xFFB69CFF),
                         primaryVariant = Color(0xFF9B7BFA),
@@ -404,7 +421,7 @@ private data class HookItem(val title: String, val summary: String, val key: Str
 
 @Composable
 private fun HookPage(a: HookSettings) = Page(a, "Hook 功能设置", a::finish) {
-    IntroCard("首次使用请启用模块、勾选推荐作用域并重启系统\n系统框架按本次开机的 Hook 状态检测，应用作用域在此页面实时检测\n未检测到对应作用域时开关不可用，已保存的设置会保留\n修改应用作用域后需重启对应应用，修改系统框架作用域后需重启系统")
+    IntroCard("首次使用请启用模块并勾选推荐作用域并重启系统。修改应用作用域后需重启对应应用，部分需要重启系统")
     val prefs = a.getSharedPreferences(HookConfig.PREF_NAME, Context.MODE_PRIVATE)
     var backgroundSelected by remember {
         mutableStateOf(prefs.getStringSet(HookConfig.KEY_KEEP_BACKGROUND_WHITELIST, emptySet()).orEmpty().toSet())
@@ -431,27 +448,27 @@ private fun HookPage(a: HookSettings) = Page(a, "Hook 功能设置", a::finish) 
     }
     val groups = listOf(
         "安装" to listOf(
-            HookItem("外部应用安装支持", "跳过系统安装器的设备限制检查，允许通过安装器安装外部 APK", HookConfig.KEY_EXTERNAL_INSTALL),
-            HookItem("允许 Shell 安装", "放行 adb install 和 pm install 的安装权限检查，允许通过电脑或终端安装应用", HookConfig.KEY_SHELL_INSTALL),
-            HookItem("清除安装黑名单", "清空系统内置的安装黑名单和相关限制列表，允许安装被这些名单拦截的应用\n开关控制重启系统后生效", HookConfig.KEY_CLEAR_BLACKLIST),
+            HookItem("外部应用安装支持", "跳过 PackageInstaller 的安装检查，允许安装外部 APK", HookConfig.KEY_EXTERNAL_INSTALL),
+            HookItem("Shell 安装支持", "放行 ADB 和 pm install 安装，允许使用 Shell 安装应用", HookConfig.KEY_SHELL_INSTALL),
+            HookItem("清除安装黑名单", "允许安装被硬编码在系统中的5个包名。开关控制重启系统后生效", HookConfig.KEY_CLEAR_BLACKLIST),
         ),
         "行为" to listOf(
-            HookItem("开发者选项支持", "放行开发者选项的开启状态检查，允许打开开发者选项及其子页面", HookConfig.KEY_DEV_OPTIONS),
-            HookItem("保留后台进程", "拦截划卡时对所选应用的强停请求，保留其后台进程\n白名单为空时保留全部应用", HookConfig.KEY_KEEP_BACKGROUND),
-            HookItem("USB 设备支持", "跳过系统的 USB 禁用判断，允许连接和使用外部 USB 设备", HookConfig.KEY_ALLOW_USB),
-            HookItem("壁纸设置支持", "放行应用设置壁纸的权限检查，允许壁纸应用修改系统壁纸", HookConfig.KEY_ALLOW_WALLPAPER),
-            HookItem("Wi-Fi 认证登录支持", "跳过认证页面的设备校验和 VPN 检测，允许打开需要网页认证的 Wi-Fi 登录页面", HookConfig.KEY_CAPTIVE_PORTAL),
-            HookItem("解除应用详情页限制", "跳过应用详情页黑名单判断，允许打开 WebView、report 服务和 PadMs 等应用的详情页", HookConfig.KEY_CLEAR_DETAIL_BLACK),
-            HookItem("阻止 SystemUI 重设默认浏览器", "拦截 SystemUI 开机时设置默认浏览器的请求，保留当前默认浏览器\n开关控制重启系统后生效", HookConfig.KEY_BLOCK_DEFAULT_BROWSER),
-            HookItem("阻止系统应用自动更新", "从应用商店的自动更新队列中移除系统应用，阻止自动下载和更新\n用户应用仍按商店原有开关自动更新，手动更新不受影响", HookConfig.KEY_BLOCK_SYSTEM_APP_AUTO_UPDATE),
-            HookItem("隐藏开发者模式和 ADB 状态", "向普通应用返回开发者模式、USB 调试和无线调试均已关闭，隐藏对应设置状态", HookConfig.KEY_HIDE_ADB),
+            HookItem("开发者选项支持", "放行开发者选项的开启状态检查，允许打开开发者选项的 Activity", HookConfig.KEY_DEV_OPTIONS),
+            HookItem("保留后台进程", "拦截划卡后强杀应用进程。开关控制立即生效", HookConfig.KEY_KEEP_BACKGROUND),
+            HookItem("USB 文件传输支持", "允许连接挂载外部 USB 设备", HookConfig.KEY_ALLOW_USB),
+            HookItem("壁纸设置支持", "允许任意应用修改系统壁纸", HookConfig.KEY_ALLOW_WALLPAPER),
+            HookItem("认证型 WiFi 登录支持", "允许认证型 WiFi 跳转网页", HookConfig.KEY_CAPTIVE_PORTAL),
+            HookItem("解除应用详情页限制", "允许打开 WebView、report服务 和 PadMs 的应用设置详情页", HookConfig.KEY_CLEAR_DETAIL_BLACK),
+            HookItem("阻止重设默认浏览器", "拦截 SystemUI 开机时将“学习网站”设为默认浏览器", HookConfig.KEY_BLOCK_DEFAULT_BROWSER),
+            HookItem("阻止系统应用自动更新", "拦截应用商店静默自动下载和更新系统应用", HookConfig.KEY_BLOCK_SYSTEM_APP_AUTO_UPDATE),
+            HookItem("隐藏开发者环境", "向普通应用 (UID ≥ 10000) 返回开发者模式、USB 调试和无线调试已关闭的状态", HookConfig.KEY_HIDE_ADB),
         ),
         "管控" to listOf(
-            HookItem("拦截管控强停和任务清理", "在系统框架中拦截管控服务的强停应用和移除任务请求，保留应用进程及最近任务", HookConfig.KEY_BLOCK_SUPERVISE),
-            HookItem("阻止使用时长上报", "拦截管控服务的使用时长上传方法，阻止向服务器上报应用使用时长", HookConfig.KEY_BLOCK_USAGE_REPORT),
-            HookItem("解除应用禁用", "将应用可用性查询结果改为允许，绕过应用禁用和时长限制\n已禁用的应用可能需要先从其他应用打开一次，才能从桌面启动", HookConfig.KEY_NEUTRALIZE_POLICY),
+            HookItem("拦截管控强停和任务清理", "从 SystemServer 层拦截管控服务的强杀应用和移除任务行为", HookConfig.KEY_BLOCK_SUPERVISE),
+            HookItem("阻止时长上报", "拦截管控服务的使用时长上传", HookConfig.KEY_BLOCK_USAGE_REPORT),
+            HookItem("解除应用禁用", "将应用可用查询结果改为允许，绕过应用禁用和时长限制。已禁用的应用要先从其他应用打开一次才能从桌面启动", HookConfig.KEY_NEUTRALIZE_POLICY),
             HookItem("解除页面屏蔽", "将受限页面查询结果置空，允许打开被管控规则屏蔽的应用页面", HookConfig.KEY_NEUTRALIZE_ADVANCE),
-            HookItem("拦截超时锁屏", "拦截管控服务的超时处理，避免达到整机时长限制或超出可用时段后触发锁屏", HookConfig.KEY_NO_TIMEOUT_LOCK),
+            HookItem("拦截超时锁屏", "拦截管控服务的超时处理，达到整机时长限制或超出可用时段后不锁屏", HookConfig.KEY_NO_TIMEOUT_LOCK),
         ),
     )
     groups.forEach { (name, entries) ->
@@ -473,7 +490,7 @@ private fun HookPage(a: HookSettings) = Page(a, "Hook 功能设置", a::finish) 
                     },
                     title = entry.title,
                     summary = if (available) entry.summary
-                        else entry.summary + "\n" + scopes.unavailableReason(entry.key),
+                        else entry.summary + "。" + scopes.unavailableReason(entry.key),
                     enabled = available,
                 )
                 if (entry.key == HookConfig.KEY_DEV_OPTIONS) {
@@ -517,7 +534,7 @@ private fun HookPage(a: HookSettings) = Page(a, "Hook 功能设置", a::finish) 
                                 }
                             },
                             title = "注入开发者选项入口",
-                            summary = "向设置侧边菜单加入入口，在右侧面板打开开发者选项\n修改后重启设置应用生效",
+                            summary = "向设置侧边菜单中添加“开发者选项”入口。重启系统设置后生效",
                             enabled = available,
                         )
                     }
@@ -535,8 +552,8 @@ private fun HookPage(a: HookSettings) = Page(a, "Hook 功能设置", a::finish) 
                 ) {
                     ArrowPreference(
                         title = "后台保留白名单",
-                        summary = if (backgroundSelected.isEmpty()) "未选择应用，默认保留全部"
-                            else "已选择 ${backgroundSelected.size} 个应用，仅保留选中的应用",
+                        summary = if (backgroundSelected.isEmpty()) "目前划卡后保留所有应用后台进程"
+                            else "目前划卡后只保留已选择的 ${backgroundSelected.size} 个应用",
                         onClick = {
                             a.startActivity(Intent(a, BackgroundWhitelistActivity::class.java))
                         },
@@ -545,7 +562,7 @@ private fun HookPage(a: HookSettings) = Page(a, "Hook 功能设置", a::finish) 
             }
         }
     }
-    InfoCard("开关修改后自动保存，生效方式见各项说明")
+    InfoCard("开关修改后自动保存")
 }
 
 private data class BackgroundChoice(val packageName: String, val label: String)
@@ -610,7 +627,7 @@ private fun BackgroundWhitelistPage(a: BackgroundWhitelistActivity) {
         ) {
             item {
                 IntroCard(
-                    "选中的应用划卡后不会被强杀；一个也不选时默认保留全部；系统原有豁免应用不显示，仍按系统规则保留；选择后立即保存")
+                    "选中的应用划卡后不会被强杀，不选择任何应用时默认全部不杀，系统原有豁免应用不显示。选择后立即保存")
             }
             item {
                 TextField(value = query, onValueChange = { query = it },
@@ -700,7 +717,7 @@ private fun UninstallPage(a: UninstallSettings) = Page(a, "卸载验证", a::fin
     var duration by remember {
         mutableIntStateOf(durations.indexOf(prefs.getInt(UninstallConfig.TIMEOUT_SECONDS, 10)).coerceAtLeast(0))
     }
-    IntroCard("当系统尝试卸载应用时，会向你询问是否允许；细化并管理每一次卸载请求")
+    IntroCard("细化并管理每一次卸载请求。当系统尝试卸载应用时，会向你询问是否允许")
     Group("验证") {
         SwitchPreference(
             checked = enabled && moduleActive,
@@ -825,7 +842,7 @@ private fun UninstallHistoryPage(a: UninstallHistoryActivity) {
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             item {
-                IntroCard("记录已捕获的卸载请求，包括黑白名单、弹窗、超时及验证未启用时的放行；允许不代表系统最终卸载成功")
+                IntroCard("记录已捕获的卸载请求，允许不代表系统最终卸载成功")
             }
             item {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -900,7 +917,7 @@ private fun UninstallHistoryPage(a: UninstallHistoryActivity) {
     OverlayDialog(
         show = confirmClear,
         title = "清空卸载记录",
-        summary = "确定清空全部卸载记录吗？此操作无法撤销",
+        summary = "确定清空全部卸载记录吗？",
         onDismissRequest = { confirmClear = false },
     ) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -1451,6 +1468,9 @@ private fun SettingsPage(a: ArashiSettings) = Page(a, "应用偏好设置", a::f
     var selectedTheme by remember {
         mutableIntStateOf(themeModes.indexOf(prefs.getInt("mode", 0)).coerceAtLeast(0))
     }
+    var selectedColorScheme by remember {
+        mutableIntStateOf(if (prefs.getInt("color_scheme", 0) == 1) 1 else 0)
+    }
     var hidden by remember { mutableStateOf(a.isLauncherHidden) }
     var installer by remember { mutableStateOf(a.isInstallerEnabled) }
     var android12BlacklistHook by remember {
@@ -1469,6 +1489,16 @@ private fun SettingsPage(a: ArashiSettings) = Page(a, "应用偏好设置", a::f
         onDispose { a.lifecycle.removeObserver(observer) }
     }
     Group("外观") {
+        OverlayDropdownPreference(
+            items = listOf("Arashi 紫色", "Miuix 默认蓝色"),
+            selectedIndex = selectedColorScheme,
+            title = "配色设置",
+            onSelectedIndexChange = { index ->
+                selectedColorScheme = index
+                prefs.edit().putInt("color_scheme", index).apply()
+                a.recreate()
+            },
+        )
         OverlayDropdownPreference(
             items = themeNames,
             selectedIndex = selectedTheme,
@@ -1489,9 +1519,9 @@ private fun SettingsPage(a: ArashiSettings) = Page(a, "应用偏好设置", a::f
             },
             title = "兼容安卓12清除安装黑名单",
             summary = if (isAndroid12) {
-                "安卓12 改用 PMS 方法，是否清除仍由 Hook 功能设置控制；修改后重启生效"
+                "安卓12改用 PMS 方法，是否清除仍由 Hook 功能设置控制。修改后重启生效"
             } else {
-                "本功能仅适用于安卓12，当前系统自动使用对应的 Hook 路径"
+                "本功能仅适用于安卓12，当前系统默认使用对应的 Hook 路径"
             },
             enabled = isAndroid12,
         )
