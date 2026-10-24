@@ -35,6 +35,13 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -56,6 +63,7 @@ import com.lijinmu.arashi.xposed.SettingsProvider
 import com.lijinmu.arashi.uninstall.UninstallHistoryStore
 import com.lijinmu.arashi.zybos.SystemToolSupport
 import top.yukonga.miuix.kmp.basic.Card
+import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.basic.CardDefaults
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Icon
@@ -394,22 +402,64 @@ private fun rememberSystemServerActivation(a: androidx.activity.ComponentActivit
 
 @Composable
 private fun HomePage(a: Main) = Page(a, "Arashi") {
+    val moduleActive by rememberSystemServerActivation(a)
+    val statusColor = if (moduleActive) MiuixTheme.colorScheme.primary
+        else MiuixTheme.colorScheme.onSurfaceVariantSummary
     Card(
         modifier = Modifier.fillMaxWidth(),
-        insideMargin = PaddingValues(horizontal = 22.dp, vertical = 24.dp),
+        insideMargin = PaddingValues(0.dp),
         colors = CardDefaults.defaultColors(
             color = MiuixTheme.colorScheme.tertiaryContainer,
             contentColor = MiuixTheme.colorScheme.onSurface,
         ),
     ) {
-        Text(
-            "版本 ${BuildConfig.VERSION_NAME}",
-            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-            style = MiuixTheme.textStyles.main.copy(fontWeight = FontWeight.SemiBold),
-        )
-        Spacer(Modifier.height(18.dp))
-        val moduleActive by rememberSystemServerActivation(a)
-        StatusLine("LSPosed", if (moduleActive) "已激活" else "未激活", moduleActive)
+        Box(Modifier.fillMaxWidth().clipToBounds()) {
+            // Decorative status watermark: it does not duplicate accessibility text.
+            Canvas(Modifier.matchParentSize()) {
+                val extent = minOf(size.height * 1.25f, 190.dp.toPx())
+                val left = size.width - extent * 0.92f
+                val top = (size.height - extent) / 2f
+                val watermark = statusColor.copy(alpha = 0.13f)
+                if (moduleActive) {
+                    val check = Path().apply {
+                        moveTo(left + extent * 0.16f, top + extent * 0.52f)
+                        lineTo(left + extent * 0.40f, top + extent * 0.76f)
+                        lineTo(left + extent * 0.92f, top + extent * 0.20f)
+                    }
+                    drawPath(check, watermark, style = Stroke(
+                        width = extent * 0.14f,
+                        cap = StrokeCap.Round,
+                        join = StrokeJoin.Round,
+                    ))
+                } else {
+                    val center = Offset(left + extent * 0.54f, top + extent * 0.5f)
+                    drawCircle(watermark, radius = extent * 0.34f, center = center,
+                        style = Stroke(width = extent * 0.10f))
+                    drawLine(watermark,
+                        Offset(center.x, center.y - extent * 0.13f),
+                        Offset(center.x, center.y + extent * 0.03f),
+                        strokeWidth = extent * 0.07f, cap = StrokeCap.Round)
+                    drawCircle(watermark, radius = extent * 0.04f,
+                        center = Offset(center.x, center.y + extent * 0.16f))
+                }
+            }
+            Column(
+                Modifier.fillMaxWidth().padding(horizontal = 22.dp, vertical = 24.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Text("LSPosed", color = statusColor, style = MiuixTheme.textStyles.body1)
+                Text(
+                    if (moduleActive) "已激活" else "未激活",
+                    color = statusColor,
+                    style = MiuixTheme.textStyles.title1.copy(fontWeight = FontWeight.SemiBold),
+                )
+                Text(
+                    "版本 ${BuildConfig.VERSION_NAME}",
+                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                    style = MiuixTheme.textStyles.footnote1,
+                )
+            }
+        }
     }
     Group("功能") {
         Link("Hook 功能设置", "控制 Hook 是否启用") { a.startActivity(Intent(a, HookSettings::class.java)) }
@@ -619,6 +669,32 @@ private fun HookPage(a: HookSettings) = Page(a, "Hook 功能设置", a::finish) 
 private data class BackgroundChoice(val packageName: String, val label: String, val isSystem: Boolean? = null)
 
 @Composable
+private fun PruneMissingAppSelections(
+    a: androidx.activity.ComponentActivity,
+    selected: Set<String>,
+    prefixed: Boolean,
+    onPruned: (Set<String>) -> Unit,
+) {
+    var revision by remember { mutableIntStateOf(0) }
+    DisposableEffect(a) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) revision++
+        }
+        a.lifecycle.addObserver(observer)
+        onDispose { a.lifecycle.removeObserver(observer) }
+    }
+    LaunchedEffect(a, selected, prefixed, revision) {
+        val missing = withContext(Dispatchers.IO) {
+            com.lijinmu.arashi.settings.InstalledAppSelections.findMissing(
+                a.packageManager, selected, prefixed)
+        }
+        // A selection change cancels the previous check; never replace new edits
+        // with the result of an older snapshot.
+        if (missing.isNotEmpty()) onPruned(selected - missing)
+    }
+}
+
+@Composable
 private fun BackgroundWhitelistPage(a: BackgroundWhitelistActivity) {
     val prefs = a.getSharedPreferences(HookConfig.PREF_NAME, Context.MODE_PRIVATE)
     var selected by remember {
@@ -657,15 +733,20 @@ private fun BackgroundWhitelistPage(a: BackgroundWhitelistActivity) {
         val matchesCategory = when (filter) {
             1 -> it.isSystem == false
             2 -> it.isSystem == true
-            3 -> it.packageName in selected
             else -> true
         }
         matchesCategory && (query.isBlank() || it.label.contains(query, true) || it.packageName.contains(query, true))
-    }
+    }.sortedWith(
+        compareBy<BackgroundChoice> { if (it.packageName in selected) 0 else 1 }
+            .thenBy { if (it.isSystem == true) 1 else 0 }
+            .thenBy { it.label.lowercase() }
+            .thenBy { it.packageName },
+    )
     fun save(next: Set<String>) {
         selected = next
         prefs.edit().putStringSet(HookConfig.KEY_KEEP_BACKGROUND_WHITELIST, next).apply()
     }
+    PruneMissingAppSelections(a, selected, prefixed = false, onPruned = ::save)
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         topBar = {
@@ -698,7 +779,7 @@ private fun BackgroundWhitelistPage(a: BackgroundWhitelistActivity) {
             item {
                 AppPickerFilterRow(
                     status = if (selected.isEmpty()) "当前保留全部应用" else "已选择 ${selected.size} 个应用",
-                    categories = listOf("全部", "用户应用", "系统应用", "已选择"),
+                    categories = listOf("默认", "用户应用", "系统应用"),
                     selectedIndex = filter,
                     onSelectedIndexChange = { filter = it },
                 )
@@ -1051,18 +1132,24 @@ private fun UninstallListPage(a: UninstallListActivity, blacklist: Boolean) {
     }
     val visible = (manualChoices + choices).filter { choice ->
         val inFilter = when (filter) {
-            0 -> choice.kind == 1
-            1 -> choice.kind == 2
-            2 -> choice.kind == 3
-            else -> choice.key in selected
+            1 -> choice.kind == 1
+            2 -> choice.kind == 2
+            3 -> choice.kind == 3
+            else -> true
         }
         inFilter && (query.isBlank() || choice.title.contains(query, true) ||
             choice.summary.contains(query, true) || choice.key.contains(query, true))
-    }
+    }.sortedWith(
+        compareBy<UninstallChoice> { if (it.key in selected) 0 else 1 }
+            .thenBy { it.kind }
+            .thenBy { it.title.lowercase() }
+            .thenBy { it.key },
+    )
     fun save(next: Set<String>) {
         selected = next
         prefs.edit().putStringSet(prefKey, next).apply()
     }
+    PruneMissingAppSelections(a, selected, prefixed = true, onPruned = ::save)
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         topBar = {
@@ -1121,7 +1208,7 @@ private fun UninstallListPage(a: UninstallListActivity, blacklist: Boolean) {
                                 save(selected + entry)
                                 manual = ""
                                 query = ""
-                                filter = 3
+                                filter = 0
                             }
                         },
                         colors = ButtonDefaults.textButtonColorsPrimary(),
@@ -1134,7 +1221,7 @@ private fun UninstallListPage(a: UninstallListActivity, blacklist: Boolean) {
             item {
                 AppPickerFilterRow(
                     status = "已选择 " + selected.size + " 项 · 当前显示 " + visible.size + " 项",
-                    categories = listOf("用户应用", "系统应用", "UID", "已选择"),
+                    categories = listOf("默认", "用户应用", "系统应用", "UID"),
                     selectedIndex = filter,
                     onSelectedIndexChange = { filter = it },
                 )
@@ -1271,14 +1358,18 @@ private fun UninstallPrompt(
 }
 
 @Composable
+private fun QuickCommandItem(title: String, summary: String, action: () -> Unit) =
+    BasicComponent(title = title, summary = summary, onClick = action)
+
+@Composable
 private fun QuickPage(a: QuickCommands) = Page(a, "快捷指令执行", a::finish) {
     IntroCard("以下功能使用 root 权限执行，首次使用请授予 root 权限")
     Group("应用") {
-        Link("禁用 PadMs", "冻结 com.zuoyebang.padms") { a.run("禁用 PadMs", "pm disable com.zuoyebang.padms") }
-        Link("禁用 report服务", "冻结 com.zuoyebang.iot.pad.zpreport") { a.run("禁用 report服务", "pm disable com.zuoyebang.iot.pad.zpreport") }
-        Link("禁用桌面 ErrorActivity", "仅冻结桌面的 ErrorActivity 组件，保留桌面其他功能，以此禁止云控锁机的页面") { a.freezeLauncherErrorActivity() }
-        Link("禁用 系统升级", "冻结 com.zuoyebang.iot.zp.lib.ota.server") { a.run("禁用 系统升级", "pm disable com.zuoyebang.iot.zp.lib.ota.server") }
-        Link("启用 系统升级", "与上方功能作用排斥") { a.run("启用 系统升级", "pm enable com.zuoyebang.iot.zp.lib.ota.server") }
+        QuickCommandItem("禁用 PadMs", "冻结 com.zuoyebang.padms") { a.run("禁用 PadMs", "pm disable com.zuoyebang.padms") }
+        QuickCommandItem("禁用 report服务", "冻结 com.zuoyebang.iot.pad.zpreport") { a.run("禁用 report服务", "pm disable com.zuoyebang.iot.pad.zpreport") }
+        QuickCommandItem("禁用桌面 ErrorActivity", "仅冻结桌面的 ErrorActivity 组件，保留桌面其他功能，以此禁止云控锁机的页面") { a.freezeLauncherErrorActivity() }
+        QuickCommandItem("禁用 系统升级", "冻结 com.zuoyebang.iot.zp.lib.ota.server") { a.run("禁用 系统升级", "pm disable com.zuoyebang.iot.zp.lib.ota.server") }
+        QuickCommandItem("启用 系统升级", "与上方功能作用排斥") { a.run("启用 系统升级", "pm enable com.zuoyebang.iot.zp.lib.ota.server") }
     }
     Group("设置") {
         Link("Zybos 环境控制", "读取和修改 persist.sys.env_config") {
@@ -1286,16 +1377,16 @@ private fun QuickPage(a: QuickCommands) = Page(a, "快捷指令执行", a::finis
         }
         fun set(title: String, key: String, value: Int) =
             a.run(title, "settings put global $key $value; settings get global $key")
-        Link("打开开发者模式", "打开 development_settings_enabled") { set("打开开发者模式", "development_settings_enabled", 1) }
-        Link("关闭开发者模式", "关闭 development_settings_enabled") { set("关闭开发者模式", "development_settings_enabled", 0) }
-        Link("打开 USB调试", "打开 adb_enabled") { set("打开 USB调试", "adb_enabled", 1) }
-        Link("关闭 USB调试", "关闭 adb_enabled") { set("关闭 USB调试", "adb_enabled", 0) }
+        QuickCommandItem("打开开发者模式", "打开 development_settings_enabled") { set("打开开发者模式", "development_settings_enabled", 1) }
+        QuickCommandItem("关闭开发者模式", "关闭 development_settings_enabled") { set("关闭开发者模式", "development_settings_enabled", 0) }
+        QuickCommandItem("打开 USB调试", "打开 adb_enabled") { set("打开 USB调试", "adb_enabled", 1) }
+        QuickCommandItem("关闭 USB调试", "关闭 adb_enabled") { set("关闭 USB调试", "adb_enabled", 0) }
     }
     Group("投屏") {
-        Link("开启投屏", "启用 SystemUI 的无线显示并添加投屏磁贴") {
+        QuickCommandItem("开启投屏", "启用 SystemUI 的无线显示并添加投屏磁贴") {
             a.run("开启投屏", "settings put global wifi_display_on 1 && am broadcast --user current -a com.android.systemui.cast.Add -p com.android.systemui")
         }
-        Link("关闭投屏", "与上方设置排斥") {
+        QuickCommandItem("关闭投屏", "与上方设置排斥") {
             a.run("关闭投屏", "settings put global wifi_display_on 0 && am broadcast --user current -a com.android.systemui.cast.Remove -p com.android.systemui")
         }
     }
@@ -1435,7 +1526,7 @@ private fun ZybosUninstallPickerPage(a: ZybosUninstallPickerActivity) {
                 item {
                     AppPickerFilterRow(
                         status = "当前显示 " + visible.size + " 项",
-                        categories = listOf("全部", "用户应用", "已更新的系统应用"),
+                        categories = listOf("默认", "用户应用", "已更新的系统应用"),
                         selectedIndex = filter,
                         onSelectedIndexChange = { filter = it },
                     )
@@ -1673,6 +1764,14 @@ private fun AboutPage(a: About) = Page(a, "关于 Arashi", a::finish) {
     AboutCard("作者", "李瑾沐", arrow = true, onClick = {
         MiuixPages.showMessage(a, "关于作者", "首席开发者 : 李瑾沐 (H…Hey)\n小红书号 : failgach")
     })
+    AboutCard("GitHub 仓库", "lijinmu666/Arashi-for-Zybos", externalLink = true, compactValue = true, onClick = {
+        val url = "https://github.com/lijinmu666/Arashi-for-Zybos"
+        try {
+            a.startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse(url)))
+        } catch (_: android.content.ActivityNotFoundException) {
+            MiuixPages.showMessage(a, "无法打开链接", "请先安装可打开网页的应用")
+        }
+    })
     AboutCard("QQ 群聊", "加入 Arashi 用户交流与反馈群", externalLink = true, compactValue = true, onClick = {
         val url = "https://qun.qq.com/universal-share/share?ac=1&authKey=i%2Bh3ZyTelsMfhjWvc8srNCHnS4BMGrsr4hj1fDcEXx0fC5ECgHyUjh45kS5qiQ3W&busi_data=eyJncm91cENvZGUiOiIxMTI1MTkwMzUwIiwidG9rZW4iOiIrRFg2KzdBTHhRRlZKODZjUUt2U2gySFRBaHFBeFNIYTdFTFc0emcydXJuTEZsN1dvS3MwT1J4ZFF2dnNJNUhOIiwidWluIjoiODQxNTYzNjAifQ%3D%3D&data=PB0LIOhizgFR_GzQFzdDn6FEbw0rzkzMw5JbqCzMZp0t72lHOOiSfSqMcISpvsGOvjkcACA_44t9aKGSV3GaNQ&svctype=4&tempid=h5_group_info"
         try {
@@ -1816,12 +1915,6 @@ private fun ZybosEnvPage(a: com.lijinmu.arashi.tools.ZybosEnvController) = Page(
     val environments = listOf("PRODUCTION", "TEST", "MOCK")
     var original by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf<String?>(null) }
     var environment by androidx.compose.runtime.saveable.rememberSaveable { mutableIntStateOf(0) }
-    var tcpServers by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf("[]") }
-    var editingServer by remember { mutableIntStateOf(-2) }
-    var serverEnvironment by remember { mutableIntStateOf(0) }
-    var serverHost by remember { mutableStateOf("") }
-    var serverPort by remember { mutableStateOf("") }
-    var serverError by remember { mutableStateOf<String?>(null) }
     var showTools by remember { mutableStateOf(false) }
     var tips by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(original == null) }
@@ -1829,7 +1922,6 @@ private fun ZybosEnvPage(a: com.lijinmu.arashi.tools.ZybosEnvController) = Page(
     val scope = rememberCoroutineScope()
     fun accept(config: com.lijinmu.arashi.tools.ZybosEnvConfig) {
         original = config.json
-        tcpServers = org.json.JSONObject(config.json).optJSONArray("tcpServerConfigs")?.toString() ?: "[]"
         environment = environments.indexOf(config.environment)
         error = null
     }
@@ -1871,95 +1963,6 @@ private fun ZybosEnvPage(a: com.lijinmu.arashi.tools.ZybosEnvController) = Page(
             enabled = !busy && original != null,
         )
     }
-    Group("TCP 服务器") {
-        Text(
-            "按环境配置服务器地址，可添加多条。编辑后点击“应用并写入”保存；空列表使用系统默认服务器",
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
-            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-        )
-        val servers = org.json.JSONArray(tcpServers)
-        for (index in 0 until servers.length()) {
-            val server = servers.getJSONObject(index)
-            Link(
-                server.optString("env"),
-                "${server.optString("host")}:${server.optInt("port")} · 点按编辑或删除",
-            ) {
-                if (!busy) {
-                    editingServer = index
-                    serverEnvironment = environments.indexOf(server.optString("env")).coerceAtLeast(0)
-                    serverHost = server.optString("host")
-                    serverPort = server.optString("port")
-                    serverError = null
-                }
-            }
-        }
-        Box(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 16.dp, top = 4.dp)) {
-        TextButton("添加服务器", {
-            editingServer = -1
-            serverEnvironment = environment
-            serverHost = ""
-            serverPort = ""
-            serverError = null
-        }, Modifier.fillMaxWidth(), enabled = !busy && original != null)
-        }
-    }
-    OverlayDialog(
-        show = editingServer != -2,
-        title = if (editingServer == -1) "添加 TCP 服务器" else "编辑 TCP 服务器",
-        onDismissRequest = { editingServer = -2 },
-    ) {
-        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            OverlayDropdownPreference(
-                items = environments,
-                selectedIndex = serverEnvironment,
-                title = "环境",
-                onSelectedIndexChange = { serverEnvironment = it; serverError = null },
-            )
-            TextField(
-                value = serverHost,
-                onValueChange = { serverHost = it; serverError = null },
-                label = "服务器域名或 IP",
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-            )
-            TextField(
-                value = serverPort,
-                onValueChange = { serverPort = it; serverError = null },
-                label = "端口（1–65535）",
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-            )
-            if (serverError != null) Text(serverError.orEmpty())
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                TextButton("取消", { editingServer = -2 }, Modifier.weight(1f))
-                if (editingServer >= 0) {
-                    TextButton("删除", {
-                        val updated = org.json.JSONArray(tcpServers)
-                        updated.remove(editingServer)
-                        tcpServers = updated.toString()
-                        editingServer = -2
-                    }, Modifier.weight(1f))
-                }
-                TextButton("保存", {
-                    try {
-                        val port = serverPort.trim().toIntOrNull()
-                            ?: throw IllegalArgumentException("端口必须是 1–65535 的整数")
-                        val updated = org.json.JSONArray(tcpServers)
-                        val server = if (editingServer >= 0)
-                            updated.getJSONObject(editingServer) else org.json.JSONObject()
-                        server.put("env", environments[serverEnvironment])
-                        server.put("host", serverHost.trim())
-                        server.put("port", port)
-                        if (editingServer >= 0) updated.put(editingServer, server) else updated.put(server)
-                        tcpServers = com.lijinmu.arashi.tools.ZybosEnvConfig.validateTcpServers(updated.toString())
-                        editingServer = -2
-                    } catch (failure: Exception) {
-                        serverError = failure.message ?: "配置无效"
-                    }
-                }, Modifier.weight(1f), colors = ButtonDefaults.textButtonColorsPrimary())
-            }
-        }
-    }
     TextButton(
         "应用并写入",
         {
@@ -1969,10 +1972,9 @@ private fun ZybosEnvPage(a: com.lijinmu.arashi.tools.ZybosEnvController) = Page(
                 val selectedEnv = environments[environment]
                 val selectedTools = showTools
                 val selectedTips = tips
-                val selectedServers = tcpServers
                 scope.launch {
                     try {
-                        accept(withContext(Dispatchers.IO) { a.applyConfig(base, selectedEnv, selectedTools, selectedTips, selectedServers) })
+                        accept(withContext(Dispatchers.IO) { a.applyConfig(base, selectedEnv, selectedTools, selectedTips) })
                         MiuixPages.showMessage(a, "写入成功", "已写入并核对 persist.sys.env_config")
                     } catch (cancelled: CancellationException) {
                         throw cancelled

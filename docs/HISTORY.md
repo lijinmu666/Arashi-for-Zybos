@@ -4,11 +4,11 @@
 
 ## v1.0.0（当前）
 
-显示版本长期保持 v1.0.0，当前源码 versionCode 为 40，不能仅通过版本名判断是否包含某次修复。此处以提交标识具体变更，不改写原始历史
+显示版本长期保持 v1.0.0，当前源码 versionCode 为 41，不能仅通过版本名判断是否包含某次修复。此处以提交标识具体变更，不改写原始历史
 
 | 提交 | 内容与验证边界 |
 | --- | --- |
-| 当前源码（未重新编译） | 主界面“快捷指令执行”前移到“卸载验证设置”之前；更新 README、专题文档与本索引；仅源码提交，跳过 CI |
+| 内部版本 41 | 主页激活状态改为大号对勾背景，包含此前入口排序、关于页仓库链接、指令箭头、选择器排序和失效应用自动取消选择，以及 Android 12 壁纸、录屏兼容修正；设备效果分别核验 |
 | [1c391da](https://github.com/lijinmu666/Arashi-for-Zybos/commit/1c391da5b5b62af95e0385285d688dd70d72e703)、[b388de1](https://github.com/lijinmu666/Arashi-for-Zybos/commit/b388de1bc8dafb3addea2fee554dce4de58e584a) | 后续页面调整，保留现有代码 |
 | [9d99393](https://github.com/lijinmu666/Arashi-for-Zybos/commit/9d9939308fcc4f93c317e76f0a72e1eb9d26e479) | 内部版本 40：改用 AOSP 原始 Wi-Fi 路径并覆盖新旧显示路径；Actions 成功，Android 12 / 14 用户反馈可用 |
 | [75165f8](https://github.com/lijinmu666/Arashi-for-Zybos/commit/75165f8a4b10db78aefb5bad4e78bd98e28cd45d) | 内部版本 39：首次加入 Wi-Fi 样式开关；旧路径覆盖不足，后续 40 修复 |
