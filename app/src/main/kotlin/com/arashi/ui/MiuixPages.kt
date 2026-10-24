@@ -384,12 +384,12 @@ private fun HomePage(a: Main) = Page(a, "Arashi") {
 private fun UnsupportedDevicePage(a: Main) = Page(a, "Arashi") {
     OverlayDialog(
         show = true,
-        summary = "当前设备不支持 Arashi",
-        onDismissRequest = a::finish,
+        summary = "当前系统无法正常使用 Arashi 功能",
+        onDismissRequest = a::continueAfterCompatibilityWarning,
     ) {
         TextButton(
             "确定",
-            a::finish,
+            a::continueAfterCompatibilityWarning,
             Modifier.fillMaxWidth(),
             colors = ButtonDefaults.textButtonColorsPrimary(),
         )

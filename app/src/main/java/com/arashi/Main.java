@@ -60,6 +60,11 @@ public final class Main extends BasePage {
         
     }
 
+    public void continueAfterCompatibilityWarning() {
+        if (isFinishing() || isDestroyed()) return;
+        populateHome();
+    }
+
     private void populateHome() {
         MiuixPages.renderHome(this);
         showSignatureWarningIfNeeded();
