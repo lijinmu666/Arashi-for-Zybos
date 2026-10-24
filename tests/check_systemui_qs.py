@@ -19,10 +19,19 @@ public class XposedModule {public Map<Executable,XposedInterface.Hooker> hooks=n
  public class Builder {Executable m;Builder(Executable x){m=x;}public void intercept(XposedInterface.Hooker h){hooks.put(m,h);}}
  public Builder hook(Executable m){return new Builder(m);}public boolean deoptimize(Executable m){return true;}}
 ''',
+'com/android/systemui/util/animation/TransitionLayout.java': '''package com.android.systemui.util.animation;
+public class TransitionLayout extends android.view.View {public void applyCurrentState(){setClipToOutline(false);}}''',
 'android/graphics/Outline.java': '''package android.graphics;public class Outline {
  public float radius;public int width,height;public void setRoundRect(int l,int t,int r,int b,float x){width=r-l;height=b-t;radius=x;}}''',
 'android/view/ViewOutlineProvider.java': '''package android.view;public abstract class ViewOutlineProvider {
  public abstract void getOutline(View v,android.graphics.Outline o);}''',
+'android/content/Context.java': 'package android.content;public class Context {}',
+'android/text/format/DateFormat.java': '''package android.text.format;public class DateFormat {
+ public static String getBestDateTimePattern(java.util.Locale l,String skeleton){return skeleton;}}''',
+'android/widget/TextClock.java': '''package android.widget;public class TextClock extends TextView {
+ public static int formatUpdates;public CharSequence format12,format24;public TextClock(android.content.Context c){}
+ public void setSingleLine(boolean b){}public void setTextColor(int c){}
+ public void setFormat12Hour(CharSequence s){formatUpdates++;format12=s;}public void setFormat24Hour(CharSequence s){formatUpdates++;format24=s;}}''',
 'android/R.java': '''package android;public class R {public static class id {public static int mask=999;}
  public static class color {public static final int system_neutral1_50=50,system_neutral1_100=100,
  system_neutral1_800=800,system_neutral1_900=900;}}
@@ -65,10 +74,11 @@ public class View {public static class MeasureSpec {public static final int EXAC
  public static final int VISIBLE=0,INVISIBLE=4,GONE=8,NO_ID=-1;public int id=NO_ID,visibility,ps,pt,pe,pb,minHeight;
  public Resources resources=new Resources();public ViewGroup parent;public ViewGroup.LayoutParams params=new ViewGroup.LayoutParams(-1,-2);
  public ViewOutlineProvider outline;public boolean clip;public float elevation;public int width=400,height=160;
- public void setOutlineProvider(ViewOutlineProvider p){outline=p;}public void setClipToOutline(boolean v){clip=v;}
+ public Object clipBounds;public Object getClipBounds(){return clipBounds;}public void setClipBounds(Object value){clipBounds=value;}
+ public ViewOutlineProvider getOutlineProvider(){return outline;}public boolean getClipToOutline(){return clip;}public int getPaddingLeft(){return ps;}public int getPaddingRight(){return pe;}public void setOutlineProvider(ViewOutlineProvider p){outline=p;}public void setClipToOutline(boolean v){clip=v;}
  public void invalidateOutline(){}public int getWidth(){return width;}public int getHeight(){return height;}
  public void setElevation(float v){elevation=v;}
- public android.graphics.drawable.Drawable background;public Resources getResources(){return resources;}
+ public android.graphics.drawable.Drawable background;public android.content.Context getContext(){return new android.content.Context();}public Resources getResources(){return resources;}
  public void setBackground(android.graphics.drawable.Drawable d){background=d;}public boolean isClickable(){return true;}
  public void setId(int id){this.id=id;}public int getId(){return id;}public ViewGroup getParent(){return parent;}
  public View findViewById(int id){return this.id==id?this:null;}
@@ -161,7 +171,7 @@ public class ShadeHeaderController {public View header=new View();public boolean
 ''',
  'com/android/systemui/shade/NotificationsQuickSettingsContainer.java': '''package com.android.systemui.shade;
 public class NotificationsQuickSettingsContainer extends android.widget.FrameLayout {
- public int measures;public void onMeasure(int w,int h){measures++;}}''',
+ public int measures;public void onFinishInflate(){}public void onAttachedToWindow(){}public void onConfigurationChanged(android.content.res.Configuration c){}public void onMeasure(int w,int h){measures++;}}''',
  'com/android/systemui/statusbar/notification/row/NotificationBackgroundView.java': '''package com.android.systemui.statusbar.notification.row;
 public class NotificationBackgroundView extends android.view.View {
  public float[] mCornerRadii=new float[8];public boolean mBottomIsRounded;
@@ -175,7 +185,10 @@ public class PhoneStatusBarView extends android.view.View {
  public void onAttachedToWindow(){}public void onDetachedFromWindow(){}
 }''',
  'com/android/systemui/shade/NotificationPanelViewController.java': '''package com.android.systemui.shade;
-public class NotificationPanelViewController {public float mExpandedFraction;public void updateExpansionAndVisibility(){}}
+public class NotificationPanelViewController {public float mExpandedFraction;public int mBarState;public boolean mHeadsUpPinnedMode,mTracking,mQsExpanded;public Object mQsController;public void updateExpansionAndVisibility(){}}
+''',
+ 'com/android/systemui/statusbar/StatusBarStateControllerImpl.java': '''package com.android.systemui.statusbar;
+public class StatusBarStateControllerImpl {public int mState;public boolean setState(int state,boolean force){mState=state;return true;}}
 ''',
  'com/android/systemui/statusbar/phone/PanelViewController.java': '''package com.android.systemui.statusbar.phone;
 public class PanelViewController {public float mExpandedFraction;public void notifyBarPanelExpansionChanged(){}}
@@ -198,6 +211,15 @@ public class NotificationStackScrollLayoutController {
  'com/android/systemui/statusbar/notification/row/NotificationMenuRow.java': '''package com.android.systemui.statusbar.notification.row;
 public class NotificationMenuRow {public boolean mShouldShowMenu;public NotificationMenuRow(){mShouldShowMenu=false;}}
 ''',
+ 'com/android/systemui/media/controls/ui/MediaScrollView.java': '''package com.android.systemui.media.controls.ui;
+public class MediaScrollView extends android.widget.FrameLayout {}''',
+ 'com/android/systemui/media/controls/ui/MediaViewController.java': '''package com.android.systemui.media.controls.ui;
+public class MediaViewController {
+ public android.view.View transitionLayout;public boolean fail;public int measured;
+ public static class Input {public int widthMeasureSpec=1920;}
+ public static class State {public Input input=new Input();public Input getMeasurementInput(){return input;}}
+ public int obtainViewState(State state){measured=state.input.widthMeasureSpec;if(fail)throw new IllegalStateException();return measured;}
+}''',
  'com/android/systemui/util/LargeScreenUtils.java': '''package com.android.systemui.util;
 public class LargeScreenUtils {public static boolean shouldUseSplitNotificationShade(android.content.res.Resources r){return false;}}''',
  'com/android/systemui/qs/QSPanelControllerBase.java': '''package com.android.systemui.qs;
@@ -226,7 +248,7 @@ import com.android.systemui.statusbar.phone.NotificationPanelViewController;
 public class Check {
  static XposedModule module=new XposedModule();static void check(boolean b){if(!b)throw new AssertionError();}
  static Object call(Method m,Object o,Object...args)throws Throwable{
-  return module.hooks.get(m).intercept(new XposedInterface.Chain(o,args,a->m.invoke(o,a)));}
+  return module.hooks.containsKey(m) ? module.hooks.get(m).intercept(new XposedInterface.Chain(o,args,a->m.invoke(o,a))) : m.invoke(o,args);}
  static <T extends View>T named(T v,String name){v.setId(name.hashCode());return v;}
  static class Quick extends LinearLayout {public View mBrightnessView=new View(),mQsCustomModeView=new View();}
  public static void main(String[] a)throws Throwable {
@@ -280,7 +302,7 @@ public class Check {
   split.owner="com.android.systemui";ConfigManager.enabled=false;
   check(!(boolean)call(bool,split,70));check(!(boolean)call(splitDecision,null,split));ConfigManager.enabled=true;
   var bounds=new com.android.systemui.shade.NotificationsQuickSettingsContainer();View qsBounds=named(new View(),"qs_frame");
-  class Stack extends View {public boolean mInHeadsUpPinnedMode,mIsExpanded=true,keyguard;public Object mAmbientState;public boolean onKeyguard(){return keyguard;}}
+  class Stack extends View {public boolean mInHeadsUpPinnedMode,mHeadsUpAnimatingAway,mIsExpanded=true,keyguard;public Object mAmbientState;public boolean onKeyguard(){return keyguard;}}
   Stack stackBounds=named(new Stack(),"notification_stack_scroller");
   qsBounds.setLayoutParams(new FrameLayout.LayoutParams(960,-1));stackBounds.setLayoutParams(new FrameLayout.LayoutParams(960,-1));
   bounds.addView(qsBounds);bounds.addView(stackBounds);
@@ -289,17 +311,34 @@ public class Check {
   check(qsBounds.params.width==912&&stackBounds.params.width==912);
   check(((FrameLayout.LayoutParams)qsBounds.params).leftMargin==32);
   check(((FrameLayout.LayoutParams)stackBounds.params).leftMargin==976);
-  check(((FrameLayout.LayoutParams)stackBounds.params).topMargin==96);
+  check(((FrameLayout.LayoutParams)stackBounds.params).topMargin==128);
   SystemUiQsHooks.restoreShadeBounds(bounds,1920);
-  check(((FrameLayout.LayoutParams)stackBounds.params).topMargin==96);
+  check(((FrameLayout.LayoutParams)stackBounds.params).topMargin==128);
+  class ClipStack extends View {public boolean keyguard,mShouldUseRoundedRectClipping=true,mIsClipped=true;public Object mAmbientState;public boolean onKeyguard(){return keyguard;}}
+  ClipStack clipping=new ClipStack();Object originalClip=new Object();clipping.setClipBounds(originalClip);clipping.setClipToOutline(true);
+  SystemUiQsHooks.restoreLockscreenClipping(clipping);check(clipping.getClipBounds()==originalClip&&clipping.mShouldUseRoundedRectClipping);
+  clipping.keyguard=true;SystemUiQsHooks.restoreLockscreenClipping(clipping);
+  check(clipping.getClipBounds()==null&&!clipping.getClipToOutline()&&!clipping.mShouldUseRoundedRectClipping&&!clipping.mIsClipped);
+  class HiddenAmbient {public boolean isHiddenAtAll(){return true;}}
+  clipping.mAmbientState=new HiddenAmbient();clipping.setClipBounds(originalClip);clipping.mShouldUseRoundedRectClipping=true;
+  SystemUiQsHooks.restoreLockscreenClipping(clipping);check(clipping.getClipBounds()==originalClip&&clipping.mShouldUseRoundedRectClipping);
   stackBounds.keyguard=true;SystemUiQsHooks.restoreShadeBounds(bounds,1920);
+  check(stackBounds.params.width==960&&qsBounds.params.width==960);
   check(((FrameLayout.LayoutParams)stackBounds.params).topMargin==0);
   stackBounds.keyguard=false;SystemUiQsHooks.restoreShadeBounds(bounds,1920);
-  check(((FrameLayout.LayoutParams)stackBounds.params).topMargin==96);
+  check(((FrameLayout.LayoutParams)stackBounds.params).topMargin==128);
   check(((FrameLayout.LayoutParams)qsBounds.params).bottomMargin==64);
   stackBounds.mInHeadsUpPinnedMode=true;stackBounds.mIsExpanded=false;
   SystemUiQsHooks.restoreShadeBounds(bounds,1920);
   check(((FrameLayout.LayoutParams)stackBounds.params).leftMargin==504);
+  stackBounds.mInHeadsUpPinnedMode=false;stackBounds.mHeadsUpAnimatingAway=true;
+  SystemUiQsHooks.restoreShadeBounds(bounds,1920);
+  check(((FrameLayout.LayoutParams)stackBounds.params).leftMargin==504);
+  SystemUiQsHooks.restoreShadeBounds(bounds,1920);
+  check(((FrameLayout.LayoutParams)stackBounds.params).leftMargin==504);
+  stackBounds.mHeadsUpAnimatingAway=false;
+  SystemUiQsHooks.restoreShadeBounds(bounds,1920);
+  check(((FrameLayout.LayoutParams)stackBounds.params).leftMargin==976);
   check(((FrameLayout.LayoutParams)stackBounds.params).topMargin==0);
   bounds.resources.config.orientation=1;bounds.resources.config.screenWidthDp=640;
   SystemUiQsHooks.restoreShadeBounds(bounds,1280);check(qsBounds.params.width==1184&&stackBounds.params.width==1184);
@@ -314,9 +353,9 @@ public class Check {
   qsBounds.setLayoutParams(new Constraints());stackBounds.setLayoutParams(new Constraints());
   bounds.resources.config.orientation=2;stackBounds.mIsExpanded=true;SystemUiQsHooks.restoreShadeBounds(bounds,1920);
   Constraints cp=(Constraints)stackBounds.params;
-  check(cp.topMargin==96);
-  cp.topMargin=20;SystemUiQsHooks.restoreShadeBounds(bounds,1920);check(cp.topMargin==116);
-  SystemUiQsHooks.restoreShadeBounds(bounds,1920);check(cp.topMargin==116);
+  check(cp.topMargin==128);
+  cp.topMargin=20;SystemUiQsHooks.restoreShadeBounds(bounds,1920);check(cp.topMargin==148);
+  SystemUiQsHooks.restoreShadeBounds(bounds,1920);check(cp.topMargin==148);
   bounds.resources.config.orientation=1;SystemUiQsHooks.restoreShadeBounds(bounds,1280);check(cp.topMargin==20);
   bounds.resources.config.orientation=2;SystemUiQsHooks.restoreShadeBounds(bounds,1920);
   check(cp.width==912&&cp.leftMargin==976&&cp.leftToLeft==0&&cp.startToStart==-1&&cp.endToEnd==-1);
@@ -353,7 +392,7 @@ public class Check {
   var expansion14=new com.android.systemui.shade.NotificationPanelViewController();
   Method expansionUpdate=expansion14.getClass().getMethod("updateExpansionAndVisibility");
   expansion14.mExpandedFraction=.01f;call(expansionUpdate,expansion14);check(globalBar.visibility==4);
-  call(setVisible,globalBar,View.VISIBLE);check(globalBar.visibility==4);
+  check(!module.hooks.containsKey(setVisible)); // no framework-wide View hook
   expansion14.mExpandedFraction=0;call(expansionUpdate,expansion14);check(globalBar.visibility==0);
   call(setVisible,globalBar,View.GONE);expansion14.mExpandedFraction=1;
   call(expansionUpdate,expansion14);expansion14.mExpandedFraction=0;
@@ -369,10 +408,12 @@ public class Check {
   call(detach,globalBar);check(globalBar.visibility==0);
   expansion12.mExpandedFraction=0;call(update12,expansion12);check(recreatedBar.visibility==0);
   call(detach,recreatedBar);
-  View player=new View();var mediaHolder=new com.android.systemui.media.controls.models.player.MediaViewHolder(player);
+  View player=new com.android.systemui.util.animation.TransitionLayout();var mediaHolder=new com.android.systemui.media.controls.models.player.MediaViewHolder(player);
   var mediaConstructor=mediaHolder.getClass().getConstructor(View.class);
   module.hooks.get(mediaConstructor).intercept(new XposedInterface.Chain(mediaHolder,new Object[]{player},x->null));
   check(player.clip&&player.outline!=null);
+  Method applyMedia=player.getClass().getMethod("applyCurrentState");
+  check(!module.hooks.containsKey(applyMedia)); // no redraw loop from every animation state
   android.graphics.Outline mediaOutline=new android.graphics.Outline();player.outline.getOutline(player,mediaOutline);
   check(mediaOutline.radius==56f&&mediaOutline.width==400&&mediaOutline.height==160);
   player.width=600;player.height=200;player.outline.getOutline(player,mediaOutline);
@@ -390,22 +431,73 @@ public class Check {
   check(!unchangedMedia.clip&&unchangedMedia.outline==null);
   Drawable outerBackground=new GradientDrawable();footerBar.setBackground(outerBackground);
   call(bindFooter,null,footerBar);check(footerBar.background==outerBackground);ConfigManager.enabled=true;
-  var vendorRoot=new com.android.systemui.shade.NotificationsQuickSettingsContainer();View duplicate=named(new View(),"system_icon_area");vendorRoot.addView(duplicate);
-  SystemUiQsHooks.hideVendorStatusRow(vendorRoot);check(duplicate.visibility==View.GONE);
-  call(setVisible,duplicate,View.VISIBLE);check(duplicate.visibility==View.GONE);
+  expansion14.mExpandedFraction=1;call(expansionUpdate,expansion14);
+  var vendorRoot=new com.android.systemui.shade.NotificationsQuickSettingsContainer();
+  FrameLayout misleadingHeader=new FrameLayout();misleadingHeader.addView(named(new View(),"system_icon_area"));
+  vendorRoot.addView(misleadingHeader);
+  LinearLayout duplicate=named(new LinearLayout(),"system_icon_area");View topBattery=new View();duplicate.addView(topBattery);duplicate.setLayoutParams(new FrameLayout.LayoutParams(-1,-2));vendorRoot.addView(duplicate);
+  call(vendorRoot.getClass().getMethod("onFinishInflate"),vendorRoot);check(duplicate.visibility==View.VISIBLE);
+  check(duplicate.getChildCount()==2&&duplicate.getChildAt(1)==topBattery);
+  check(duplicate.getChildAt(0) instanceof TextClock);
+  TextClock topClock=(TextClock)duplicate.getChildAt(0);
+  check(topClock.format12.toString().contains("hm")&&topClock.format24.toString().contains("Hm")&&topClock.format24.toString().contains("MMMdEEE"));
+  SystemUiQsHooks.restoreTopStatusRow(vendorRoot);check(duplicate.getChildCount()==2);
+  check(((ViewGroup.MarginLayoutParams)duplicate.params).topMargin==96);
+  check(topClock.size==14f);
+  expansion14.mHeadsUpPinnedMode=true;expansion14.mExpandedFraction=.1f;
+  call(expansionUpdate,expansion14);check(duplicate.visibility==View.INVISIBLE);
+  expansion14.mTracking=true;call(expansionUpdate,expansion14);check(duplicate.visibility==View.VISIBLE);
+  expansion14.mTracking=false;expansion14.mHeadsUpPinnedMode=false;expansion14.mBarState=1;
+  expansion14.mQsExpanded=true; // Can remain stale while entering keyguard.
+  call(expansionUpdate,expansion14);check(duplicate.visibility==View.VISIBLE&&topClock.visibility==View.GONE);
+  check(((ViewGroup.MarginLayoutParams)duplicate.params).topMargin==0);
+  expansion14.mQsExpanded=false;
+  expansion14.mBarState=0;expansion14.mExpandedFraction=0;call(expansionUpdate,expansion14);check(duplicate.visibility==View.INVISIBLE);
+  expansion14.mExpandedFraction=1;call(expansionUpdate,expansion14);check(duplicate.visibility==View.VISIBLE);
+  View stableQs=named(new View(),"qs_frame"),stableNotifications=named(new View(),"notification_stack_scroller");
+  stableQs.setLayoutParams(new FrameLayout.LayoutParams(-1,-1));stableNotifications.setLayoutParams(new FrameLayout.LayoutParams(-1,-1));
+  vendorRoot.addView(stableQs);vendorRoot.addView(stableNotifications);
+  int formatUpdates=TextClock.formatUpdates;
+  for(int repeat=0;repeat<20;repeat++)SystemUiQsHooks.restoreShadeBounds(vendorRoot,1920);
+  check(TextClock.formatUpdates==formatUpdates&&duplicate.getChildCount()==2);
+  var statusState=new com.android.systemui.statusbar.StatusBarStateControllerImpl();
+  Method changeState=statusState.getClass().getMethod("setState",int.class,boolean.class);
+  // Locking with an unchanged fraction must hide the injected clock immediately.
+  call(changeState,statusState,1,false);
+  check(topClock.visibility==View.GONE&&duplicate.visibility==View.VISIBLE);
+  check(((ViewGroup.MarginLayoutParams)duplicate.params).topMargin==0);
+  check(stableQs.params.width==-1&&stableNotifications.params.width==-1);
+  SystemUiQsHooks.restoreTopStatusRow(vendorRoot);check(topClock.visibility==View.GONE);
+  call(changeState,statusState,0,false);call(expansionUpdate,expansion14);
+  check(topClock.visibility==View.VISIBLE&&((ViewGroup.MarginLayoutParams)duplicate.params).topMargin==96);
+  header.qsDisabled=false;header.customizing=false;header.qsVisible=true;
+  call(vis,header);check(header.header.visibility==View.INVISIBLE);
+  call(setVisible,duplicate,View.GONE);check(duplicate.visibility==View.GONE);
+  SystemUiQsHooks.restoreTopStatusRow(vendorRoot);
+  call(setVisible,duplicate,View.VISIBLE);check(duplicate.visibility==View.VISIBLE);
   ConfigManager.enabled=false;call(setVisible,duplicate,View.VISIBLE);check(duplicate.visibility==View.VISIBLE);
-  ConfigManager.enabled=true;call(setVisible,duplicate,View.VISIBLE);check(duplicate.visibility==View.GONE);
+  ConfigManager.enabled=true;call(setVisible,duplicate,View.VISIBLE);check(duplicate.visibility==View.VISIBLE);
   FrameLayout nestedRoot=new FrameLayout(),nativeHeader=new FrameLayout();View nativeIcons=named(new View(),"system_icon_area");
   nativeHeader.addView(nativeIcons);nestedRoot.addView(nativeHeader);
-  SystemUiQsHooks.hideVendorStatusRow(nestedRoot);check(nativeIcons.visibility==View.VISIBLE);
+  SystemUiQsHooks.restoreTopStatusRow(nestedRoot);check(nativeIcons.visibility==View.VISIBLE);
+  var wrappedRoot=new com.android.systemui.shade.NotificationsQuickSettingsContainer();
+  FrameLayout protectedHeader=named(new FrameLayout(),"large_screen_shade_header");
+  View protectedIcons=named(new View(),"system_icon_area");protectedHeader.addView(protectedIcons);wrappedRoot.addView(protectedHeader);
+  FrameLayout vendorWrapper=new FrameLayout();View wrappedBattery=named(new View(),"system_icons");
+  vendorWrapper.addView(wrappedBattery);wrappedRoot.addView(vendorWrapper);
+  View secondDuplicate=named(new View(),"system_icon_area");wrappedRoot.addView(secondDuplicate);
+  SystemUiQsHooks.hideVendorStatusRow(wrappedRoot);
+  check(protectedIcons.visibility==View.VISIBLE&&wrappedBattery.visibility==View.GONE&&secondDuplicate.visibility==View.GONE);
+  call(setVisible,wrappedBattery,View.VISIBLE);check(wrappedBattery.visibility==View.VISIBLE);
+  call(setVisible,protectedIcons,View.VISIBLE);check(protectedIcons.visibility==View.VISIBLE);
   Resources portraitResources=new Resources();portraitResources.config.orientation=1;
   portraitResources.names.put(1,"dimen/qs_tile_margin_vertical");
   check((int)call(Resources.class.getMethod("getDimensionPixelSize",int.class),portraitResources,1)==24);
   portraitResources.config.orientation=2;check((int)call(Resources.class.getMethod("getDimensionPixelSize",int.class),portraitResources,1)==16);
   View portraitMedia=new View();portraitMedia.resources.config.orientation=1;
   FrameLayout.LayoutParams mediaMargins=new FrameLayout.LayoutParams(-1,-2);portraitMedia.setLayoutParams(mediaMargins);
-  SystemUiQsHooks.restoreMediaCard(portraitMedia);check(mediaMargins.topMargin==48&&mediaMargins.bottomMargin==48);
-  SystemUiQsHooks.restoreMediaCard(portraitMedia);check(mediaMargins.topMargin==48&&mediaMargins.bottomMargin==48);
+  SystemUiQsHooks.restoreMediaCard(portraitMedia);check(mediaMargins.topMargin==0&&mediaMargins.bottomMargin==0);
+  SystemUiQsHooks.restoreMediaCard(portraitMedia);check(mediaMargins.topMargin==0&&mediaMargins.bottomMargin==0);
   var interactionRow=new com.android.systemui.statusbar.notification.row.ExpandableNotificationRowController(false);
   var interactionConstructor=interactionRow.getClass().getConstructor(boolean.class);
   module.hooks.get(interactionConstructor).intercept(new XposedInterface.Chain(interactionRow,new Object[]{false},x->{
@@ -428,6 +520,18 @@ public class Check {
   interactionMenu.mShouldShowMenu=false;
   module.hooks.get(menuConstructor).intercept(new XposedInterface.Chain(interactionMenu,new Object[]{},x->null));
   check(!interactionMenu.mShouldShowMenu);ConfigManager.enabled=true;
+  FrameLayout mediaQs=named(new FrameLayout(),"qs_frame");
+  var viewport=new com.android.systemui.media.controls.ui.MediaScrollView();viewport.width=600;
+  View actualPlayer=new View();viewport.addView(actualPlayer);mediaQs.addView(viewport);
+  var mediaController=new com.android.systemui.media.controls.ui.MediaViewController();mediaController.transitionLayout=actualPlayer;
+  var mediaState=new com.android.systemui.media.controls.ui.MediaViewController.State();
+  Method obtain=mediaController.getClass().getMethod("obtainViewState",mediaState.getClass());
+  call(obtain,mediaController,mediaState);
+  check(View.MeasureSpec.getSize(mediaController.measured)==600&&mediaState.input.widthMeasureSpec==1920);
+  mediaController.fail=true;try{call(obtain,mediaController,mediaState);throw new AssertionError();}catch(java.lang.reflect.InvocationTargetException expected){}
+  check(mediaState.input.widthMeasureSpec==1920);mediaController.fail=false;
+  ConfigManager.enabled=false;call(obtain,mediaController,mediaState);check(mediaController.measured==1920);ConfigManager.enabled=true;
+  mediaQs.setId(View.NO_ID);call(obtain,mediaController,mediaState);check(mediaController.measured==1920);
   Resources r=new Resources();r.names.put(1,"integer/quick_settings_num_columns");r.names.put(2,"dimen/qs_tile_height");
   Method integer=Resources.class.getMethod("getInteger",int.class),dim=Resources.class.getMethod("getDimensionPixelSize",int.class);
   check((int)call(integer,r,1)==2);check((int)call(dim,r,2)==160);

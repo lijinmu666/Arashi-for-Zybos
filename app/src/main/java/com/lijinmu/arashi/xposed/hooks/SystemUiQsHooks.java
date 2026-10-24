@@ -20,6 +20,9 @@ import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
+import android.widget.TextClock;
+import android.text.format.DateFormat;
+import java.util.Locale;
 import android.widget.SeekBar;
 import com.lijinmu.arashi.xposed.SystemUiThemeColors;
 
@@ -32,14 +35,18 @@ import java.lang.reflect.Method;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.WeakHashMap;
+import java.lang.ref.WeakReference;
 
 /** Restore the retained AOSP QS hierarchy and expansion path in the supplied Zybos 12/14 builds. */
 public final class SystemUiQsHooks {
     private static final String TAG = "[Arashi-AospQs]";
     private static final Map<View, Integer> STATUS_BARS = new WeakHashMap<>();
-    private static final ThreadLocal<Boolean> APPLYING_BAR_VISIBILITY =
-            ThreadLocal.withInitial(() -> false);
     private static boolean shadeOpen;
+    private static int statusBarState;
+    private static boolean lastBarEnabled;
+    private static final Map<View, NativeBounds> NATIVE_BOUNDS = new WeakHashMap<>();
+    private static final Map<View, Boolean> MEDIA_PLAYERS = new WeakHashMap<>();
+    private static final Map<ViewGroup, WeakReference<TextClock>> TOP_CLOCKS = new WeakHashMap<>();
     private static final Map<View, NotificationTopInset> NOTIFICATION_TOP_INSETS = new WeakHashMap<>();
     private static final class NotificationTopInset {
         int nativeTop;
@@ -75,7 +82,15 @@ public final class SystemUiQsHooks {
         hookSplitShade(module, loader);
         hookShadeBounds(module, loader);
         hookNotificationCorners(module, loader);
+        hookLockscreenClipping(module, loader);
         hookGlobalStatusBar(module, loader);
+        for (String container : new String[] {
+                "com.android.systemui.shade.NotificationsQuickSettingsContainer",
+                "com.android.systemui.statusbar.phone.NotificationsQuickSettingsContainer"}) {
+            after(module, loader, container, "onFinishInflate", root -> restoreTopStatusRow((ViewGroup) root));
+            after(module, loader, container, "onAttachedToWindow", root -> restoreTopStatusRow((ViewGroup) root));
+            after(module, loader, container, "onConfigurationChanged", root -> restoreTopStatusRow((ViewGroup) root));
+        }
         hookMediaAndFooter(module, loader);
         hookNotificationInteractions(module, loader);
         hookExpansion(module, loader, "com.android.systemui.shade.QuickSettingsController", true);
@@ -139,18 +154,183 @@ public final class SystemUiQsHooks {
     }
 
     private static boolean isVendorStatusRow(View view) {
-        Object parent = view.getParent();
-        if (!(parent instanceof ViewGroup) || !parent.getClass().getName()
-                .endsWith(".NotificationsQuickSettingsContainer")) return false;
-        int id = view.getResources().getIdentifier("system_icon_area", "id", "com.android.systemui");
-        return id != 0 && view.getId() == id;
+        boolean icons = false;
+        for (String name : new String[] {"system_icon_area", "system_icons", "statusIcons"}) {
+            int id = view.getResources().getIdentifier(name, "id", "com.android.systemui");
+            if (id != 0 && view.getId() == id) icons = true;
+        }
+        if (!icons) return false;
+        View ancestor = view;
+        while (ancestor != null) {
+            // The AOSP header owns its own icons. Only suppress the vendor's extra row.
+            for (String name : new String[] {"qs_frame", "header", "quick_qs_status_icons",
+                    "large_screen_shade_header", "shade_header"}) {
+                int id = view.getResources().getIdentifier(name, "id", "com.android.systemui");
+                if (id != 0 && ancestor.getId() == id) return false;
+            }
+            String type = ancestor.getClass().getName();
+            if (type.endsWith(".QuickStatusBarHeader")) return false;
+            if (type.endsWith(".NotificationsQuickSettingsContainer")) return true;
+            Object parent = ancestor.getParent();
+            ancestor = parent instanceof View ? (View) parent : null;
+        }
+        return false;
     }
 
     static void hideVendorStatusRow(ViewGroup root) {
-        View row = find(root, "system_icon_area");
-        // Vendor 14 adds this direct child to status_bar_expanded.xml. Do not match
-        // identically named icon groups nested in the restored AOSP shade header.
-        if (row != null && row.getParent() == root) row.setVisibility(View.GONE);
+        // Inspect every branch: findViewById may return a native header's identically
+        // named group before the vendor row, and the vendor may wrap its icons.
+        for (int i = 0; i < root.getChildCount(); i++) {
+            View child = root.getChildAt(i);
+            if (isVendorStatusRow(child) && !isTopBarSubtree(child)) child.setVisibility(View.GONE);
+            else if (child instanceof ViewGroup) hideVendorStatusRow((ViewGroup) child);
+        }
+    }
+
+    private static boolean isTopBarSubtree(View view) {
+        View ancestor = view;
+        while (ancestor != null) {
+            if (ancestor instanceof ViewGroup && TOP_CLOCKS.containsKey((ViewGroup) ancestor)) return true;
+            Object parent = ancestor.getParent();
+            ancestor = parent instanceof View ? (View) parent : null;
+        }
+        return false;
+    }
+
+    static void restoreTopStatusRow(ViewGroup root) {
+        int rowId = root.getResources().getIdentifier("system_icon_area", "id", "com.android.systemui");
+        View row = null;
+        for (int i = 0; i < root.getChildCount(); i++)
+            if (root.getChildAt(i).getId() == rowId) { row = root.getChildAt(i); break; }
+        // Only the vendor's direct, full-width top row, never nested AOSP header icons.
+        if (!(row instanceof LinearLayout) || row.getParent() != root) return;
+        LinearLayout bar = (LinearLayout) row;
+        WeakReference<TextClock> reference = TOP_CLOCKS.get(bar);
+        TextClock clock = reference == null ? null : reference.get();
+        if (clock == null) {
+            clock = new TextClock(bar.getContext());
+            clock.setSingleLine(true);
+            clock.setTextSize(14);
+            clock.setGravity(Gravity.START | Gravity.CENTER_VERTICAL);
+            bar.addView(clock, 0, new LinearLayout.LayoutParams(0, -1, 1f));
+            TOP_CLOCKS.put(bar, new WeakReference<>(clock));
+        }
+        Locale locale = Locale.getDefault();
+        String date = DateFormat.getBestDateTimePattern(locale, "MMMdEEE");
+        clock.setFormat12Hour(DateFormat.getBestDateTimePattern(locale, "hm") + "  " + date);
+        clock.setFormat24Hour(DateFormat.getBestDateTimePattern(locale, "Hm") + "  " + date);
+        clock.setTextColor(neutral(bar.getResources(), true));
+        bar.setOrientation(LinearLayout.HORIZONTAL);
+        bar.setGravity(Gravity.CENTER_VERTICAL | Gravity.END);
+        bar.setPaddingRelative(dp(bar, 16), 0, dp(bar, 16), 0);
+        ViewGroup.LayoutParams params = bar.getLayoutParams();
+        if (params != null) {
+            params.height = dp(bar, 32);
+            try {
+                if (SystemUiQsExpansion.field(params.getClass(), "leftToLeft") != null) {
+                    params.width = 0;
+                    setLayoutField(params, "leftToLeft", 0);
+                    setLayoutField(params, "rightToRight", 0);
+                    setLayoutField(params, "topToTop", 0);
+                    setLayoutField(params, "startToStart", -1);
+                    setLayoutField(params, "endToEnd", -1);
+                } else params.width = -1;
+            } catch (ReflectiveOperationException error) {
+                Log.w(TAG, "Top row constraints unavailable", error);
+            }
+            bar.setLayoutParams(params);
+        }
+        hideVendorStatusRow(root);
+        normalizeTopStatusSize(bar);
+        if (bar.getLayoutParams() instanceof ViewGroup.MarginLayoutParams) {
+            ViewGroup.MarginLayoutParams margins = (ViewGroup.MarginLayoutParams) bar.getLayoutParams();
+            margins.topMargin = dp(bar, 48);
+            bar.setLayoutParams(margins);
+        }
+        applyTopStatusVisibility();
+        View lowerHeader = find(root, "split_shade_status_bar");
+        if (lowerHeader != null) lowerHeader.setVisibility(View.INVISIBLE);
+    }
+
+
+    private static void normalizeTopStatusSize(ViewGroup row) {
+        for (int i = 0; i < row.getChildCount(); i++) {
+            View child = row.getChildAt(i);
+            if (child instanceof TextView) ((TextView) child).setTextSize(14);
+            if (child instanceof ViewGroup) normalizeTopStatusSize((ViewGroup) child);
+        }
+        for (String name : new String[] {"battery", "statusIcons"}) {
+            View icons = find(row, name);
+            if (icons == null || icons.getLayoutParams() == null) continue;
+            ViewGroup.LayoutParams params = icons.getLayoutParams();
+            params.height = dp(row, 20);
+            icons.setLayoutParams(params);
+        }
+    }
+
+    private static void applyTopStatusVisibility() {
+        boolean keyguard = statusBarState == 1;
+        int visibility = enabled() && (shadeOpen || keyguard) ? View.VISIBLE : View.INVISIBLE;
+        for (Map.Entry<ViewGroup, WeakReference<TextClock>> entry : TOP_CLOCKS.entrySet()) {
+            ViewGroup row = entry.getKey();
+            TextClock clock = entry.getValue().get();
+            if (clock != null) applyBarVisibility(clock, keyguard ? View.GONE : View.VISIBLE);
+            if (row.getLayoutParams() instanceof ViewGroup.MarginLayoutParams) {
+                ViewGroup.MarginLayoutParams params = (ViewGroup.MarginLayoutParams) row.getLayoutParams();
+                int top = keyguard ? 0 : dp(row, 48);
+                if (params.topMargin != top) { params.topMargin = top; row.setLayoutParams(params); }
+            }
+            applyBarVisibility(row, visibility);
+        }
+    }
+
+    private static final String[] BOUND_FIELDS = {"width", "height", "leftMargin", "rightMargin",
+            "topMargin", "bottomMargin", "gravity", "leftToLeft", "leftToRight", "rightToLeft",
+            "rightToRight", "startToStart", "startToEnd", "endToStart", "endToEnd"};
+
+    private static final class NativeBounds {
+        final Class<?> paramsType;
+        final java.lang.reflect.Field[] fields = new java.lang.reflect.Field[BOUND_FIELDS.length];
+        final int[] nativeValues = new int[BOUND_FIELDS.length], applied = new int[BOUND_FIELDS.length];
+        NativeBounds(Object params) throws ReflectiveOperationException {
+            paramsType = params.getClass();
+            for (int i = 0; i < fields.length; i++) {
+                fields[i] = SystemUiQsExpansion.field(params.getClass(), BOUND_FIELDS[i]);
+                if (fields[i] != null) nativeValues[i] = applied[i] = fields[i].getInt(params);
+            }
+        }
+        void observe(Object params) throws ReflectiveOperationException {
+            for (int i = 0; i < fields.length; i++) if (fields[i] != null) {
+                int value = fields[i].getInt(params);
+                if (value != applied[i]) nativeValues[i] = value;
+            }
+        }
+        void remember(Object params) throws ReflectiveOperationException {
+            for (int i = 0; i < fields.length; i++)
+                if (fields[i] != null) applied[i] = fields[i].getInt(params);
+        }
+        void restore(View view) throws ReflectiveOperationException {
+            Object params = view.getLayoutParams();
+            boolean changed = false;
+            for (int i = 0; i < fields.length; i++) if (fields[i] != null
+                    && fields[i].getInt(params) != nativeValues[i]) {
+                fields[i].setInt(params, nativeValues[i]); changed = true;
+            }
+            if (changed) view.setLayoutParams((ViewGroup.LayoutParams) params);
+        }
+    }
+
+    private static void observeNativeBounds(View view) throws ReflectiveOperationException {
+        if (view.getLayoutParams() == null) return;
+        NativeBounds state = NATIVE_BOUNDS.get(view);
+        if (state == null || state.paramsType != view.getLayoutParams().getClass()) NATIVE_BOUNDS.put(view, new NativeBounds(view.getLayoutParams()));
+        else state.observe(view.getLayoutParams());
+    }
+
+    private static void restoreNativeBounds(View view) throws ReflectiveOperationException {
+        NativeBounds state = NATIVE_BOUNDS.remove(view);
+        if (state != null) state.restore(view);
+        NOTIFICATION_TOP_INSETS.remove(view);
     }
 
     static boolean splitShade(Resources resources) {
@@ -170,6 +350,37 @@ public final class SystemUiQsHooks {
         } catch (Throwable error) { Log.w(TAG, "Split shade decision unavailable", error); }
     }
 
+
+    private static void hookLockscreenClipping(XposedModule module, ClassLoader loader) {
+        String stack = "com.android.systemui.statusbar.notification.stack.NotificationStackScrollLayout";
+        after(module, loader, stack, "updateClipping", SystemUiQsHooks::restoreLockscreenClipping);
+        after(module, loader, stack, "updateUseRoundedRectClipping", SystemUiQsHooks::restoreLockscreenClipping);
+        // Android 14 writes the clipping path directly, after updating QS expansion.
+        after(module, loader, "com.android.systemui.shade.QuickSettingsController", "applyClippingImmediately", controller -> {
+            Object owner = Reflect.getObjectField(controller, "mNotificationStackScrollLayoutController");
+            Object view = Reflect.getObjectField(owner, "mView");
+            if (view != null) restoreLockscreenClipping(view);
+        });
+    }
+
+    static void restoreLockscreenClipping(Object object) throws ReflectiveOperationException {
+        if (!(object instanceof View)) return;
+        Method keyguard = Reflect.findMethodExact(object.getClass(), "onKeyguard");
+        if (keyguard == null || !Boolean.TRUE.equals(keyguard.invoke(object))) return;
+        // Keep ambient/doze hiding. Only remove the QS viewport mask on the lockscreen.
+        Object ambient = Reflect.getObjectField(object, "mAmbientState");
+        if (ambient != null) {
+            Method hidden = Reflect.findMethodExact(ambient.getClass(), "isHiddenAtAll");
+            if (hidden != null && Boolean.TRUE.equals(hidden.invoke(ambient))) return;
+        }
+        for (String name : new String[] {"mShouldUseRoundedRectClipping", "mIsClipped"}) {
+            java.lang.reflect.Field field = SystemUiQsExpansion.field(object.getClass(), name);
+            if (field != null && field.getBoolean(object)) field.setBoolean(object, false);
+        }
+        View view = (View) object;
+        if (view.getClipBounds() != null) view.setClipBounds(null);
+        if (view.getClipToOutline()) view.setClipToOutline(false);
+    }
 
     private static void hookShadeBounds(XposedModule module, ClassLoader loader) {
         for (String name : new String[] {
@@ -200,11 +411,20 @@ public final class SystemUiQsHooks {
     // existing views before measuring; do not reparent notification rows or media controls.
     static void restoreShadeBounds(ViewGroup root, int width) throws ReflectiveOperationException {
         if (width <= 0) return;
-        hideVendorStatusRow(root);
         View qs = find(root, "qs_frame");
         View notifications = find(root, "notification_stack_scroller");
         if (qs == null || notifications == null || qs.getParent() != root
                 || notifications.getParent() != root) return;
+        observeNativeBounds(qs);
+        observeNativeBounds(notifications);
+        Method onKeyguard = Reflect.findMethodExact(notifications.getClass(), "onKeyguard");
+        boolean keyguard = statusBarState == 1
+                || (onKeyguard != null && Boolean.TRUE.equals(onKeyguard.invoke(notifications)));
+        if (keyguard) {
+            restoreNativeBounds(qs);
+            restoreNativeBounds(notifications);
+            return;
+        }
         int edge = dp(root, portrait(root.getResources()) ? 24 : 16);
         int gap = dp(root, 16);
         boolean split = splitShade(root.getResources());
@@ -221,19 +441,30 @@ public final class SystemUiQsHooks {
             }
         }
         boundColumn(qs, column, edge, bottom);
+        if (!TOP_CLOCKS.isEmpty() && qs.getLayoutParams() instanceof ViewGroup.MarginLayoutParams) {
+            ViewGroup.MarginLayoutParams margins = (ViewGroup.MarginLayoutParams) qs.getLayoutParams();
+            int minimum = dp(root, 28);
+            if (margins.topMargin < minimum) {
+                margins.topMargin = minimum;
+                qs.setLayoutParams(margins);
+            }
+        }
         // A pinned banner uses the same stack as the shade: center it while the shade
         // is collapsed. Keep the right-hand stack on the lock screen.
-        boolean banner = Boolean.TRUE.equals(Reflect.getObjectField(notifications, "mInHeadsUpPinnedMode"))
+        // Pinned mode ends before the exit animation finishes. Keep both phases
+        // in the centered banner layout, so the card does not jump to the shade column.
+        boolean banner = (Boolean.TRUE.equals(Reflect.getObjectField(notifications, "mInHeadsUpPinnedMode"))
+                || Boolean.TRUE.equals(Reflect.getObjectField(notifications, "mHeadsUpAnimatingAway")))
                 && Boolean.FALSE.equals(Reflect.getObjectField(notifications, "mIsExpanded"))
                 && !Boolean.TRUE.equals(Reflect.getObjectField(
                         Reflect.getObjectField(notifications, "mAmbientState"), "mOnKeyguard"));
         int notificationStart = split ? width - edge - column : edge;
         if (banner) notificationStart = (width - column) / 2;
         boundColumn(notifications, column, notificationStart, bottom);
-        Method onKeyguard = Reflect.findMethodExact(notifications.getClass(), "onKeyguard");
-        boolean keyguard = onKeyguard != null && Boolean.TRUE.equals(onKeyguard.invoke(notifications));
         boolean expanded = !Boolean.FALSE.equals(Reflect.getObjectField(notifications, "mIsExpanded"));
-        insetNotificationTop(notifications, split && expanded && !banner && !keyguard ? dp(root, 48) : 0);
+        insetNotificationTop(notifications, split && expanded && !banner ? dp(root, 64) : 0);
+        NATIVE_BOUNDS.get(qs).remember(qs.getLayoutParams());
+        NATIVE_BOUNDS.get(notifications).remember(notifications.getLayoutParams());
     }
 
 
@@ -386,6 +617,12 @@ public final class SystemUiQsHooks {
 
 
     private static void hookGlobalStatusBar(XposedModule module, ClassLoader loader) {
+        // Locking can keep the panel fraction at 1 without another expansion callback.
+        // Observe the state transition itself, after all native listeners have run.
+        after(module, loader, "com.android.systemui.statusbar.StatusBarStateControllerImpl", "setState", controller -> {
+            Object state = Reflect.getObjectField(controller, "mState");
+            if (state instanceof Number) onStatusBarState(((Number) state).intValue());
+        });
         String bar = "com.android.systemui.statusbar.phone.PhoneStatusBarView";
         observeAlways(module, loader, bar, "onAttachedToWindow", instance -> {
             View view = (View) instance;
@@ -401,31 +638,50 @@ public final class SystemUiQsHooks {
                 "updateExpansionAndVisibility", SystemUiQsHooks::onShadeExpansion);
         observeAlways(module, loader, "com.android.systemui.statusbar.phone.PanelViewController",
                 "notifyBarPanelExpansionChanged", SystemUiQsHooks::onShadeExpansion);
-        // Visibility is inherited from View. Match registered PhoneStatusBarView instances
-        // only, leaving the shade header and the status-bar window/touch surface untouched.
-        try {
-            Method visibility = View.class.getDeclaredMethod("setVisibility", int.class);
-            try { module.deoptimize(visibility); } catch (Throwable ignored) {}
-            module.hook(visibility).intercept(chain -> {
-                View view = (View) chain.getThisObject();
-                if (enabled() && isVendorStatusRow(view))
-                    return chain.proceed(new Object[] {View.GONE});
-                if (APPLYING_BAR_VISIBILITY.get() || !STATUS_BARS.containsKey(view))
-                    return chain.proceed();
-                int wanted = (Integer) chain.getArg(0);
-                STATUS_BARS.put(view, wanted);
-                return chain.proceed(new Object[] {
-                        enabled() && shadeOpen && wanted == View.VISIBLE ? View.INVISIBLE : wanted});
-            });
-        } catch (Throwable error) { Log.w(TAG, "Global status bar visibility unavailable", error); }
     }
 
-    static void onShadeExpansion(Object controller) {
+    static void onShadeExpansion(Object controller) throws ReflectiveOperationException {
         Object fraction = Reflect.getObjectField(controller, "mExpandedFraction");
         if (!(fraction instanceof Number)) return;
         float value = ((Number) fraction).floatValue();
-        shadeOpen = Float.isFinite(value) && value > 0f;
+        Object barState = Reflect.getObjectField(controller, "mBarState");
+        if (barState instanceof Number) onStatusBarState(((Number) barState).intValue());
+        boolean keyguard = statusBarState == 1;
+        Object qs = Reflect.getObjectField(controller, "mQsController");
+        boolean qsExpanded = SystemUiQsExpansion.flag(qs, "mExpanded")
+                || SystemUiQsExpansion.flag(controller, "mQsExpanded");
+        boolean pinned = SystemUiQsExpansion.flag(controller, "mHeadsUpPinnedMode");
+        boolean tracking = SystemUiQsExpansion.flag(controller, "mTracking");
+        boolean open = Float.isFinite(value) && value > 0f && !keyguard
+                && (!pinned || tracking || qsExpanded || value >= 1f);
+        if (open == shadeOpen && lastBarEnabled == enabled()) return;
+        if (open && !shadeOpen) {
+            for (Map.Entry<View, Integer> entry : STATUS_BARS.entrySet())
+                entry.setValue(entry.getKey().getVisibility());
+        }
+        shadeOpen = open;
+        lastBarEnabled = enabled();
         refreshGlobalStatusBars();
+        applyTopStatusVisibility();
+    }
+
+    static void onStatusBarState(int state) throws ReflectiveOperationException {
+        if (statusBarState == state) return;
+        statusBarState = state;
+        if (state == 1) {
+            shadeOpen = false;
+            // Restore before the lockscreen animation, rather than waiting for a measure.
+            for (ViewGroup row : TOP_CLOCKS.keySet()) {
+                Object parent = row.getParent();
+                if (!(parent instanceof View)) continue;
+                View root = (View) parent;
+                View qs = find(root, "qs_frame"), stack = find(root, "notification_stack_scroller");
+                if (qs != null) restoreNativeBounds(qs);
+                if (stack != null) restoreNativeBounds(stack);
+            }
+        }
+        refreshGlobalStatusBars();
+        applyTopStatusVisibility();
     }
 
     private static void refreshGlobalStatusBars() {
@@ -438,9 +694,7 @@ public final class SystemUiQsHooks {
 
     private static void applyBarVisibility(View view, int visibility) {
         if (view.getVisibility() == visibility) return;
-        APPLYING_BAR_VISIBILITY.set(true);
-        try { view.setVisibility(visibility); }
-        finally { APPLYING_BAR_VISIBILITY.set(false); }
+        view.setVisibility(visibility);
     }
 
     // Unlike the feature-gated after() helper, these observers must also restore the
@@ -472,21 +726,10 @@ public final class SystemUiQsHooks {
     };
 
     static void restoreMediaCard(View player) {
-        player.setOutlineProvider(MEDIA_OUTLINE);
-        player.setClipToOutline(true);
-        player.invalidateOutline();
-        ViewGroup.LayoutParams params = player.getLayoutParams();
-        if (params instanceof ViewGroup.MarginLayoutParams) {
-            ViewGroup.MarginLayoutParams margins = (ViewGroup.MarginLayoutParams) params;
-            int space = dp(player, portrait(player.getResources()) ? 24 : 16);
-            int top = Math.max(margins.topMargin, space);
-            int bottom = Math.max(margins.bottomMargin, space);
-            if (margins.topMargin != top || margins.bottomMargin != bottom) {
-                margins.topMargin = top;
-                margins.bottomMargin = bottom;
-                player.setLayoutParams(params);
-            }
-        }
+        if (player.getOutlineProvider() != MEDIA_OUTLINE) player.setOutlineProvider(MEDIA_OUTLINE);
+        if (!player.getClipToOutline()) player.setClipToOutline(true);
+        // Keep the carousel's native measured height and child margins. Adding
+        // margins to the player shifts content beyond the parent's clipping window.
     }
 
     static void restoreFooter(View footer) {
@@ -496,6 +739,11 @@ public final class SystemUiQsHooks {
     }
 
     private static void hookMediaAndFooter(XposedModule module, ClassLoader loader) {
+        after(module, loader, "com.android.systemui.util.animation.TransitionLayout",
+                "onLayout", player -> {
+                    if (MEDIA_PLAYERS.containsKey((View) player)) restoreMediaCard((View) player);
+                });
+        hookMediaMeasurement(module, loader);
         for (String name : new String[] {
                 "com.android.systemui.media.controls.models.player.MediaViewHolder",
                 "com.android.systemui.media.PlayerViewHolder",
@@ -507,7 +755,10 @@ public final class SystemUiQsHooks {
                         Object result = chain.proceed();
                         if (enabled()) {
                             Object player = Reflect.getObjectField(chain.getThisObject(), "player");
-                            if (player instanceof View) restoreMediaCard((View) player);
+                            if (player instanceof View) {
+                                MEDIA_PLAYERS.put((View) player, Boolean.TRUE);
+                                restoreMediaCard((View) player);
+                            }
                         }
                         return result;
                     });
@@ -595,6 +846,79 @@ public final class SystemUiQsHooks {
         } catch (Throwable error) { Log.w(TAG, "Notification interaction hook unavailable: " + name, error); }
     }
 
+
+    static int mediaViewportWidth(View player) {
+        int width = Integer.MAX_VALUE;
+        boolean inQs = false;
+        View current = player;
+        while (current != null) {
+            String name = current.getClass().getName();
+            if (name.endsWith(".MediaScrollView") && current.getWidth() > 0)
+                width = Math.min(width, current.getWidth() - current.getPaddingLeft() - current.getPaddingRight());
+            int qsId = current.getResources().getIdentifier("qs_frame", "id", "com.android.systemui");
+            if (qsId != 0 && current.getId() == qsId) inQs = true;
+            Object parent = current.getParent();
+            current = parent instanceof View ? (View) parent : null;
+        }
+        return inQs && width > 0 && width < Integer.MAX_VALUE ? width : 0;
+    }
+
+    private static void hookMediaMeasurement(XposedModule module, ClassLoader loader) {
+        for (String name : new String[] {"com.android.systemui.media.controls.ui.MediaViewController",
+                "com.android.systemui.media.MediaViewController"}) {
+            try {
+                Class<?> type = Class.forName(name, false, loader);
+                for (Method method : type.getDeclaredMethods()) {
+                    if (!method.getName().equals("obtainViewState") || method.getParameterTypes().length != 1) continue;
+                    try { module.deoptimize(method); } catch (Throwable ignored) {}
+                    module.hook(method).intercept(chain -> {
+                        if (!enabled()) return chain.proceed();
+                        Object player = Reflect.getObjectField(chain.getThisObject(), "transitionLayout");
+                        int width = player instanceof View ? mediaViewportWidth((View) player) : 0;
+                        Object state = chain.getArg(0);
+                        if (width == 0 || state == null) return chain.proceed();
+                        MediaWidthOverride change;
+                        try { change = prepareMediaWidth(state, width); }
+                        catch (ReflectiveOperationException | RuntimeException error) {
+                            Log.w(TAG, "Media measurement unavailable", error);
+                            return chain.proceed();
+                        }
+                        if (change == null) return chain.proceed();
+                        // Adjust before the native cache key and ConstraintSet are measured.
+                        // Native execution stays outside the setup catch: never retry a failed call.
+                        try { return chain.proceed(); }
+                        finally { change.spec.setInt(change.input, change.original); }
+                    });
+                }
+            } catch (ClassNotFoundException ignored) {
+            } catch (Throwable error) { Log.w(TAG, "Media measurement hook unavailable", error); }
+        }
+    }
+
+
+    private static final class MediaWidthOverride {
+        final Object input;
+        final java.lang.reflect.Field spec;
+        final int original;
+        MediaWidthOverride(Object input, java.lang.reflect.Field spec, int original) {
+            this.input = input; this.spec = spec; this.original = original;
+        }
+    }
+
+    private static MediaWidthOverride prepareMediaWidth(Object state, int width)
+            throws ReflectiveOperationException {
+        Method getInput = Reflect.findMethodExact(state.getClass(), "getMeasurementInput");
+        if (getInput == null) return null;
+        Object input = getInput.invoke(state);
+        if (input == null) return null;
+        java.lang.reflect.Field spec = SystemUiQsExpansion.field(input.getClass(), "widthMeasureSpec");
+        if (spec == null) return null;
+        int original = spec.getInt(input);
+        if (View.MeasureSpec.getSize(original) <= width) return null;
+        spec.setInt(input, View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY));
+        return new MediaWidthOverride(input, spec, original);
+    }
+
     static int neutral(Resources resources, boolean foreground) {
         boolean dark = (resources.getConfiguration().uiMode & android.content.res.Configuration.UI_MODE_NIGHT_MASK)
                 == android.content.res.Configuration.UI_MODE_NIGHT_YES;
@@ -637,6 +961,7 @@ public final class SystemUiQsHooks {
                 Object header = Reflect.getObjectField(controller, "header");
                 if (!(header instanceof View)) return chain.proceed();
                 int visibility = SystemUiQsExpansion.flag(controller, "qsDisabled") ? View.GONE
+                        : !TOP_CLOCKS.isEmpty() ? View.INVISIBLE
                         : SystemUiQsExpansion.flag(controller, "qsVisible")
                         && !SystemUiQsExpansion.flag(controller, "customizing") ? View.VISIBLE : View.INVISIBLE;
                 try {
