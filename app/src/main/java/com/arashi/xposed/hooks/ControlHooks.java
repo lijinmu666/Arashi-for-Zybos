@@ -88,8 +88,9 @@ private static void hookKeepBackground(XposedModule mod, ClassLoader cl) {
                 return;
             }
             mod.hook(m).intercept(chain -> {
-                if (ConfigManager.isEnabled(HookConfig.KEY_KEEP_BACKGROUND)) {
-                    Log.i(TAG, "keep background process: " + chain.getArg(0));
+                String packageName = (String) chain.getArg(0);
+                if (ConfigManager.shouldKeepBackground(packageName)) {
+                    Log.i(TAG, "keep background process: " + packageName);
                     return null;
                 }
                 return chain.proceed();

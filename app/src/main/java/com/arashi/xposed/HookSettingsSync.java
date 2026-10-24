@@ -27,6 +27,12 @@ public final class HookSettingsSync {
                     changed = true;
                 }
             }
+            java.util.Set<String> selected = new java.util.HashSet<>(local.getStringSet(
+                    HookConfig.KEY_KEEP_BACKGROUND_WHITELIST, java.util.Collections.emptySet()));
+            if (!selected.equals(saved.get(HookConfig.KEY_KEEP_BACKGROUND_WHITELIST))) {
+                editor.putStringSet(HookConfig.KEY_KEEP_BACKGROUND_WHITELIST, selected);
+                changed = true;
+            }
             if (changed) {
                 editor.putBoolean(HookConfig.KEY_REMOTE_READY, true).apply();
             }

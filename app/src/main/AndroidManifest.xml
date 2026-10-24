@@ -35,6 +35,7 @@
         <activity android:name=".tools.ZybosUninstallPickerActivity" android:exported="false" />
         <activity android:name=".tools.QuickCommands" android:exported="false" />
         <activity android:name=".settings.HookSettings" android:exported="false" />
+        <activity android:name=".settings.BackgroundWhitelistActivity" android:exported="false" />
         <activity android:name=".uninstall.UninstallSettings" android:exported="false" />
         <activity android:name=".uninstall.UninstallHistoryActivity" android:exported="false" />
         <activity android:name=".uninstall.UninstallListActivity" android:exported="false" />

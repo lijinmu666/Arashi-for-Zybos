@@ -11,6 +11,9 @@ import io.github.libxposed.api.XposedModule;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
+import java.util.HashSet;
+import java.util.Collections;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public final class ConfigManager {
@@ -18,16 +21,26 @@ public final class ConfigManager {
     private static final long RETRY_DELAY_MS = 5000;
     private static final long JOIN_TIMEOUT_MS = 100;
 
-    private static volatile Map<String, Boolean> cache;
+    private static volatile Snapshot cache;
     private static volatile long cacheTime = 0;
     private static volatile long failureTime = -5000;
     private static volatile Thread refreshWorker;
     private static final AtomicBoolean REFRESH_RUNNING = new AtomicBoolean(false);
     private static final AtomicBoolean POLLING_STARTED = new AtomicBoolean(false);
     private static volatile boolean isSystemServer = false;
-    private static volatile Map<String, Boolean> remoteCache;
+    private static volatile Snapshot remoteCache;
     private static SharedPreferences remotePreferences;
     private static SharedPreferences.OnSharedPreferenceChangeListener remoteListener;
+
+    private static final class Snapshot {
+        final Map<String, Boolean> enabled;
+        final Set<String> backgroundWhitelist;
+
+        Snapshot(Map<String, Boolean> enabled, Set<String> backgroundWhitelist) {
+            this.enabled = Collections.unmodifiableMap(new HashMap<>(enabled));
+            this.backgroundWhitelist = Collections.unmodifiableSet(new HashSet<>(backgroundWhitelist));
+        }
+    }
 
     public static synchronized void attach(XposedModule module, boolean systemServer) {
         isSystemServer = isSystemServer || systemServer;
@@ -56,7 +69,14 @@ public final class ConfigManager {
                 fresh.put(key, value instanceof Boolean
                         ? (Boolean) value : HookConfig.defaultEnabled(key));
             }
-            remoteCache = fresh;
+            Set<String> selected = new HashSet<>();
+            Object stored = values.get(HookConfig.KEY_KEEP_BACKGROUND_WHITELIST);
+            if (stored instanceof Set<?>) {
+                for (Object item : (Set<?>) stored) {
+                    if (item instanceof String) selected.add((String) item);
+                }
+            }
+            remoteCache = new Snapshot(fresh, selected);
         } catch (RuntimeException error) {
             remoteCache = null;
             Log.w("[Arashi-Settings]", "Remote settings refresh failed", error);
@@ -94,18 +114,26 @@ public static boolean isEnabled(String key) {
 
 public static boolean isEnabled(String key, boolean fallback) {
         Boolean value;
-        Map<String, Boolean> remote = remoteCache;
-        if (remote != null && (value = remote.get(key)) != null) return value;
-        Map<String, Boolean> cached = getCurrentSettings();
-        if (cached != null && (value = cached.get(key)) != null) {
+        Snapshot remote = remoteCache;
+        if (remote != null && (value = remote.enabled.get(key)) != null) return value;
+        Snapshot cached = getCurrentSettings();
+        if (cached != null && (value = cached.enabled.get(key)) != null) {
             return value;
         }
         return fallback;
     }
 
-    private static Map<String, Boolean> getCurrentSettings() {
+    public static boolean shouldKeepBackground(String packageName) {
+        Snapshot settings = remoteCache;
+        if (settings == null) settings = getCurrentSettings();
+        return settings != null && BackgroundPolicy.shouldKeep(
+                Boolean.TRUE.equals(settings.enabled.get(HookConfig.KEY_KEEP_BACKGROUND)),
+                settings.backgroundWhitelist, packageName);
+    }
+
+    private static Snapshot getCurrentSettings() {
         long now = SystemClock.elapsedRealtime();
-        Map<String, Boolean> cached = cache;
+        Snapshot cached = cache;
         boolean stale = cached == null || now - cacheTime >= CACHE_TTL_MS;
 
         if (stale) {
@@ -135,7 +163,7 @@ if (!isSystemServer && cached == null) {
 
         Thread worker = new Thread(() -> {
             try {
-                Map<String, Boolean> fresh = querySettingsProvider();
+                Snapshot fresh = querySettingsProvider();
                 long done = SystemClock.elapsedRealtime();
                 if (fresh != null) {
                     cache = fresh;
@@ -152,7 +180,7 @@ if (!isSystemServer && cached == null) {
         worker.start();
     }
 
-    private static Map<String, Boolean> querySettingsProvider() {
+    private static Snapshot querySettingsProvider() {
         try {
             Context context = getContext();
             if (context == null) {
@@ -165,10 +193,13 @@ if (!isSystemServer && cached == null) {
             }
 
             Map<String, Boolean> settings = new HashMap<>();
-            for (String key : bundle.keySet()) {
+            for (String key : HookConfig.keys()) {
                 settings.put(key, bundle.getBoolean(key, false));
             }
-            return settings;
+            java.util.ArrayList<String> selected = bundle.getStringArrayList(
+                    HookConfig.KEY_KEEP_BACKGROUND_WHITELIST);
+            return new Snapshot(settings, selected == null
+                    ? Collections.emptySet() : new HashSet<>(selected));
         } catch (Throwable th) {
             Log.w("[Arashi-Settings]", "Provider settings read failed", th);
             return null;

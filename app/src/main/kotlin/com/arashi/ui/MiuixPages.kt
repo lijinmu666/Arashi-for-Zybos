@@ -7,6 +7,8 @@ import com.arashi.UninstallPromptActivity
 import com.arashi.about.About
 import com.arashi.settings.ArashiSettings
 import com.arashi.settings.HookSettings
+import com.arashi.settings.BackgroundWhitelistActivity
+import com.arashi.xposed.BackgroundPolicy
 import com.arashi.tools.QuickCommands
 import com.arashi.tools.ZybosTools
 import com.arashi.tools.ZybosUninstallPickerActivity
@@ -91,6 +93,8 @@ object MiuixPages {
 
     @JvmStatic fun renderHome(a: Main) = render(a) { HomePage(a) }
     @JvmStatic fun renderHookSettings(a: HookSettings) = render(a) { HookPage(a) }
+    @JvmStatic fun renderBackgroundWhitelist(a: BackgroundWhitelistActivity) =
+        render(a) { BackgroundWhitelistPage(a) }
     @JvmStatic fun renderUninstallSettings(a: UninstallSettings) = render(a) { UninstallPage(a) }
     @JvmStatic fun renderUninstallHistory(a: UninstallHistoryActivity) = render(a) { UninstallHistoryPage(a) }
     @JvmStatic fun renderUninstallList(a: UninstallListActivity, blacklist: Boolean) =
@@ -402,6 +406,18 @@ private data class HookItem(val title: String, val summary: String, val key: Str
 private fun HookPage(a: HookSettings) = Page(a, "Hook 功能设置", a::finish) {
     InfoCard("LSPosed", "系统框架按本次开机的 Hook 状态检测，应用作用域在此页面实时检测。未检测到对应作用域时开关不可用，原设置保留。修改应用作用域后请重启目标应用；系统框架需重启设备。首次使用请启用模块、勾选作用域并重启")
     val prefs = a.getSharedPreferences(HookConfig.PREF_NAME, Context.MODE_PRIVATE)
+    var backgroundSelected by remember {
+        mutableStateOf(prefs.getStringSet(HookConfig.KEY_KEEP_BACKGROUND_WHITELIST, emptySet()).orEmpty().toSet())
+    }
+    DisposableEffect(prefs) {
+        val listener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+            if (key == HookConfig.KEY_KEEP_BACKGROUND_WHITELIST) {
+                backgroundSelected = prefs.getStringSet(key, emptySet()).orEmpty().toSet()
+            }
+        }
+        prefs.registerOnSharedPreferenceChangeListener(listener)
+        onDispose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
+    }
     var scopes by remember {
         mutableStateOf(HookScopes.Snapshot(isLsposedActive(a), false, emptySet<String>()))
     }
@@ -421,7 +437,7 @@ private fun HookPage(a: HookSettings) = Page(a, "Hook 功能设置", a::finish) 
         ),
         "行为" to listOf(
             HookItem("开发者选项支持", "允许打开 “开发者选项” 设置的活动", HookConfig.KEY_DEV_OPTIONS),
-            HookItem("保留后台进程", "划卡后不杀应用进程（音乐划卡后仍可以播放）", HookConfig.KEY_KEEP_BACKGROUND),
+            HookItem("保留后台进程", "划卡后不杀白名单中的应用进程；白名单为空时保留全部", HookConfig.KEY_KEEP_BACKGROUND),
             HookItem("USB 设备支持", "允许挂载和使用外部 USB 设备", HookConfig.KEY_ALLOW_USB),
             HookItem("壁纸设置支持", "允许任意应用设置壁纸（可以用壁纸引擎等）", HookConfig.KEY_ALLOW_WALLPAPER),
             HookItem("WiFi 登录支持", "允许正常连接认证型 WiFi", HookConfig.KEY_CAPTIVE_PORTAL),
@@ -463,10 +479,143 @@ private fun HookPage(a: HookSettings) = Page(a, "Hook 功能设置", a::finish) 
                         else entry.summary + "\n" + scopes.unavailableReason(entry.key),
                     enabled = available,
                 )
+                AnimatedVisibility(
+                    visible = entry.key == HookConfig.KEY_KEEP_BACKGROUND && checked,
+                    enter = expandVertically(
+                        animationSpec = tween(250, easing = FastOutSlowInEasing),
+                        expandFrom = Alignment.Top,
+                    ) + fadeIn(animationSpec = tween(200)),
+                    exit = shrinkVertically(
+                        animationSpec = tween(250, easing = FastOutSlowInEasing),
+                        shrinkTowards = Alignment.Top,
+                    ) + fadeOut(animationSpec = tween(150)),
+                ) {
+                    ArrowPreference(
+                        title = "后台保留白名单",
+                        summary = if (backgroundSelected.isEmpty()) "未选择应用，默认保留全部"
+                            else "已选择 ${backgroundSelected.size} 个应用，仅保留选中的应用",
+                        onClick = {
+                            a.startActivity(Intent(a, BackgroundWhitelistActivity::class.java))
+                        },
+                    )
+                }
             }
         }
     }
     InfoCard("开关修改后立即保存")
+}
+
+private data class BackgroundChoice(val packageName: String, val label: String)
+
+@Composable
+private fun BackgroundWhitelistPage(a: BackgroundWhitelistActivity) {
+    val prefs = a.getSharedPreferences(HookConfig.PREF_NAME, Context.MODE_PRIVATE)
+    var selected by remember {
+        mutableStateOf(prefs.getStringSet(HookConfig.KEY_KEEP_BACKGROUND_WHITELIST, emptySet()).orEmpty().toSet())
+    }
+    var query by remember { mutableStateOf("") }
+    var choices by remember { mutableStateOf(emptyList<BackgroundChoice>()) }
+    var loading by remember { mutableStateOf(true) }
+    var error by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(a) {
+        try {
+            choices = withContext(Dispatchers.IO) {
+                val manager = a.packageManager
+                manager.getInstalledApplications(0)
+                    .filterNot { BackgroundPolicy.isExempt(it.packageName) }
+                    .map { info ->
+                        BackgroundChoice(info.packageName,
+                            runCatching { info.loadLabel(manager).toString() }.getOrDefault(info.packageName))
+                    }
+                    .sortedWith(compareBy<BackgroundChoice> { it.label.lowercase() }.thenBy { it.packageName })
+            }
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (failure: Exception) {
+            error = failure.message ?: "无法读取应用列表"
+        } finally {
+            loading = false
+        }
+    }
+    val knownPackages = remember(choices) { choices.mapTo(HashSet<String>()) { it.packageName } }
+    val missing = selected.filterNot { it in knownPackages || BackgroundPolicy.isExempt(it) }
+        .sorted().map { BackgroundChoice(it, "未安装或不可见的应用") }
+    val visible = (missing + choices).filter {
+        query.isBlank() || it.label.contains(query, true) || it.packageName.contains(query, true)
+    }
+    fun save(next: Set<String>) {
+        selected = next
+        prefs.edit().putStringSet(HookConfig.KEY_KEEP_BACKGROUND_WHITELIST, next).apply()
+    }
+    Scaffold(
+        modifier = Modifier.fillMaxSize(),
+        topBar = {
+            SmallTopAppBar(
+                title = "后台保留白名单",
+                navigationIcon = {
+                    IconButton(onClick = a::finish) {
+                        Icon(MiuixIcons.Back, contentDescription = "返回")
+                    }
+                },
+            )
+        },
+    ) { innerPadding ->
+        LazyColumn(
+            modifier = Modifier.fillMaxSize().padding(innerPadding).consumeWindowInsets(innerPadding),
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 28.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            item {
+                InfoCard("仅控制划卡后的进程保留",
+                    "选中的应用划卡后不会被强杀；一个也不选时默认保留全部。系统原有豁免应用不显示，仍按系统规则保留。选择后立即保存")
+            }
+            item {
+                TextField(value = query, onValueChange = { query = it },
+                    modifier = Modifier.fillMaxWidth(), label = "搜索应用名或包名",
+                    useLabelAsPlaceholder = true, singleLine = true)
+            }
+            item {
+                Text(if (selected.isEmpty()) "当前保留全部应用" else "已选择 ${selected.size} 个应用",
+                    color = MiuixTheme.colorScheme.primary)
+            }
+            if (loading) {
+                item { InfoCard("正在加载应用…") }
+            } else if (error != null) {
+                item { InfoCard("加载失败", error.orEmpty()) }
+            } else {
+                items(visible, key = { it.packageName }) { choice ->
+                    val icon = remember(choice.packageName) {
+                        runCatching { a.packageManager.getApplicationIcon(choice.packageName) }
+                            .getOrElse { a.packageManager.defaultActivityIcon }
+                    }
+                    Card(Modifier.fillMaxWidth()) {
+                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                            AndroidView(
+                                factory = { context ->
+                                    ImageView(context).apply { scaleType = ImageView.ScaleType.FIT_CENTER }
+                                },
+                                update = { it.setImageDrawable(icon) },
+                                modifier = Modifier.padding(start = 16.dp).size(40.dp),
+                            )
+                            Box(Modifier.weight(1f)) {
+                                CheckboxPreference(
+                                    checked = choice.packageName in selected,
+                                    onCheckedChange = { checked ->
+                                        save(if (checked) selected + choice.packageName else selected - choice.packageName)
+                                    },
+                                    title = choice.label, summary = choice.packageName,
+                                    checkboxLocation = CheckboxLocation.End,
+                                )
+                            }
+                        }
+                    }
+                }
+                if (visible.isEmpty()) {
+                    item { InfoCard("没有匹配的应用") }
+                }
+            }
+        }
+    }
 }
 
 private data class UninstallChoice(

@@ -26,6 +26,7 @@ public static final String KEY_UNRESTRICT_NOTIFY = "hook_unrestrict_notify";
 public static final String KEY_BLOCK_SUPERVISE = "hook_block_supervise";
     public static final String KEY_DEV_OPTIONS = "hook_dev_options";
     public static final String KEY_KEEP_BACKGROUND = "hook_keep_background";
+    public static final String KEY_KEEP_BACKGROUND_WHITELIST = "hook_keep_background_whitelist";
 
     public static boolean defaultEnabled(String key) {
         return !KEY_ANDROID12_BLACKLIST_HOOK.equals(key)

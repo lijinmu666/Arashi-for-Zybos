@@ -1,10 +1,11 @@
-name: 编译 Arashi 0.9.3 APK
+name: 编译 Arashi 0.9.4 APK
 
 on:
   push:
     branches: [main]
     paths:
       - 'app/**'
+      - 'tests/**'
       - '*.gradle'
       - 'gradle.properties'
       - 'gradle/**'
@@ -30,6 +31,12 @@ jobs:
           distribution: temurin
           java-version: '21'
       - uses: gradle/actions/setup-gradle@v4
+      - name: 验证后台保留白名单规则
+        shell: bash
+        run: |
+          set -euo pipefail
+          javac -d "$RUNNER_TEMP/background-tests" app/src/main/java/com/arashi/xposed/BackgroundPolicy.java tests/BackgroundPolicyCheck.java
+          java -cp "$RUNNER_TEMP/background-tests" BackgroundPolicyCheck
       - name: 安装 Android SDK
         shell: bash
         run: |
@@ -82,14 +89,14 @@ jobs:
           mkdir -p dist
           tools="$ANDROID_HOME/build-tools/37.0.0"
           if [[ "$OFFICIAL_SIGNED" == 'true' ]]; then
-            cp app/build/outputs/apk/release/app-release.apk dist/Arashi-0.9.3-release.apk
+            cp app/build/outputs/apk/release/app-release.apk dist/Arashi-0.9.4-release.apk
           else
-            cp app/build/outputs/apk/release/app-release-unsigned.apk dist/Arashi-0.9.3-release-unsigned.apk
-            cp app/build/outputs/apk/debug/app-debug.apk dist/Arashi-0.9.3-test.apk
+            cp app/build/outputs/apk/release/app-release-unsigned.apk dist/Arashi-0.9.4-release-unsigned.apk
+            cp app/build/outputs/apk/debug/app-debug.apk dist/Arashi-0.9.4-test.apk
           fi
           for apk in dist/*.apk; do
             "$tools/aapt" dump badging "$apk" > "$RUNNER_TEMP/arashi-badging.txt"
-            grep "package: name='com.arashi' versionCode='34' versionName='v0.9.3'" "$RUNNER_TEMP/arashi-badging.txt"
+            grep "package: name='com.arashi' versionCode='35' versionName='v0.9.4'" "$RUNNER_TEMP/arashi-badging.txt"
             test "$(unzip -p "$apk" META-INF/xposed/java_init.list)" = 'com.arashi.xposed.HookEntry'
             if [[ "$apk" != *-unsigned.apk ]]; then
               "$tools/apksigner" verify --verbose --print-certs "$apk"
@@ -98,7 +105,7 @@ jobs:
           sha256sum dist/*.apk > dist/SHA256SUMS.txt
       - uses: actions/upload-artifact@v4
         with:
-          name: Arashi-0.9.3-APKs
+          name: Arashi-0.9.4-APKs
           path: dist/*
           if-no-files-found: error
           retention-days: 14

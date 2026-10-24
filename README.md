@@ -1,6 +1,6 @@
 # Arashi
 
-Arashi 是面向作业帮学习机 AIBangOS 的 LSPosed 模块和系统工具，界面使用 Miuix。目前版本为 `v0.9.3`，版本号为 `34`。
+Arashi 是面向作业帮学习机 AIBangOS 的 LSPosed 模块和系统工具，界面使用 Miuix。目前版本为 `v0.9.4`，版本号为 `35`。
 
 系统内部相关组件使用 Zybos 命名。安装、卸载等特权工具依赖设备提供的 `ZybosSysApiManager`；不同固件的接口和限制可能存在差异。
 
@@ -11,7 +11,7 @@ Arashi 是面向作业帮学习机 AIBangOS 的 LSPosed 模块和系统工具，
 
 ## 下载与使用
 
-下载入口：[GitHub Releases](https://github.com/lijinmu666/Arashi/releases) · [GitHub Actions](https://github.com/lijinmu666/Arashi/actions)。主分支保留项目源码。Actions 未配置正式签名时，提供测试签名 APK 和未签名 Release APK；未签名包需要签名后安装，测试签名包不能直接覆盖不同签名的已安装版本。
+下载入口：[GitHub Releases](https://github.com/lijinmu666/Arashi-for-Zybos/releases) · [GitHub Actions](https://github.com/lijinmu666/Arashi-for-Zybos/actions)。主分支保留项目源码。Actions 未配置正式签名时，提供测试签名 APK 和未签名 Release APK；未签名包需要签名后安装，测试签名包不能直接覆盖不同签名的已安装版本。
 
 1. 安装 Arashi，在支持 libxposed API 102 的 LSPosed 管理器中启用模块。
 2. 按需要勾选系统框架及对应应用作用域，然后重启设备。
@@ -25,6 +25,8 @@ Arashi 是面向作业帮学习机 AIBangOS 的 LSPosed 模块和系统工具，
 
 - 安装：外部应用安装支持、Shell 安装支持、清除安装黑名单。
 - 系统行为：开发者选项支持、保留后台进程、USB 设备支持、壁纸设置支持、WiFi 登录支持、清除详情页黑名单、阻止重置默认浏览器、隐藏调试状态。
+
+保留后台进程支持应用白名单。开启开关后可在下方选择应用；未选择时默认保留全部，选择后仅保留选中的应用。微信、QQ、护眼、语音助手和时钟沿用固件原有豁免，不显示在选择器中。关闭开关会隐藏入口并保留选择。
 - 管控：阻止管控服务、应用禁用失效、页面屏蔽失效及时间限制相关功能。
 - 实验功能：虚拟显示及跨包通知相关 Hook，默认关闭。
 
@@ -88,3 +90,7 @@ app/src/main/kotlin/com/arashi/ui/MiuixPages.kt
 需要签名时，在项目根目录自行创建 `keystore.properties`，配置 `storeFile`、`storePassword`、`keyAlias` 和 `keyPassword`，并准备自己的签名文件。这些文件以及 `local.properties`、缓存、备份和构建产物均不提交到仓库。
 
 使用自己的签名编译的 APK 会触发应用内的签名不匹配提示。
+
+## 许可证
+
+Arashi 版权所有 © 2026 lijinmu666，采用 GNU General Public License v3.0 only（SPDX：`GPL-3.0-only`）授权，详见 [LICENSE](LICENSE)。
