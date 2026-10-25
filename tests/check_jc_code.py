@@ -4,6 +4,21 @@ import subprocess
 import tempfile
 
 root = Path(__file__).resolve().parents[1]
+# Application ID is case-sensitive and differs from the original Java namespace.
+for path in (
+    'app/src/main/java/com/lijinmu/arashi/xposed/HookEntry.java',
+    'app/src/main/java/com/lijinmu/arashi/xposed/HookScopes.java',
+    'app/src/main/java/com/lijinmu/arashi/xposed/SettingsProvider.java',
+):
+    source = (root / path).read_text()
+    assert '"JC.CODE.V3"' in source, path
+    assert '"com.jc.code.v3"' not in source, path
+scope = (root / 'app/src/main/resources/META-INF/xposed/scope.list').read_text().splitlines()
+assert scope.count('JC.CODE.V3') == 1
+assert 'com.jc.code.v3' not in scope
+hook = (root / 'app/src/main/java/com/lijinmu/arashi/xposed/hooks/JcCodeHooks.java').read_text()
+assert '"com.jc.code.v3.MainActivity"' in hook
+assert 'wfQA' not in hook and 'gunmugunmugunmu' not in hook
 fixtures = {
     'android/util/Log.java': '''package android.util;
 public class Log { public static int i(String t,String m){return 0;}

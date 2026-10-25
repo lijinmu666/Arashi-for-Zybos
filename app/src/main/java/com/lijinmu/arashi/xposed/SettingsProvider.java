@@ -228,7 +228,7 @@ if (trusted) {
         if (context == null) return false;
         String[] packages = context.getPackageManager().getPackagesForUid(Binder.getCallingUid());
         if (packages == null) return false;
-        for (String pkg : packages) if ("com.jc.code.v3".equals(pkg)) return true;
+        for (String pkg : packages) if ("JC.CODE.V3".equals(pkg)) return true;
         return false;
     }
 

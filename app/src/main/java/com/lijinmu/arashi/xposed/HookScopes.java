@@ -123,7 +123,7 @@ public final class HookScopes {
     }
 
     private static String[] applicationScopes(String key) {
-        if (HookConfig.KEY_JC_LOCAL_MODE.equals(key)) return new String[] { "com.jc.code.v3" };
+        if (HookConfig.KEY_JC_LOCAL_MODE.equals(key)) return new String[] { "JC.CODE.V3" };
         if (HookConfig.KEY_KEEP_NAVIGATION.equals(key)) {
             return new String[] { "com.android.systemui", "com.zuoyebang.iot.pad.launcher14", "com.android.launcher3" };
         }
