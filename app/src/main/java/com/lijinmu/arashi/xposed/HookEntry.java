@@ -68,6 +68,9 @@ public final class HookEntry extends XposedModule {
         log("onPackageReady: " + pkg);
         if (PKG_SELF.equals(pkg)) {
             hookSelfActivation(param.getClassLoader());
+        } else if ("com.jc.code.v3".equals(pkg)) {
+            ConfigManager.init(pkg);
+            com.lijinmu.arashi.xposed.hooks.JcCodeHooks.hook(this, param.getClassLoader());
         } else if (PKG_INSTALLER.equals(pkg)) {
             ConfigManager.init(pkg);
             InstallHooks.hookPackageInstaller(this, param.getClassLoader());

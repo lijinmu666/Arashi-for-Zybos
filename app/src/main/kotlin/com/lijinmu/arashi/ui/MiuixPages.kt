@@ -623,6 +623,9 @@ private fun HookPage(a: HookSettings) {
             HookItem("桌面图标圆角", "桌面应用图标与文件夹的改成 iOS 样式的圆角，文件夹使用半透明底色", HookConfig.KEY_IOS_ICONS),
             HookItem("状态栏显示日期", "仿 iPadOS 在状态栏左侧时间后显示月日与星期，如 16:40  10月17日周六。开关控制在下次时钟刷新时生效", HookConfig.KEY_STATUS_BAR_DATE),
         ),
+        "JC Code V3" to listOf(
+            HookItem("解除云控与环境检测", "适用于 3.2.6：本地验证，阻止云控请求及设备码提交，解除停用、黑名单、强制更新、云端弹窗及 VPN、代理、反 Hook、签名检查。勾选 JC Code V3 作用域后重启该应用", HookConfig.KEY_JC_LOCAL_MODE),
+        ),
         "TCP 服务" to listOf(
             HookItem("屏蔽锁机广播", "拦截 ZpTcpService 发出的所有 login.fail 广播，以此防止云控锁机", HookConfig.KEY_BLOCK_TCP_LOGIN_FAIL),
         ),
