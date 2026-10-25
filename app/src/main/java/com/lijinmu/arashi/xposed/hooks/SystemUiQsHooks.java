@@ -220,7 +220,8 @@ public final class SystemUiQsHooks {
         String date = DateFormat.getBestDateTimePattern(locale, "MMMdEEE");
         clock.setFormat12Hour(DateFormat.getBestDateTimePattern(locale, "hm") + "  " + date);
         clock.setFormat24Hour(DateFormat.getBestDateTimePattern(locale, "Hm") + "  " + date);
-        clock.setTextColor(neutral(bar.getResources(), true));
+        // The shade uses a dark wallpaper scrim even in light system mode.
+        clock.setTextColor(0xffffffff);
         bar.setOrientation(LinearLayout.HORIZONTAL);
         bar.setGravity(Gravity.CENTER_VERTICAL | Gravity.END);
         bar.setPaddingRelative(dp(bar, 16), 0, dp(bar, 16), 0);
