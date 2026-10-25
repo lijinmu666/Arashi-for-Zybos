@@ -49,7 +49,7 @@ public final class SystemUiThemeHooks {
         return SystemUiMonetHooks.enabled();
     }
 
-    private static boolean tilesEnabled() { return enabled() || SystemUiQsHooks.enabled(); }
+    private static boolean tilesEnabled() { return enabled(); }
 
     private static int accent(Resources resources) {
         return SystemUiMonetHooks.accent(resources);
@@ -77,11 +77,8 @@ public final class SystemUiThemeHooks {
                             String entry = resourceName(resources, (Integer) chain.getArg(0));
                             Integer replacement = null;
                             if (entry.equals(PREFIX + "color/qs_selected_background")) replacement = accent(resources);
-                            if (SystemUiQsHooks.enabled() && entry.equals(PREFIX + "color/qs_default_background"))
-                                replacement = SystemUiQsHooks.neutral(resources, false);
                             if (entry.equals(PREFIX + "color/qs_tile_text_and_icon_color")) {
                                 if (ACTIVE_ICON.get()) replacement = foreground(resources);
-                                else if (SystemUiQsHooks.enabled()) replacement = SystemUiQsHooks.neutral(resources, true);
                             }
                             if (replacement != null) return name.equals("getColor")
                                     ? replacement : ColorStateList.valueOf(replacement);
@@ -162,7 +159,7 @@ public final class SystemUiThemeHooks {
                     if (name.equals("handleStateChanged") && method.getParameterTypes().length == 1) {
                         method.setAccessible(true);
                         module.hook(method).intercept(chain -> {
-                            if ((SystemUiMonetHooks.enabled() || SystemUiQsHooks.enabled()) && chain.getThisObject() instanceof View) {
+                            if ((SystemUiMonetHooks.enabled()) && chain.getThisObject() instanceof View) {
                                 synchronized (TILE_STATES) {
                                     TILE_STATES.put((View) chain.getThisObject(), chain.getArg(0));
                                 }
@@ -183,11 +180,6 @@ public final class SystemUiThemeHooks {
                             && (args.length == 1 || !Boolean.TRUE.equals(chain.getArg(1)))) {
                         Resources resources = ((View) chain.getThisObject()).getResources();
                         return name.equals("getBackgroundColorForState") ? accent(resources) : foreground(resources);
-                    }
-                    if (SystemUiQsHooks.enabled() && Integer.valueOf(1).equals(chain.getArg(0))
-                            && (args.length == 1 || !Boolean.TRUE.equals(chain.getArg(1)))) {
-                        return SystemUiQsHooks.neutral(((View) chain.getThisObject()).getResources(),
-                                !name.equals("getBackgroundColorForState"));
                     }
                     return chain.proceed();
                 });
@@ -271,7 +263,7 @@ public final class SystemUiThemeHooks {
                 Object result = chain.proceed();
                 if (tilesEnabled() && chain.getThisObject() instanceof View) {
                     View root = (View) chain.getThisObject();
-                    if (SystemUiMonetHooks.enabled() || SystemUiQsHooks.enabled()) {
+                    if (SystemUiMonetHooks.enabled()) {
                         synchronized (BRIGHTNESS_VIEWS) { BRIGHTNESS_VIEWS.put(root, true); }
                     }
                     applyBrightnessColor(root);
@@ -283,10 +275,6 @@ public final class SystemUiThemeHooks {
 
     private static void applyBrightnessColor(View root) {
         try {
-            if (SystemUiQsHooks.enabled()) {
-                SystemUiQsHooks.restoreBrightness(root);
-                return;
-            }
             int id = root.getResources().getIdentifier("slider", "id", "com.android.systemui");
             View view = id == 0 ? null : root.findViewById(id);
             if (!(view instanceof SeekBar)) return;

@@ -618,7 +618,6 @@ private fun HookPage(a: HookSettings) {
             HookItem("恢复 Monet 颜色", "修复基于壁纸的动态配色", HookConfig.KEY_SYSTEMUI_MONET),
         ),
         "美化" to listOf(
-            HookItem("使用原版下拉面板和锁屏", "修复并使用 AOSP 风格下拉面板和锁屏", HookConfig.KEY_AOSP_QS),
             HookItem("原版状态栏图标", "将电池、WLAN、蓝牙图标恢复为 AOSP 原版样式", HookConfig.KEY_AOSP_STATUS_ICONS),
             HookItem("解除通知图标数量限制", "取消普通状态栏通知图标的固定数量上限，按可用宽度显示", HookConfig.KEY_UNLIMITED_NOTIFICATION_ICONS),
             HookItem("桌面图标圆角", "桌面应用图标与文件夹的改成 iOS 样式的圆角，文件夹使用半透明底色", HookConfig.KEY_IOS_ICONS),

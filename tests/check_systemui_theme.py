@@ -16,7 +16,6 @@ base = ast.literal_eval(node)
 stubs = {key: base[key] for key in ['io/github/libxposed/api/XposedInterface.java',
                                   'io/github/libxposed/api/XposedModule.java', 'android/util/Log.java']}
 stubs.update({
-'com/lijinmu/arashi/xposed/hooks/SystemUiQsHooks.java': "package com.lijinmu.arashi.xposed.hooks; public class SystemUiQsHooks {static boolean enabled(){return com.lijinmu.arashi.xposed.ConfigManager.qs;}static void restoreBrightness(android.view.View root){}static int neutral(android.content.res.Resources r,boolean f){return f?0xffeeeeee:0xff222222;}}",
 'android/R.java': '''package android;public class R {
  public static class attr {public static final int state_enabled=1,state_pressed=2,state_selected=3;}
  public static class id {public static final int progress=4;}
@@ -82,7 +81,7 @@ public class TextView extends android.view.View {public ColorStateList colors=Co
  public ColorStateList getTextColors(){return colors;}public void setTextColor(ColorStateList c){colors=c;}}
 ''',
 'com/lijinmu/arashi/xposed/ConfigManager.java': '''package com.lijinmu.arashi.xposed;public class ConfigManager {
- public static boolean enabled,monet,qs;public static int color=0xff245638;public static boolean isEnabledCached(String k){return HookConfig.KEY_AOSP_QS.equals(k)?qs:HookConfig.KEY_SYSTEMUI_MONET.equals(k)?monet:enabled;}
+ public static boolean enabled,monet,qs;public static int color=0xff245638;public static boolean isEnabledCached(String k){return HookConfig.KEY_SYSTEMUI_MONET.equals(k)?monet:enabled;}
 }
 ''',
 'com/android/systemui/qs/tileimpl/QSTileViewImpl.java': '''package com.android.systemui.qs.tileimpl;
@@ -203,18 +202,7 @@ public class Check {
   var disabledController=new com.android.systemui.theme.ThemeOverlayController();call(start,disabledController);
   check(!disabledController.startedWithMonet&&disabledController.mContext.callbacks.isEmpty());
   disabledController.mIsMonetEnabled=true;call(start,disabledController);check(disabledController.startedWithMonet);
-  ConfigManager.qs=true;ConfigManager.enabled=false;ConfigManager.monet=false;
-  check((int)call(color,res,1)==res.dark);
-  res.names.put(6,"color/qs_default_background");check((int)call(color,res,6)==0xff222222);
-  res.owner="other";check((int)call(color,res,6)==0xff123456);res.owner="com.android.systemui";
-  Method background=tile.getClass().getDeclaredMethod("getBackgroundColorForState",int.class,boolean.class);
-  check((int)call(background,tile,1,false)==0xff222222);
-  check((int)call(background,tile,2,false)==tile.resources.light);
-  check((int)call(background,tile,2,true)==10);check((int)call(background,tile,0,false)==10);
-  ConfigManager.enabled=true;check((int)call(background,tile,2,false)==tile.resources.light);ConfigManager.enabled=false;
-  int previous=tile.refreshes;call(stateChange,tile,state);SystemUiThemeHooks.refreshDynamicColors();check(tile.refreshes==previous+2);
-  ConfigManager.qs=false;check((int)call(color,res,6)==0xff123456);check((int)call(background,tile,1,false)==10);
-  System.out.println("AOSP QS colors: active/inactive resources, removed manual override ignored, policy and configuration refresh passed");
+  System.out.println("Monet tile colors: active resources, policy and configuration refresh passed");
   System.out.println("Monet: scoped flag enablement, native start, failure containment, light/dark palette, removed manual override ignored and existing-view refresh passed");
   System.out.println("SystemUI theme: RGB validation, 4096 contrast checks, 12/14 QS state variants, scoped icon color, selector cloning, XML load path and disabled fallback passed");
  }
