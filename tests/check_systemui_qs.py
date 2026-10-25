@@ -479,6 +479,15 @@ public class Check {
   int formatUpdates=TextClock.formatUpdates;
   for(int repeat=0;repeat<20;repeat++)SystemUiQsHooks.restoreShadeBounds(vendorRoot,1920);
   check(TextClock.formatUpdates==formatUpdates&&duplicate.getChildCount()==2);
+  int statusBottom=((ViewGroup.MarginLayoutParams)duplicate.params).topMargin+duplicate.params.height;
+  check(((ViewGroup.MarginLayoutParams)stableQs.params).topMargin>=statusBottom+16);
+  vendorRoot.resources.config.orientation=1;
+  SystemUiQsHooks.restoreShadeBounds(vendorRoot,1280);
+  check(((ViewGroup.MarginLayoutParams)stableQs.params).topMargin>=statusBottom+16);
+  vendorRoot.resources.config.orientation=2;vendorRoot.resources.config.screenWidthDp=960;
+  SystemUiQsHooks.restoreShadeBounds(vendorRoot,1920);
+  check(((ViewGroup.MarginLayoutParams)stableNotifications.params).topMargin>=statusBottom+16);
+
   var statusState=new com.android.systemui.statusbar.StatusBarStateControllerImpl();
   Method changeState=statusState.getClass().getMethod("setState",int.class,boolean.class);
   // Locking with an unchanged fraction must hide the injected clock immediately.

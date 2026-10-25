@@ -482,9 +482,10 @@ public final class SystemUiQsHooks {
             }
         }
         boundColumn(qs, column, edge, bottom);
-        if (!TOP_CLOCKS.isEmpty() && qs.getLayoutParams() instanceof ViewGroup.MarginLayoutParams) {
+        int statusBottom = topStatusBottom(root);
+        if (statusBottom > 0 && qs.getLayoutParams() instanceof ViewGroup.MarginLayoutParams) {
             ViewGroup.MarginLayoutParams margins = (ViewGroup.MarginLayoutParams) qs.getLayoutParams();
-            int minimum = dp(root, 28);
+            int minimum = statusBottom + dp(root, 8);
             if (margins.topMargin < minimum) {
                 margins.topMargin = minimum;
                 qs.setLayoutParams(margins);
@@ -503,11 +504,22 @@ public final class SystemUiQsHooks {
         if (banner) notificationStart = (width - column) / 2;
         boundColumn(notifications, column, notificationStart, bottom);
         boolean expanded = !Boolean.FALSE.equals(Reflect.getObjectField(notifications, "mIsExpanded"));
-        insetNotificationTop(notifications, split && expanded && !banner ? dp(root, 64) : 0);
+        insetNotificationTop(notifications, split && expanded && !banner
+                ? Math.max(dp(root, 64), statusBottom > 0 ? statusBottom + dp(root, 8) : 0) : 0);
         NATIVE_BOUNDS.get(qs).remember(qs.getLayoutParams());
         NATIVE_BOUNDS.get(notifications).remember(notifications.getLayoutParams());
     }
 
+
+    private static int topStatusBottom(ViewGroup root) {
+        for (ViewGroup row : TOP_CLOCKS.keySet()) {
+            if (row.getParent() != root) continue;
+            ViewGroup.LayoutParams params = row.getLayoutParams();
+            if (params instanceof ViewGroup.MarginLayoutParams && params.height > 0)
+                return Math.max(0, ((ViewGroup.MarginLayoutParams) params).topMargin) + params.height;
+        }
+        return 0;
+    }
 
     static void insetNotificationTop(View notifications, int extra) {
         ViewGroup.LayoutParams params = notifications.getLayoutParams();
