@@ -897,7 +897,16 @@ public final class SystemUiQsHooks {
             if (name.endsWith(".MediaScrollView") && current.getWidth() > 0)
                 width = Math.min(width, current.getWidth() - current.getPaddingLeft() - current.getPaddingRight());
             int qsId = current.getResources().getIdentifier("qs_frame", "id", "com.android.systemui");
-            if (qsId != 0 && current.getId() == qsId) inQs = true;
+            if (qsId != 0 && current.getId() == qsId) {
+                inQs = true;
+                // QS column bounds are updated before measurement. getWidth() on the
+                // carousel can still describe the previous orientation at this point.
+                ViewGroup.LayoutParams params = current.getLayoutParams();
+                if (params != null && params.width > 0) {
+                    int available = params.width - current.getPaddingLeft() - current.getPaddingRight();
+                    if (available > 0) width = Math.min(width, available);
+                }
+            }
             Object parent = current.getParent();
             current = parent instanceof View ? (View) parent : null;
         }

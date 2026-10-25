@@ -550,6 +550,14 @@ public class Check {
   Method obtain=mediaController.getClass().getMethod("obtainViewState",mediaState.getClass());
   call(obtain,mediaController,mediaState);
   check(View.MeasureSpec.getSize(mediaController.measured)==600&&mediaState.input.widthMeasureSpec==1920);
+  // Rotation changes the QS column before the carousel receives its next layout.
+  viewport.width=1920;mediaQs.setLayoutParams(new FrameLayout.LayoutParams(720,-1));
+  call(obtain,mediaController,mediaState);
+  check(View.MeasureSpec.getSize(mediaController.measured)==720&&mediaState.input.widthMeasureSpec==1920);
+  viewport.width=0;call(obtain,mediaController,mediaState);
+  check(View.MeasureSpec.getSize(mediaController.measured)==720);
+  mediaQs.setLayoutParams(new FrameLayout.LayoutParams(1080,-1));viewport.width=1080;
+  call(obtain,mediaController,mediaState);check(View.MeasureSpec.getSize(mediaController.measured)==1080);
   mediaController.fail=true;try{call(obtain,mediaController,mediaState);throw new AssertionError();}catch(java.lang.reflect.InvocationTargetException expected){}
   check(mediaState.input.widthMeasureSpec==1920);mediaController.fail=false;
   ConfigManager.enabled=false;call(obtain,mediaController,mediaState);check(mediaController.measured==1920);ConfigManager.enabled=true;
