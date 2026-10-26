@@ -96,6 +96,8 @@ import top.yukonga.miuix.kmp.preference.CheckboxPreference
 import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
 import top.yukonga.miuix.kmp.preference.SwitchPreference
 import top.yukonga.miuix.kmp.popup.OverlayDropdownPopup
+import top.yukonga.miuix.kmp.theme.ColorSchemeMode
+import top.yukonga.miuix.kmp.theme.ThemeController
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.theme.darkColorScheme
 import top.yukonga.miuix.kmp.theme.lightColorScheme
@@ -207,13 +209,13 @@ object MiuixPages {
                 val uiPrefs = remember(a) { a.getSharedPreferences("ui", Context.MODE_PRIVATE) }
                 var mode by remember(uiPrefs) { mutableIntStateOf(uiPrefs.getInt("mode", 0)) }
                 var colorScheme by remember(uiPrefs) {
-                    mutableIntStateOf(uiPrefs.getInt("color_scheme", 0))
+                    mutableIntStateOf(uiPrefs.getInt("color_scheme", 2))
                 }
                 DisposableEffect(uiPrefs) {
                     val listener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { prefs, key ->
                         when (key) {
                             "mode" -> mode = prefs.getInt("mode", 0)
-                            "color_scheme" -> colorScheme = prefs.getInt("color_scheme", 0)
+                            "color_scheme" -> colorScheme = prefs.getInt("color_scheme", 2)
                         }
                     }
                     uiPrefs.registerOnSharedPreferenceChangeListener(listener)
@@ -225,7 +227,12 @@ object MiuixPages {
                     2 -> true
                     else -> isSystemInDarkTheme()
                 }
-                val colors = if (!usePurple) {
+                val systemTheme = remember(dark) {
+                    ThemeController(if (dark) ColorSchemeMode.MonetDark else ColorSchemeMode.MonetLight)
+                }
+                val colors = if (colorScheme == 2) {
+                    systemTheme.currentColors()
+                } else if (!usePurple) {
                     if (dark) darkColorScheme() else lightColorScheme()
                 } else if (dark) {
                     darkColorScheme(
@@ -1756,8 +1763,10 @@ private fun SettingsPage(a: ArashiSettings) = Page(a, "应用偏好设置", a::f
     var selectedTheme by remember {
         mutableIntStateOf(themeModes.indexOf(prefs.getInt("mode", 0)).coerceAtLeast(0))
     }
+    // Keep persisted values: 0 = purple, 1 = blue, 2 = system Monet.
+    val colorSchemeValues = listOf(2, 0, 1)
     var selectedColorScheme by remember {
-        mutableIntStateOf(if (prefs.getInt("color_scheme", 0) == 1) 1 else 0)
+        mutableIntStateOf(colorSchemeValues.indexOf(prefs.getInt("color_scheme", 2)).coerceAtLeast(0))
     }
     var hidden by remember { mutableStateOf(a.isLauncherHidden) }
     var installer by remember { mutableStateOf(a.isInstallerEnabled) }
@@ -1773,12 +1782,12 @@ private fun SettingsPage(a: ArashiSettings) = Page(a, "应用偏好设置", a::f
     }
     Group("外观") {
         OverlayDropdownPreference(
-            items = listOf("紫色", "蓝色"),
+            items = listOf("系统默认", "紫色", "蓝色"),
             selectedIndex = selectedColorScheme,
             title = "配色设置",
             onSelectedIndexChange = { index ->
                 selectedColorScheme = index
-                prefs.edit().putInt("color_scheme", index).apply()
+                prefs.edit().putInt("color_scheme", colorSchemeValues[index]).apply()
                 a.recreate()
             },
         )
