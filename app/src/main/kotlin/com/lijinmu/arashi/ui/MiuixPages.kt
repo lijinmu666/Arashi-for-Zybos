@@ -658,6 +658,7 @@ private fun HookPage(a: HookSettings) {
         Group(name) {
             entries.forEach { entry ->
                 val available = scopes.isAvailable(entry.key)
+                var requestingScope by remember(entry.key) { mutableStateOf(false) }
                 var checked by remember(entry.key) {
                     mutableStateOf(
                         if (entry.key == HookConfig.KEY_AOSP_STATUS_ICONS)
@@ -665,37 +666,60 @@ private fun HookPage(a: HookSettings) {
                         else prefs.getBoolean(entry.key, HookConfig.defaultEnabled(entry.key)),
                     )
                 }
+                fun saveHook(enabled: Boolean) {
+                    checked = enabled
+                    prefs.edit().putBoolean(entry.key, enabled).apply()
+                    val effectMessage = when (entry.key) {
+                        HookConfig.KEY_NOTIFICATION_LONG_PRESS,
+                        HookConfig.KEY_SYSTEMUI_MONET,
+                        HookConfig.KEY_AOSP_STATUS_ICONS -> "重启 SystemUI 后生效"
+                        HookConfig.KEY_CLEAR_BLACKLIST -> "重启系统后生效"
+                        HookConfig.KEY_STATUS_BAR_DATE -> "下一次时钟刷新后生效"
+                        HookConfig.KEY_IOS_ICONS -> "重启桌面后生效"
+                        else -> null
+                    }
+                    if (effectMessage != null && scopes.isAvailable(entry.key)) {
+                        coroutineScope.launch {
+                            snackbar.newestSnackbarData()?.dismiss()
+                            snackbar.showSnackbar(effectMessage)
+                        }
+                    }
+                    if (entry.key == HookConfig.KEY_BLOCK_TCP_LOGIN_FAIL && enabled &&
+                        com.lijinmu.arashi.notifications.NotificationPreferences.enabled(a, com.lijinmu.arashi.notifications.NotificationPreferences.TCP)) {
+                        com.lijinmu.arashi.notifications.AppNotifications.requestPermissionIfNeeded(a)
+                    }
+
+                }
                 SwitchPreference(
                     checked = checked,
-                    onCheckedChange = {
-                        if (scopes.isAvailable(entry.key)) {
-                            checked = it
-                            prefs.edit().putBoolean(entry.key, it).apply()
-                            val effectMessage = when (entry.key) {
-                                HookConfig.KEY_NOTIFICATION_LONG_PRESS,
-                                HookConfig.KEY_SYSTEMUI_MONET,
-                                HookConfig.KEY_AOSP_STATUS_ICONS -> "重启 SystemUI 后生效"
-                                HookConfig.KEY_CLEAR_BLACKLIST -> "重启系统后生效"
-                                HookConfig.KEY_STATUS_BAR_DATE -> "下一次时钟刷新后生效"
-                                HookConfig.KEY_IOS_ICONS -> "重启桌面后生效"
-                                else -> null
-                            }
-                            if (effectMessage != null) {
-                                coroutineScope.launch {
-                                    snackbar.newestSnackbarData()?.dismiss()
-                                    snackbar.showSnackbar(effectMessage)
+                    onCheckedChange = { enabled ->
+                        if (!enabled || scopes.isAvailable(entry.key)) {
+                            saveHook(enabled)
+                        } else if (!requestingScope) {
+                            checked = false
+                            prefs.edit().putBoolean(entry.key, false).apply()
+                            requestingScope = true
+                            val sent = HookScopes.requestForHook(a, entry.key) { approved, message ->
+                                requestingScope = false
+                                if (!a.isFinishing && !a.isDestroyed) {
+                                    if (approved) saveHook(true)
+                                    else {
+                                        checked = false
+                                        prefs.edit().putBoolean(entry.key, false).apply()
+                                        coroutineScope.launch { snackbar.showSnackbar(message) }
+                                    }
                                 }
                             }
-                            if (entry.key == HookConfig.KEY_BLOCK_TCP_LOGIN_FAIL && it &&
-                                com.lijinmu.arashi.notifications.NotificationPreferences.enabled(a, com.lijinmu.arashi.notifications.NotificationPreferences.TCP)) {
-                                com.lijinmu.arashi.notifications.AppNotifications.requestPermissionIfNeeded(a)
+                            if (sent) coroutineScope.launch {
+                                snackbar.newestSnackbarData()?.dismiss()
+                                snackbar.showSnackbar("已发送作用域申请")
                             }
                         }
                     },
                     title = entry.title,
                     summary = if (available) entry.summary
                         else entry.summary + "。" + scopes.unavailableReason(entry.key),
-                    enabled = available,
+                    enabled = true,
                 )
                 if (entry.key == HookConfig.KEY_BLOCK_TCP_LOGIN_FAIL) {
                     ArrowPreference(
@@ -739,14 +763,25 @@ private fun HookPage(a: HookSettings) {
                         SwitchPreference(
                             checked = injectDeveloperMenu,
                             onCheckedChange = {
-                                if (available) {
+                                if (!it || available) {
                                     injectDeveloperMenu = it
                                     prefs.edit().putBoolean(HookConfig.KEY_DEV_OPTIONS_MENU, it).apply()
+                                } else {
+                                    injectDeveloperMenu = false
+                                    prefs.edit().putBoolean(HookConfig.KEY_DEV_OPTIONS_MENU, false).apply()
+                                    val sent = HookScopes.requestForHook(a, HookConfig.KEY_DEV_OPTIONS) { approved, message ->
+                                        if (!a.isFinishing && !a.isDestroyed) {
+                                            injectDeveloperMenu = approved
+                                            prefs.edit().putBoolean(HookConfig.KEY_DEV_OPTIONS_MENU, approved).apply()
+                                            if (!approved) coroutineScope.launch { snackbar.showSnackbar(message) }
+                                        }
+                                    }
+                                    if (sent) coroutineScope.launch { snackbar.showSnackbar("已发送作用域申请") }
                                 }
                             },
                             title = "注入开发者选项入口",
                             summary = "在系统设置的左侧菜单中添加 “开发者选项” 入口",
-                            enabled = available,
+                            enabled = true,
                         )
                     }
                 }

@@ -101,6 +101,61 @@ public final class HookScopes {
         return new Snapshot(systemActive, false, Collections.emptySet());
     }
 
+
+    public interface ScopeResult {
+        void complete(boolean approved, String message);
+    }
+
+    /** Submit only missing targets; callback always returns on the main thread. */
+    public static boolean requestForHook(Context context, String key, ScopeResult result) {
+        initialize(context);
+        android.os.Handler main = new android.os.Handler(android.os.Looper.getMainLooper());
+        XposedService current = service;
+        if (current == null) {
+            main.post(() -> result.complete(false, "无法连接 LSPosed，请确认模块已启用"));
+            return false;
+        }
+        try {
+            java.util.List<String> required = new java.util.ArrayList<>();
+            if (usesSystemServer(key)) required.add("system");
+            String[] apps = applicationScopes(key);
+            if (apps.length > 0) {
+                String target = null;
+                for (String pkg : apps) {
+                    try {
+                        context.getPackageManager().getApplicationInfo(pkg, 0);
+                        target = pkg;
+                        break;
+                    } catch (android.content.pm.PackageManager.NameNotFoundException ignored) {}
+                }
+                if (target == null) {
+                    main.post(() -> result.complete(false, "未找到对应作用域应用"));
+                    return false;
+                }
+                required.add(target);
+            }
+            java.util.List<String> missing = new java.util.ArrayList<>(required);
+            missing.removeAll(current.getScope());
+            if (missing.isEmpty()) {
+                main.post(() -> result.complete(true, ""));
+                return false;
+            }
+            current.requestScope(missing, new XposedService.OnScopeEventListener() {
+                @Override public void onScopeRequestApproved(java.util.List<String> approved) {
+                    boolean granted = approved.containsAll(missing);
+                    main.post(() -> result.complete(granted, granted ? "" : "作用域未全部获准，开关保持关闭"));
+                }
+                @Override public void onScopeRequestFailed(String message) {
+                    main.post(() -> result.complete(false, "作用域申请未获准：" + message));
+                }
+            });
+            return true;
+        } catch (RuntimeException error) {
+            main.post(() -> result.complete(false, "作用域申请失败：" + error.getMessage()));
+            return false;
+        }
+    }
+
     private static boolean usesSystemServer(String key) {
         return !HookConfig.KEY_JC_LOCAL_MODE.equals(key)
                 && !HookConfig.KEY_AOSP_APP_DETAILS.equals(key)
