@@ -122,6 +122,8 @@ object MiuixPages {
         val body: String,
         val buttonLabel: String = "知道了",
         val loading: Boolean = false,
+        val feedback: Boolean = false,
+        val id: Long = System.nanoTime(),
     )
     private val messages = WeakHashMap<Activity, MutableState<Message?>>()
 
@@ -182,6 +184,10 @@ object MiuixPages {
         }
 
     @JvmStatic fun showMessage(a: Activity, title: String, body: String) {
+        a.runOnUiThread { messageState(a).value = Message(title, body, feedback = true) }
+    }
+
+    @JvmStatic fun showDetails(a: Activity, title: String, body: String) {
         a.runOnUiThread { messageState(a).value = Message(title, body) }
     }
 
@@ -287,6 +293,33 @@ object MiuixPages {
     fun MessageDialog(a: Activity) {
         val message = messageState(a)
         val current = message.value
+        val feedbackHost = remember(current?.id) { SnackbarHostState() }
+        LaunchedEffect(current?.id) {
+            val result = current ?: return@LaunchedEffect
+            if (!result.feedback) return@LaunchedEffect
+            val body = result.body.trim()
+            val detailed = body.length > 80 || body.lines().size > 2
+            val preview = body.lineSequence().firstOrNull { it.isNotBlank() }.orEmpty()
+            val summary = if (detailed) {
+                result.title + if (preview.isEmpty()) "" else "：" + preview.take(70) +
+                    if (body.length > preview.take(70).length) "…" else ""
+            } else {
+                result.title + if (body.isEmpty() || body == result.title) "" else "\n" + body
+            }
+            val response = feedbackHost.showSnackbar(
+                message = summary,
+                actionLabel = if (detailed) "查看详情" else null,
+                withDismissAction = true,
+                duration = SnackbarDuration.Long,
+            )
+            if (message.value?.id == result.id) {
+                message.value = if (response == top.yukonga.miuix.kmp.basic.SnackbarResult.ActionPerformed)
+                    result.copy(feedback = false, id = System.nanoTime()) else null
+            }
+        }
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
+            SnackbarHost(feedbackHost)
+        }
         // Visibility can change immediately, but the overlay still draws its
         // content during the exit animation. Retain the last displayed message
         // until replacement or composition disposal rather than blanking it.
@@ -296,7 +329,7 @@ object MiuixPages {
         }
         val displayed = current ?: retained
         OverlayDialog(
-            show = current != null,
+            show = current != null && !current.feedback,
             title = displayed?.title,
             summary = displayed?.body,
             onDismissRequest = { message.value = null },
@@ -1514,8 +1547,6 @@ private data class QuickAction(val title: String, val options: List<QuickOption>
 private fun QuickPage(a: QuickCommands) {
     var selected by remember { mutableStateOf<QuickAction?>(null) }
     var running by remember { mutableStateOf(false) }
-    val snackbar = remember { SnackbarHostState() }
-    val scope = rememberCoroutineScope()
     fun choose(title: String, command: (Boolean) -> String): QuickAction =
         QuickAction(title, listOf(true, false).map { enabled ->
             QuickOption(if (enabled) "开启" else "关闭") { done ->
@@ -1531,18 +1562,10 @@ private fun QuickPage(a: QuickCommands) {
     val completion = QuickCommands.Completion { success, output ->
         running = false
         selected = null
-        scope.launch {
-            snackbar.showSnackbar(
-                message = (if (success) "执行完毕" else "执行失败") +
-                    output.trim().takeIf { it.isNotEmpty() }?.let { "\n$it" }.orEmpty(),
-                duration = SnackbarDuration.Long,
-                withDismissAction = true,
-            )
-        }
+        MiuixPages.showMessage(a, if (success) "执行完毕" else "执行失败", output)
     }
     Page(
         a, "快捷指令执行", a::finish,
-        snackbarHost = { SnackbarHost(snackbar) },
         overlay = {
             OverlayDialog(
                 show = selected != null,
@@ -1955,7 +1978,7 @@ private fun AboutPage(a: About) = Page(a, "关于 Arashi", a::finish) {
             }
     })
     AboutCard("作者", "李瑾沐", arrow = true, onClick = {
-        MiuixPages.showMessage(a, "关于作者", "首席开发者 : 李瑾沐 (H…Hey)\n小红书号 : failgach")
+        MiuixPages.showDetails(a, "关于作者", "首席开发者 : 李瑾沐 (H…Hey)\n小红书号 : failgach")
     })
     AboutCard("GitHub 仓库", "lijinmu666/Arashi-for-Zybos", externalLink = true, onClick = {
         val url = "https://github.com/lijinmu666/Arashi-for-Zybos"

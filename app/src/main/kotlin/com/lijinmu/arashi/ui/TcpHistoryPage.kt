@@ -172,7 +172,7 @@ internal fun TcpHistoryPage(a: TcpHistoryActivity) {
                                                 "进程：${record.process} (${record.pid})\n" +
                                                 record.details.orEmpty() + "\n\n" + record.stack.orEmpty()),
                                         )
-                                        android.widget.Toast.makeText(a, "已复制详情", android.widget.Toast.LENGTH_SHORT).show()
+                                        MiuixPages.showMessage(a, "已复制详情", "")
                                     })
                                 }
                             }
