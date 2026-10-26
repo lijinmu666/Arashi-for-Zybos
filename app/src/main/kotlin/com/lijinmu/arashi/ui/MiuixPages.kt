@@ -516,7 +516,7 @@ private fun HomePage(a: Main) = Page(a, "Arashi for Zybos") {
 private fun UnsupportedDevicePage(a: Main) = Page(a, "Arashi") {
     OverlayDialog(
         show = true,
-        summary = "当前系统不支持 Arashi 功能",
+        summary = "当前系统不支持 Arashi",
         onDismissRequest = a::exitUnsupportedDevice,
     ) {
         TextButton(
@@ -631,7 +631,7 @@ private fun HookPage(a: HookSettings) {
             HookItem("状态栏显示日期", "仿 iPadOS 在状态栏左侧时间后显示月日与星期，如 16:40  10月17日周六。开关控制在下次时钟刷新时生效", HookConfig.KEY_STATUS_BAR_DATE),
         ),
         "JC Code V3" to listOf(
-            HookItem("解除云控与环境检测", "适用于 3.2.6：本地验证，阻止云控请求及设备码提交，解除停用、黑名单、强制更新、云端弹窗及 VPN、代理、反 Hook、签名检查。勾选 JC Code V3 作用域后重启该应用", HookConfig.KEY_JC_LOCAL_MODE),
+            HookItem("解除云控与环境检测", "适用于 3.2.6：本地验证，阻止云控请求及设备码提交，解除停用、黑名单、强制更新、云端弹窗及 VPN、代理、反 Hook、签名检查", HookConfig.KEY_JC_LOCAL_MODE),
         ),
         "TCP 服务" to listOf(
             HookItem("屏蔽锁机广播", "拦截 ZpTcpService 发出的所有 login.fail 广播，以此防止云控锁机", HookConfig.KEY_BLOCK_TCP_LOGIN_FAIL),
