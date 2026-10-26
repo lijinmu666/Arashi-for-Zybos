@@ -1497,11 +1497,6 @@ private fun QuickPage(a: QuickCommands) {
     ) {
         IntroCard("以下功能使用 root 权限执行，首次使用请授予 root 权限")
         Group("应用") {
-            QuickCommandItem("PadMs 后台检查", "是否允许 PadMs 在后台运行，关闭以限制 PadMs 后台卸载应用等操作") {
-                selected = choose("PadMs 后台检查") { enabled ->
-                    "appops set --user current com.zuoyebang.padms RUN_IN_BACKGROUND ${if (enabled) "allow" else "ignore"} && appops get --user current com.zuoyebang.padms RUN_IN_BACKGROUND"
-                }
-            }
             QuickCommandItem("PadMs", "冻结或解冻 PadMs") {
                 selected = packageAction("PadMs", "com.zuoyebang.padms")
             }
@@ -1514,6 +1509,11 @@ private fun QuickPage(a: QuickCommands) {
                         a.setLauncherErrorActivityEnabled(enabled, done)
                     }
                 })
+            }
+            QuickCommandItem("PadMs 后台检查", "是否允许 PadMs 在后台运行，关闭以限制 PadMs 后台卸载应用等操作") {
+                selected = choose("PadMs 后台检查") { enabled ->
+                    "appops set --user current com.zuoyebang.padms RUN_IN_BACKGROUND ${if (enabled) "allow" else "ignore"} && appops get --user current com.zuoyebang.padms RUN_IN_BACKGROUND"
+                }
             }
             QuickCommandItem("系统升级", "冻结或解冻 ZpLibOtaServer") {
                 selected = packageAction("系统升级", "com.zuoyebang.iot.zp.lib.ota.server")
