@@ -15,15 +15,14 @@ public final class QuickCommands extends BasePage {
     @Override protected void populate() {
         MiuixPages.renderQuickCommands(this);
 
-}
-
-private void setGlobal(String title, String key, boolean enabled) {
-        run(title, "settings put global " + key + " " + (enabled ? "1" : "0")
-                + "; settings get global " + key);
     }
 
-    public void freezeLauncherErrorActivity() {
-        String title = "冻结桌面 ErrorActivity";
+    public interface Completion {
+        void onComplete(boolean success, String output);
+    }
+
+    public void setLauncherErrorActivityEnabled(boolean enabled, Completion completion) {
+        String title = "桌面的ErrorActivity";
         StringBuilder command = new StringBuilder();
         for (String pkg : new String[] {
                 "com.zuoyebang.iot.pad.launcher14", "com.android.launcher3" }) {
@@ -36,25 +35,22 @@ private void setGlobal(String title, String key, boolean enabled) {
             }
             if (command.length() > 0) command.append(" && ");
             // Always include the activity class: never disable the launcher package.
-            command.append("pm disable --user current ").append(component.flattenToString());
+            command.append(enabled ? "pm enable --user current " : "pm disable --user current ")
+                    .append(component.flattenToString());
         }
         if (command.length() == 0) {
-            MiuixPages.showMessage(this, title, "未找到支持的桌面 ErrorActivity 组件");
+            completion.onComplete(false, "未找到支持的桌面 ErrorActivity 组件");
             return;
         }
-        run(title, command.toString());
+        run(title, command.toString(), completion);
     }
 
-    public void run(String title, String command) {
+    public void run(String title, String command, Completion completion) {
         new Thread(() -> {
             RootShell.Result result = RootShell.run(command);
             ui.post(() -> {
                 if (isFinishing() || isDestroyed()) return;
-                String body = result.ok ? "执行成功" : "执行失败";
-                if (!result.output.isEmpty()) {
-                    body += "\n" + result.output;
-                }
-                MiuixPages.showMessage(this, title, body);
+                completion.onComplete(result.ok, result.output);
             });
         }, "Arashi-Root").start();
     }

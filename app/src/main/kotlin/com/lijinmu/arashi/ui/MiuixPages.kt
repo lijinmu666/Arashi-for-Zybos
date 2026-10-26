@@ -74,6 +74,9 @@ import top.yukonga.miuix.kmp.basic.DropdownItem
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
+import top.yukonga.miuix.kmp.basic.SnackbarHost
+import top.yukonga.miuix.kmp.basic.SnackbarHostState
+import top.yukonga.miuix.kmp.basic.SnackbarDuration
 import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.PullToRefresh
 import top.yukonga.miuix.kmp.basic.SmallTopAppBar
@@ -312,9 +315,11 @@ private fun Page(
     title: String,
     back: (() -> Unit)? = null,
     actions: @Composable RowScope.() -> Unit = {},
+    snackbarHost: @Composable () -> Unit = {},
     body: @Composable ColumnScope.() -> Unit,
 ) {
     Scaffold(
+        snackbarHost = snackbarHost,
         modifier = Modifier.fillMaxSize(),
         topBar = {
             if (back == null) {
@@ -1429,37 +1434,104 @@ private fun UninstallPrompt(
 private fun QuickCommandItem(title: String, summary: String, action: () -> Unit) =
     BasicComponent(title = title, summary = summary, onClick = action)
 
+private data class QuickOption(val label: String, val execute: (QuickCommands.Completion) -> Unit)
+private data class QuickAction(val title: String, val options: List<QuickOption>)
+
 @Composable
-private fun QuickPage(a: QuickCommands) = Page(a, "快捷指令执行", a::finish) {
-    IntroCard("以下功能使用 root 权限执行，首次使用请授予 root 权限")
-    Group("应用") {
-        QuickCommandItem("关闭PadMs的后台检查", "关闭开发者选项“后台检查”中 PadMs 的开关") { a.run("关闭PadMs的后台检查", "appops set --user current com.zuoyebang.padms RUN_IN_BACKGROUND ignore && appops get --user current com.zuoyebang.padms RUN_IN_BACKGROUND") }
-        QuickCommandItem("禁用PadMs", "冻结 com.zuoyebang.padms") { a.run("禁用PadMs", "pm disable com.zuoyebang.padms") }
-        QuickCommandItem("禁用report服务", "冻结 com.zuoyebang.iot.pad.zpreport") { a.run("禁用report服务", "pm disable com.zuoyebang.iot.pad.zpreport") }
-        QuickCommandItem("禁用桌面的ErrorActivity", "仅冻结桌面的 ErrorActivity 组件，保留桌面其他功能，以此禁止云控锁机的页面") { a.freezeLauncherErrorActivity() }
-        QuickCommandItem("禁用系统升级", "冻结 com.zuoyebang.iot.zp.lib.ota.server") { a.run("禁用系统升级", "pm disable com.zuoyebang.iot.zp.lib.ota.server") }
-        QuickCommandItem("启用系统升级", "与上方功能作用排斥") { a.run("启用系统升级", "pm enable com.zuoyebang.iot.zp.lib.ota.server") }
-    }
-    Group("设置") {
-        Link("作业帮学习机系统环境控制", "读取和修改 persist.sys.env_config，请谨慎使用！！！") {
-            a.startActivity(Intent(a, com.lijinmu.arashi.tools.ZybosEnvController::class.java))
-        }
-        fun set(title: String, key: String, value: Int) =
-            a.run(title, "settings put global $key $value; settings get global $key")
-        QuickCommandItem("打开开发者模式", "打开 development_settings_enabled") { set("打开开发者模式", "development_settings_enabled", 1) }
-        QuickCommandItem("关闭开发者模式", "关闭 development_settings_enabled") { set("关闭开发者模式", "development_settings_enabled", 0) }
-        QuickCommandItem("打开USB调试", "打开 adb_enabled") { set("打开 USB调试", "adb_enabled", 1) }
-        QuickCommandItem("关闭USB调试", "关闭 adb_enabled") { set("关闭 USB调试", "adb_enabled", 0) }
-    }
-    Group("投屏") {
-        QuickCommandItem("打开投屏", "启用 SystemUI 的无线显示并添加投屏磁贴") {
-            a.run("开启投屏", "settings put global wifi_display_on 1 && am broadcast --user current -a com.android.systemui.cast.Add -p com.android.systemui")
-        }
-        QuickCommandItem("关闭投屏", "与上方设置排斥") {
-            a.run("关闭投屏", "settings put global wifi_display_on 0 && am broadcast --user current -a com.android.systemui.cast.Remove -p com.android.systemui")
+private fun QuickPage(a: QuickCommands) {
+    var selected by remember { mutableStateOf<QuickAction?>(null) }
+    var running by remember { mutableStateOf(false) }
+    val snackbar = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+    fun choose(title: String, command: (Boolean) -> String): QuickAction =
+        QuickAction(title, listOf(true, false).map { enabled ->
+            QuickOption(if (enabled) "打开" else "关闭") { done ->
+                a.run(title, command(enabled), done)
+            }
+        })
+    fun packageAction(title: String, pkg: String) =
+        choose(title) { enabled -> "pm ${if (enabled) "enable" else "disable"} --user current $pkg" }
+    val completion = QuickCommands.Completion { success, output ->
+        running = false
+        selected = null
+        scope.launch {
+            snackbar.showSnackbar(
+                message = (if (success) "执行完毕" else "执行失败") +
+                    output.trim().takeIf { it.isNotEmpty() }?.let { "\n$it" }.orEmpty(),
+                duration = SnackbarDuration.Long,
+                withDismissAction = true,
+            )
         }
     }
-    InfoCard("需要 root 权限，KernelSU 请手动授权，Magisk 弹窗时请允许授权。官方版 Arashi 不会执行危险指令")
+    Page(a, "快捷指令执行", a::finish, snackbarHost = { SnackbarHost(snackbar) }) {
+        IntroCard("以下功能使用 root 权限执行，首次使用请授予 root 权限")
+        Group("应用") {
+            QuickCommandItem("PadMs后台检查", "调整开发者选项“后台检查”中 PadMs 的开关") {
+                selected = choose("PadMs后台检查") { enabled ->
+                    "appops set --user current com.zuoyebang.padms RUN_IN_BACKGROUND ${if (enabled) "allow" else "ignore"} && appops get --user current com.zuoyebang.padms RUN_IN_BACKGROUND"
+                }
+            }
+            QuickCommandItem("PadMs", "启用或冻结 com.zuoyebang.padms") {
+                selected = packageAction("PadMs", "com.zuoyebang.padms")
+            }
+            QuickCommandItem("report服务", "启用或冻结 com.zuoyebang.iot.pad.zpreport") {
+                selected = packageAction("report服务", "com.zuoyebang.iot.pad.zpreport")
+            }
+            QuickCommandItem("桌面的ErrorActivity", "仅调整 ErrorActivity 组件，保留桌面其他功能") {
+                selected = QuickAction("桌面的ErrorActivity", listOf(true, false).map { enabled ->
+                    QuickOption(if (enabled) "打开" else "关闭") { done ->
+                        a.setLauncherErrorActivityEnabled(enabled, done)
+                    }
+                })
+            }
+            QuickCommandItem("系统升级", "启用或冻结系统升级服务") {
+                selected = packageAction("系统升级", "com.zuoyebang.iot.zp.lib.ota.server")
+            }
+        }
+        Group("设置") {
+            Link("作业帮学习机系统环境控制", "读取和修改 persist.sys.env_config，请谨慎使用！！！") {
+                a.startActivity(Intent(a, com.lijinmu.arashi.tools.ZybosEnvController::class.java))
+            }
+            QuickCommandItem("开发者模式", "调整 development_settings_enabled") {
+                selected = choose("开发者模式") { enabled ->
+                    "settings put global development_settings_enabled ${if (enabled) 1 else 0} && settings get global development_settings_enabled"
+                }
+            }
+            QuickCommandItem("USB调试", "调整 adb_enabled") {
+                selected = choose("USB调试") { enabled ->
+                    "settings put global adb_enabled ${if (enabled) 1 else 0} && settings get global adb_enabled"
+                }
+            }
+        }
+        Group("投屏") {
+            QuickCommandItem("投屏", "调整无线显示和 SystemUI 投屏磁贴") {
+                selected = choose("投屏") { enabled ->
+                    "settings put global wifi_display_on ${if (enabled) 1 else 0} && am broadcast --user current -a com.android.systemui.cast.${if (enabled) "Add" else "Remove"} -p com.android.systemui"
+                }
+            }
+        }
+        InfoCard("需要 root 权限，KernelSU 请手动授权，Magisk 弹窗时请允许授权。官方版 Arashi 不会执行危险指令")
+    }
+    OverlayDialog(
+        show = selected != null,
+        title = selected?.title.orEmpty(),
+        onDismissRequest = { if (!running) selected = null },
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            if (running) {
+                Text("正在执行…")
+            } else {
+                selected?.options?.forEach { option ->
+                    TextButton(option.label, {
+                        if (!running) {
+                            running = true
+                            option.execute(completion)
+                        }
+                    }, Modifier.fillMaxWidth())
+                }
+            }
+        }
+    }
 }
 
 @Composable
