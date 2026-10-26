@@ -666,6 +666,17 @@ private fun HookPage(a: HookSettings) {
                         else prefs.getBoolean(entry.key, HookConfig.defaultEnabled(entry.key)),
                     )
                 }
+                DisposableEffect(prefs, entry.key) {
+                    val listener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+                        if (key == entry.key) {
+                            a.runOnUiThread {
+                                checked = prefs.getBoolean(entry.key, HookConfig.defaultEnabled(entry.key))
+                            }
+                        }
+                    }
+                    prefs.registerOnSharedPreferenceChangeListener(listener)
+                    onDispose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
+                }
                 fun saveHook(enabled: Boolean) {
                     checked = enabled
                     prefs.edit().putBoolean(entry.key, enabled).apply()

@@ -68,7 +68,6 @@ public final class HookScopes {
         boolean systemActive = isSystemServerActive(context);
         XposedService current = service;
         if (current != null) {
-            HookSettingsSync.publish(context, current);
             try {
                 if (current.getApiVersion() >= XposedService.API_102) {
                     for (HookedTarget target : current.getRunningTargets()) {
@@ -94,7 +93,19 @@ public final class HookScopes {
             } catch (RuntimeException ignored) {
             }
             try {
-                return new Snapshot(systemActive, true, new HashSet<>(current.getScope()));
+                Snapshot snapshot = new Snapshot(systemActive, true, new HashSet<>(current.getScope()));
+                SharedPreferences prefs = context.getSharedPreferences(HookConfig.PREF_NAME, Context.MODE_PRIVATE);
+                SharedPreferences.Editor editor = null;
+                for (String key : HookConfig.keys()) {
+                    if (!snapshot.hasSelectedScope(key)
+                            && prefs.getBoolean(key, HookConfig.defaultEnabled(key))) {
+                        if (editor == null) editor = prefs.edit();
+                        editor.putBoolean(key, false);
+                    }
+                }
+                if (editor != null) editor.apply();
+                HookSettingsSync.publish(context, current);
+                return snapshot;
             } catch (RuntimeException ignored) {
             }
         }
@@ -171,6 +182,7 @@ public final class HookScopes {
                 && !HookConfig.KEY_EXTERNAL_INSTALL.equals(key)
                 && !HookConfig.KEY_CAPTIVE_PORTAL.equals(key)
                 && !HookConfig.KEY_DEV_OPTIONS.equals(key)
+                && !HookConfig.KEY_DEV_OPTIONS_MENU.equals(key)
                 && !HookConfig.KEY_NEUTRALIZE_POLICY.equals(key)
                 && !HookConfig.KEY_NEUTRALIZE_ADVANCE.equals(key)
                 && !HookConfig.KEY_NO_TIMEOUT_LOCK.equals(key)
@@ -194,7 +206,8 @@ public final class HookScopes {
         if (HookConfig.KEY_CAPTIVE_PORTAL.equals(key)) {
             return new String[] { "com.android.captiveportallogin" };
         }
-        if (HookConfig.KEY_DEV_OPTIONS.equals(key) || HookConfig.KEY_AOSP_APP_DETAILS.equals(key)) {
+        if (HookConfig.KEY_DEV_OPTIONS.equals(key) || HookConfig.KEY_DEV_OPTIONS_MENU.equals(key)
+                || HookConfig.KEY_AOSP_APP_DETAILS.equals(key)) {
             return new String[] { "com.android.settings" };
         }
         if (HookConfig.KEY_NEUTRALIZE_POLICY.equals(key)
@@ -231,7 +244,20 @@ public final class HookScopes {
             this.selected = Collections.unmodifiableSet(new HashSet<>(selected));
         }
 
+        public boolean hasSelectedScope(String key) {
+            if (!scopeKnown) return false;
+            boolean systemSelected = selected.contains("system");
+            if (HookConfig.KEY_LEGACY_POWER_MENU.equals(key))
+                return systemSelected && selected.contains("com.android.systemui");
+            if (usesSystemServer(key) && systemSelected) return true;
+            for (String pkg : applicationScopes(key)) {
+                if (selected.contains(pkg)) return true;
+            }
+            return false;
+        }
+
         public boolean isAvailable(String key) {
+            if (scopeKnown && !hasSelectedScope(key)) return false;
             if (HookConfig.KEY_LEGACY_POWER_MENU.equals(key)) {
                 return systemActive && scopeKnown && selected.contains("com.android.systemui");
             }
