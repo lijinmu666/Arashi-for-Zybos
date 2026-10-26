@@ -1433,6 +1433,7 @@ private fun QuickCommandItem(title: String, summary: String, action: () -> Unit)
 private fun QuickPage(a: QuickCommands) = Page(a, "快捷指令执行", a::finish) {
     IntroCard("以下功能使用 root 权限执行，首次使用请授予 root 权限")
     Group("应用") {
+        QuickCommandItem("关闭PadMs的后台检查", "关闭开发者选项“后台检查”中 PadMs 的开关") { a.run("关闭PadMs的后台检查", "appops set --user current com.zuoyebang.padms RUN_IN_BACKGROUND ignore && appops get --user current com.zuoyebang.padms RUN_IN_BACKGROUND") }
         QuickCommandItem("禁用PadMs", "冻结 com.zuoyebang.padms") { a.run("禁用PadMs", "pm disable com.zuoyebang.padms") }
         QuickCommandItem("禁用report服务", "冻结 com.zuoyebang.iot.pad.zpreport") { a.run("禁用report服务", "pm disable com.zuoyebang.iot.pad.zpreport") }
         QuickCommandItem("禁用桌面的ErrorActivity", "仅冻结桌面的 ErrorActivity 组件，保留桌面其他功能，以此禁止云控锁机的页面") { a.freezeLauncherErrorActivity() }
