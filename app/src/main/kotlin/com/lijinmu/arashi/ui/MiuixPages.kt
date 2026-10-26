@@ -533,7 +533,7 @@ private fun HomePage(a: Main) = Page(a, "Arashi for Zybos") {
         }
     }
     Group("功能") {
-        Link("Hook 功能设置", "控制 Hook 是否启用") { a.startActivity(Intent(a, HookSettings::class.java)) }
+        Link("Hook 设置", "控制 Hook 是否启用") { a.startActivity(Intent(a, HookSettings::class.java)) }
         Link("快捷指令执行", "调整设置、冻结应用等快捷操作") { a.startActivity(Intent(a, QuickCommands::class.java)) }
         Link("卸载验证设置", "验证发起的卸载请求") { a.startActivity(Intent(a, UninstallSettings::class.java)) }
         val toolsBlocked = SystemToolSupport.isBlocked()
@@ -658,7 +658,7 @@ private fun HookPage(a: HookSettings) {
             HookItem("允许任意应用设置壁纸", "允许任意应用设置壁纸，并移除新版桌面覆盖系统壁纸的静态背景。开关控制立即生效，需要系统框架和桌面作用域", HookConfig.KEY_ALLOW_WALLPAPER),
             HookItem("允许 WiFi 网页登录", "允许连接到认证型 WiFi 并正常跳转到 “登录到网络” 登录验证网页", HookConfig.KEY_CAPTIVE_PORTAL),
             HookItem("始终使用传统电源菜单", "将长按电源键与下拉面板的电源菜单改为系统传统对话框。需要系统框架和系统界面作用域", HookConfig.KEY_LEGACY_POWER_MENU),
-            HookItem("原版应用详情页设置", "恢复完整的 AOSP 原版应用信息页及应用通知设置，沿用系统控制器。开关控制重新打开页面后生效", HookConfig.KEY_AOSP_APP_DETAILS),
+            HookItem("原版应用详情页设置", "恢复完整的 AOSP 原版应用信息页及应用通知设置，沿用系统控制器", HookConfig.KEY_AOSP_APP_DETAILS),
             HookItem("解除应用详情页限制", "允许打开 WebView、report服务 和 PadMs 的应用设置详情页。开关控制立即生效", HookConfig.KEY_CLEAR_DETAIL_BLACK),
             HookItem("恢复录屏声音", "修复 SystemUI 录屏菜单的设备声音、麦克风及混合音源选择选项", HookConfig.KEY_RECORD_INTERNAL_AUDIO),
 						HookItem("恢复通知快捷回复", "修复 SystemUI 通知回复框出现后立即关闭的问题。开关控制立即生效", HookConfig.KEY_NOTIFICATION_REPLY),
@@ -671,7 +671,7 @@ private fun HookPage(a: HookSettings) {
             HookItem("原版状态栏图标", "将电池、WLAN、蓝牙图标恢复为 AOSP 原版样式", HookConfig.KEY_AOSP_STATUS_ICONS),
             HookItem("解除通知图标数量限制", "取消普通状态栏通知图标的固定数量上限，按可用宽度显示", HookConfig.KEY_UNLIMITED_NOTIFICATION_ICONS),
             HookItem("桌面图标圆角", "桌面应用图标与文件夹的改成 iOS 样式的圆角，文件夹使用半透明底色", HookConfig.KEY_IOS_ICONS),
-            HookItem("状态栏显示日期", "仿 iPadOS 在状态栏左侧时间后显示月日与星期，如 16:40  10月17日周六。开关控制在下次时钟刷新时生效", HookConfig.KEY_STATUS_BAR_DATE),
+            HookItem("状态栏显示日期", "仿 iPadOS 在状态栏左侧时间后显示月日与星期，如 16:40  10月17日周六", HookConfig.KEY_STATUS_BAR_DATE),
         ),
         "JC Code V3" to listOf(
             HookItem("解除云控与环境检测", "适用于 3.2.6：本地验证，阻止云控请求及设备码提交，解除停用、黑名单、强制更新、云端弹窗及 VPN、代理、反 Hook、签名检查", HookConfig.KEY_JC_LOCAL_MODE),
