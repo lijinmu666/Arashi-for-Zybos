@@ -1751,7 +1751,6 @@ private fun ZybosUninstallPickerPage(a: ZybosUninstallPickerActivity) {
 @Composable
 private fun SettingsPage(a: ArashiSettings) = Page(a, "应用偏好设置", a::finish) {
     val prefs = a.getSharedPreferences("ui", Context.MODE_PRIVATE)
-    val hookPrefs = a.getSharedPreferences(HookConfig.PREF_NAME, Context.MODE_PRIVATE)
     val themeNames = listOf("默认", "开启", "关闭")
     val themeModes = listOf(0, 2, 1)
     var selectedTheme by remember {
@@ -1762,11 +1761,6 @@ private fun SettingsPage(a: ArashiSettings) = Page(a, "应用偏好设置", a::f
     }
     var hidden by remember { mutableStateOf(a.isLauncherHidden) }
     var installer by remember { mutableStateOf(a.isInstallerEnabled) }
-    var android12BlacklistHook by remember {
-        mutableStateOf(hookPrefs.getBoolean(HookConfig.KEY_ANDROID12_BLACKLIST_HOOK, false))
-    }
-    val isAndroid12 = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
-        Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU
     var moduleActive by rememberSystemServerActivation(a)
     DisposableEffect(a) {
         val observer = LifecycleEventObserver { _, event ->
@@ -1797,22 +1791,6 @@ private fun SettingsPage(a: ArashiSettings) = Page(a, "应用偏好设置", a::f
                 prefs.edit().putInt("mode", themeModes[index]).apply()
                 a.recreate()
             },
-        )
-    }
-    Group("兼容性") {
-        SwitchPreference(
-            checked = android12BlacklistHook,
-            onCheckedChange = {
-                android12BlacklistHook = it
-                hookPrefs.edit().putBoolean(HookConfig.KEY_ANDROID12_BLACKLIST_HOOK, it).apply()
-            },
-            title = "兼容安卓12清除安装黑名单",
-            summary = if (isAndroid12) {
-                "安卓12改用 PMS 方法，是否清除仍由 Hook 功能设置控制。修改后重启生效"
-            } else {
-                "本功能仅适用于安卓12，当前系统默认使用对应的 Hook 路径"
-            },
-            enabled = isAndroid12,
         )
     }
     Group("通知") {

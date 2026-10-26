@@ -34,16 +34,6 @@ private static final Map<Integer, Boolean> TRUSTED_UID_CACHE = new ConcurrentHas
 
     @Override
     public boolean onCreate() {
-        Context context = getContext();
-        if (context != null) {
-            SharedPreferences prefs = context.getSharedPreferences(
-                    HookConfig.PREF_NAME, Context.MODE_PRIVATE);
-            if (!prefs.contains(HookConfig.KEY_ANDROID12_BLACKLIST_HOOK)) {
-                boolean android12 = android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S
-                        && android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.TIRAMISU;
-                prefs.edit().putBoolean(HookConfig.KEY_ANDROID12_BLACKLIST_HOOK, android12).apply();
-            }
-        }
         return true;
     }
 
@@ -157,8 +147,6 @@ Log.w(TAG, "reject untrusted caller uid=" + Binder.getCallingUid());
         Bundle result = new Bundle();
         result.putBoolean(HookConfig.KEY_BLOCK_TCP_LOGIN_FAIL,
                 prefs.getBoolean(HookConfig.KEY_BLOCK_TCP_LOGIN_FAIL, false));
-        result.putBoolean(HookConfig.KEY_ANDROID12_BLACKLIST_HOOK,
-                prefs.getBoolean(HookConfig.KEY_ANDROID12_BLACKLIST_HOOK, false));
         result.putBoolean(HookConfig.KEY_EXTERNAL_INSTALL, prefs.getBoolean(HookConfig.KEY_EXTERNAL_INSTALL, HookConfig.DEFAULT_ENABLED));
         result.putBoolean(HookConfig.KEY_SHELL_INSTALL, prefs.getBoolean(HookConfig.KEY_SHELL_INSTALL, HookConfig.DEFAULT_ENABLED));
         result.putBoolean(HookConfig.KEY_CLEAR_BLACKLIST, prefs.getBoolean(HookConfig.KEY_CLEAR_BLACKLIST, HookConfig.DEFAULT_ENABLED));

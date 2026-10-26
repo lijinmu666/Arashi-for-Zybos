@@ -7,7 +7,6 @@ public final class HookConfig {
     public static final String PREF_NAME = "hook_settings";
     public static final String KEY_BLOCK_TCP_LOGIN_FAIL = "hook_block_tcp_login_fail";
     public static final String KEY_REMOTE_READY = "remote_config_ready";
-    public static final String KEY_ANDROID12_BLACKLIST_HOOK = "hook_legacy_aibangos";
 
 public static final boolean DEFAULT_ENABLED = true;
 
@@ -59,7 +58,6 @@ public static final String KEY_BLOCK_SUPERVISE = "hook_block_supervise";
                 && !KEY_KEEP_NAVIGATION.equals(key)
                 && !KEY_STATUS_BAR_DATE.equals(key)
                 && !KEY_IOS_ICONS.equals(key)
-                && !KEY_ANDROID12_BLACKLIST_HOOK.equals(key)
                 && !KEY_DEV_OPTIONS_MENU.equals(key)
                 && !KEY_BLOCK_SUPERVISE.equals(key)
                 && !KEY_BLOCK_USAGE_REPORT.equals(key)
@@ -76,7 +74,7 @@ public static final String KEY_NEUTRALIZE_POLICY = "hook_neutralize_policy";
 
     public static String[] keys() {
         return new String[] {
-                KEY_JC_LOCAL_MODE, KEY_AOSP_APP_DETAILS, KEY_BLOCK_TCP_LOGIN_FAIL, KEY_ANDROID12_BLACKLIST_HOOK, KEY_EXTERNAL_INSTALL, KEY_SHELL_INSTALL,
+                KEY_JC_LOCAL_MODE, KEY_AOSP_APP_DETAILS, KEY_BLOCK_TCP_LOGIN_FAIL, KEY_EXTERNAL_INSTALL, KEY_SHELL_INSTALL,
                 KEY_CLEAR_BLACKLIST, KEY_CAPTIVE_PORTAL,
                 KEY_ALLOW_USB, KEY_LEGACY_POWER_MENU, KEY_UNLIMITED_NOTIFICATION_ICONS,
                 KEY_RECORD_INTERNAL_AUDIO, KEY_NOTIFICATION_LONG_PRESS, KEY_NOTIFICATION_REPLY, KEY_KEEP_NAVIGATION, KEY_STATUS_BAR_DATE, KEY_AOSP_STATUS_ICONS, KEY_SYSTEMUI_MONET, KEY_IOS_ICONS, KEY_ALLOW_WALLPAPER, KEY_CLEAR_DETAIL_BLACK, KEY_BLOCK_SUPERVISE,

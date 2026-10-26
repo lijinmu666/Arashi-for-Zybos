@@ -405,8 +405,7 @@ private static void clearBlacklistsIfEnabled() {
 
     private static boolean useAndroid12BlacklistHook() {
         return Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
-                && Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU
-                && ConfigManager.isEnabled(HookConfig.KEY_ANDROID12_BLACKLIST_HOOK);
+                && Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU;
     }
 
     @SuppressWarnings("unchecked")
