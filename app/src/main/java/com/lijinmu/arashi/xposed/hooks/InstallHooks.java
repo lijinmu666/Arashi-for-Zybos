@@ -274,11 +274,87 @@ hookZybosServiceCtor(mod, cl);
     }
 
 public static void hookPackageInstaller(XposedModule mod, ClassLoader cl) {
+        hookInstallerEnvironment(mod, cl);
+        hookInstallerErrorText(mod);
         hookInstallerBool(mod, cl, "isInstallRequestFromUnknownSource", false, Intent.class);
         hookInstallerBool(mod, cl, "hasInstallApplication", true, String.class);
         hookInstallerBool(mod, cl, "isConflictedOverlayInstallApk", false,
                 String.class, String.class);
         Log.i(TAG, "PackageInstaller hooks initialized");
+    }
+
+
+    private static final ThreadLocal<Boolean> installerResume = new ThreadLocal<>();
+
+    private static void hookInstallerEnvironment(XposedModule mod, ClassLoader cl) {
+        try {
+            Class<?> activity = Class.forName(
+                    "com.android.packageinstaller.PackageInstallerActivity", false, cl);
+            Method resume = Reflect.findMethodExact(activity, "onResume");
+            Method setting = android.provider.Settings.Global.class.getDeclaredMethod(
+                    "getInt", android.content.ContentResolver.class, String.class, int.class);
+            if (resume != null) {
+                mod.hook(resume).intercept(chain -> {
+                    Boolean previous = installerResume.get();
+                    installerResume.set(Boolean.TRUE);
+                    try { return chain.proceed(); }
+                    finally {
+                        if (previous == null) installerResume.remove();
+                        else installerResume.set(previous);
+                    }
+                });
+                mod.hook(setting).intercept(chain -> {
+                    if (Boolean.TRUE.equals(installerResume.get())
+                            && "special_enable_adb_debug".equals(chain.getArg(1))
+                            && ConfigManager.isEnabled(HookConfig.KEY_EXTERNAL_INSTALL)) return 1;
+                    return chain.proceed();
+                });
+            }
+        } catch (Throwable error) {
+            Log.w(TAG, "Installer settings compatibility unavailable", error);
+        }
+        try {
+            Class<?> properties = Class.forName("android.os.SystemProperties", false, cl);
+            Method get = Reflect.findMethodExact(properties, "get", String.class);
+            if (get != null) mod.hook(get).intercept(chain -> {
+                if ("ro.build.type".equals(chain.getArg(0))
+                        && ConfigManager.isEnabled(HookConfig.KEY_EXTERNAL_INSTALL)) {
+                    // Only the vendor installer's static debug gate, not other readers.
+                    for (StackTraceElement frame : Thread.currentThread().getStackTrace()) {
+                        if ("com.android.packageinstaller.PackageInstallerActivity".equals(frame.getClassName())
+                                && "<clinit>".equals(frame.getMethodName())) return "userdebug";
+                    }
+                }
+                return chain.proceed();
+            });
+        } catch (Throwable error) {
+            Log.w(TAG, "Installer build-type compatibility unavailable", error);
+        }
+    }
+
+    private static void hookInstallerErrorText(XposedModule mod) {
+        try {
+            Method getText = android.content.res.Resources.class.getDeclaredMethod("getText", int.class);
+            mod.hook(getText).intercept(chain -> {
+                if (!ConfigManager.isEnabled(HookConfig.KEY_EXTERNAL_INSTALL)) return chain.proceed();
+                android.content.res.Resources resources =
+                        (android.content.res.Resources) chain.getThisObject();
+                int id = (Integer) chain.getArg(0);
+                String replacement = null;
+                try {
+                    if ("com.android.packageinstaller".equals(resources.getResourcePackageName(id))) {
+                        String name = resources.getResourceEntryName(id);
+                        if ("Parse_error_dlg_text".equals(name))
+                            replacement = "解析软件包时出现问题。";
+                        else if ("install_failed_invalid_apk".equals(name))
+                            replacement = "应用未安装：软件包似乎无效。";
+                    }
+                } catch (android.content.res.Resources.NotFoundException ignored) {}
+                return replacement != null ? replacement : chain.proceed();
+            });
+        } catch (Throwable error) {
+            Log.w(TAG, "Installer error text restoration unavailable", error);
+        }
     }
 
     private static void hookInstallerBool(XposedModule mod, ClassLoader cl, String method,
