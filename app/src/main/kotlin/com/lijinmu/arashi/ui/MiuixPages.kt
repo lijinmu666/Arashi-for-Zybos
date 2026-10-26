@@ -1497,30 +1497,30 @@ private fun QuickPage(a: QuickCommands) {
     ) {
         IntroCard("以下功能使用 root 权限执行，首次使用请授予 root 权限")
         Group("应用") {
-            QuickCommandItem("PadMs后台检查", "调整开发者选项“后台检查”中 PadMs 的开关") {
-                selected = choose("PadMs后台检查") { enabled ->
+            QuickCommandItem("PadMs 后台检查", "是否允许 PadMs 在后台运行，关闭以限制 PadMs 后台卸载应用等操作") {
+                selected = choose("PadMs 后台检查") { enabled ->
                     "appops set --user current com.zuoyebang.padms RUN_IN_BACKGROUND ${if (enabled) "allow" else "ignore"} && appops get --user current com.zuoyebang.padms RUN_IN_BACKGROUND"
                 }
             }
-            QuickCommandItem("PadMs", "启用或冻结 com.zuoyebang.padms") {
+            QuickCommandItem("PadMs", "冻结或解冻 PadMs") {
                 selected = packageAction("PadMs", "com.zuoyebang.padms")
             }
-            QuickCommandItem("report服务", "启用或冻结 com.zuoyebang.iot.pad.zpreport") {
+            QuickCommandItem("report服务", "冻结或解冻 ZpReport") {
                 selected = packageAction("report服务", "com.zuoyebang.iot.pad.zpreport")
             }
-            QuickCommandItem("桌面的ErrorActivity", "仅调整 ErrorActivity 组件，保留桌面其他功能") {
-                selected = QuickAction("桌面的ErrorActivity", listOf(false, true).map { enabled ->
+            QuickCommandItem("桌面 ErrorActivity", "冻结或解冻桌面的 ErrorActivity 组件，冻结以此禁止云控锁机的页面") {
+                selected = QuickAction("桌面 ErrorActivity", listOf(false, true).map { enabled ->
                     QuickOption(if (enabled) "解冻" else "冻结") { done ->
                         a.setLauncherErrorActivityEnabled(enabled, done)
                     }
                 })
             }
-            QuickCommandItem("系统升级", "启用或冻结系统升级服务") {
+            QuickCommandItem("系统升级", "冻结或解冻 ZpLibOtaServer") {
                 selected = packageAction("系统升级", "com.zuoyebang.iot.zp.lib.ota.server")
             }
         }
         Group("设置") {
-            Link("作业帮学习机系统环境控制", "读取和修改 persist.sys.env_config，请谨慎使用！！！") {
+            Link("作业帮学习机系统环境控制", "读取和修改 persist.sys.env_config") {
                 a.startActivity(Intent(a, com.lijinmu.arashi.tools.ZybosEnvController::class.java))
             }
             QuickCommandItem("开发者模式", "调整 development_settings_enabled") {
@@ -2080,7 +2080,7 @@ private fun ZybosEnvPage(a: com.lijinmu.arashi.tools.ZybosEnvController) = Page(
             }
         }
     }
-    IntroCard("这些开关很危险，请谨慎使用，更改环境可能影响登录与激活。重启后写入生效")
+    IntroCard("这些开关很危险，请谨慎使用，更改环境会影响登录和激活。重启应用或系统后写入生效")
     if (busy) LoadingCard("读取或写入环境配置")
     if (error != null) InfoCard("操作失败：${error.orEmpty()}")
     Group("环境配置") {
