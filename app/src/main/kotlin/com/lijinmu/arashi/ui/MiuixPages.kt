@@ -542,8 +542,11 @@ private fun HookPage(a: HookSettings) {
     var actionsExpanded by remember { mutableStateOf(false) }
     var stoppingScopes by remember { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
+    val snackbar = remember { SnackbarHostState() }
 
-    Page(a, "Hook 功能设置", a::finish, actions = {
+    Page(a, "Hook 功能设置", a::finish,
+        snackbarHost = { SnackbarHost(snackbar) },
+        actions = {
         Box {
             IconButton(
                 onClick = { actionsExpanded = !actionsExpanded },
@@ -668,6 +671,21 @@ private fun HookPage(a: HookSettings) {
                         if (scopes.isAvailable(entry.key)) {
                             checked = it
                             prefs.edit().putBoolean(entry.key, it).apply()
+                            val effectMessage = when (entry.key) {
+                                HookConfig.KEY_NOTIFICATION_LONG_PRESS,
+                                HookConfig.KEY_SYSTEMUI_MONET,
+                                HookConfig.KEY_AOSP_STATUS_ICONS -> "重启 SystemUI 后生效"
+                                HookConfig.KEY_CLEAR_BLACKLIST -> "重启系统后生效"
+                                HookConfig.KEY_STATUS_BAR_DATE -> "下一次时钟刷新后生效"
+                                HookConfig.KEY_IOS_ICONS -> "重启桌面后生效"
+                                else -> null
+                            }
+                            if (effectMessage != null) {
+                                coroutineScope.launch {
+                                    snackbar.newestSnackbarData()?.dismiss()
+                                    snackbar.showSnackbar(effectMessage)
+                                }
+                            }
                             if (entry.key == HookConfig.KEY_BLOCK_TCP_LOGIN_FAIL && it &&
                                 com.lijinmu.arashi.notifications.NotificationPreferences.enabled(a, com.lijinmu.arashi.notifications.NotificationPreferences.TCP)) {
                                 com.lijinmu.arashi.notifications.AppNotifications.requestPermissionIfNeeded(a)
