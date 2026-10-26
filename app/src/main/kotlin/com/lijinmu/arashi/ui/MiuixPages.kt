@@ -1447,12 +1447,16 @@ private fun QuickPage(a: QuickCommands) {
     val scope = rememberCoroutineScope()
     fun choose(title: String, command: (Boolean) -> String): QuickAction =
         QuickAction(title, listOf(true, false).map { enabled ->
-            QuickOption(if (enabled) "打开" else "关闭") { done ->
+            QuickOption(if (enabled) "开启" else "关闭") { done ->
                 a.run(title, command(enabled), done)
             }
         })
     fun packageAction(title: String, pkg: String) =
-        choose(title) { enabled -> "pm ${if (enabled) "enable" else "disable"} --user current $pkg" }
+        QuickAction(title, listOf(false, true).map { enabled ->
+            QuickOption(if (enabled) "解冻" else "冻结") { done ->
+                a.run(title, "pm ${if (enabled) "enable" else "disable"} --user current $pkg", done)
+            }
+        })
     val completion = QuickCommands.Completion { success, output ->
         running = false
         selected = null
@@ -1505,8 +1509,8 @@ private fun QuickPage(a: QuickCommands) {
                 selected = packageAction("report服务", "com.zuoyebang.iot.pad.zpreport")
             }
             QuickCommandItem("桌面的ErrorActivity", "仅调整 ErrorActivity 组件，保留桌面其他功能") {
-                selected = QuickAction("桌面的ErrorActivity", listOf(true, false).map { enabled ->
-                    QuickOption(if (enabled) "打开" else "关闭") { done ->
+                selected = QuickAction("桌面的ErrorActivity", listOf(false, true).map { enabled ->
+                    QuickOption(if (enabled) "解冻" else "冻结") { done ->
                         a.setLauncherErrorActivityEnabled(enabled, done)
                     }
                 })
