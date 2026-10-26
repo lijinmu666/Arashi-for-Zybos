@@ -316,6 +316,7 @@ private fun Page(
     back: (() -> Unit)? = null,
     actions: @Composable RowScope.() -> Unit = {},
     snackbarHost: @Composable () -> Unit = {},
+    overlay: @Composable () -> Unit = {},
     body: @Composable ColumnScope.() -> Unit,
 ) {
     Scaffold(
@@ -351,6 +352,7 @@ private fun Page(
                 item { Column(verticalArrangement = Arrangement.spacedBy(16.dp), content = body) }
             }
             MiuixPages.MessageDialog(activity)
+            overlay()
         }
     }
 }
@@ -1463,7 +1465,32 @@ private fun QuickPage(a: QuickCommands) {
             )
         }
     }
-    Page(a, "快捷指令执行", a::finish, snackbarHost = { SnackbarHost(snackbar) }) {
+    Page(
+        a, "快捷指令执行", a::finish,
+        snackbarHost = { SnackbarHost(snackbar) },
+        overlay = {
+            OverlayDialog(
+                show = selected != null,
+                title = selected?.title.orEmpty(),
+                onDismissRequest = { if (!running) selected = null },
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    if (running) {
+                        Text("正在执行…")
+                    } else {
+                        selected?.options?.forEach { option ->
+                            TextButton(option.label, {
+                                if (!running) {
+                                    running = true
+                                    option.execute(completion)
+                                }
+                            }, Modifier.fillMaxWidth())
+                        }
+                    }
+                }
+            }
+        },
+    ) {
         IntroCard("以下功能使用 root 权限执行，首次使用请授予 root 权限")
         Group("应用") {
             QuickCommandItem("PadMs后台检查", "调整开发者选项“后台检查”中 PadMs 的开关") {
@@ -1512,27 +1539,8 @@ private fun QuickPage(a: QuickCommands) {
         }
         InfoCard("需要 root 权限，KernelSU 请手动授权，Magisk 弹窗时请允许授权。官方版 Arashi 不会执行危险指令")
     }
-    OverlayDialog(
-        show = selected != null,
-        title = selected?.title.orEmpty(),
-        onDismissRequest = { if (!running) selected = null },
-    ) {
-        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            if (running) {
-                Text("正在执行…")
-            } else {
-                selected?.options?.forEach { option ->
-                    TextButton(option.label, {
-                        if (!running) {
-                            running = true
-                            option.execute(completion)
-                        }
-                    }, Modifier.fillMaxWidth())
-                }
-            }
-        }
-    }
 }
+
 
 @Composable
 private fun ZybosPage(a: ZybosTools) = Page(a, "系统特权工具", a::finish) {
