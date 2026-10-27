@@ -145,6 +145,8 @@ object MiuixPages {
     ) = render(a) { UninstallPrompt(a, target, uid, packages, deadline) }
     @JvmStatic fun renderZybosEnvController(a: com.lijinmu.arashi.tools.ZybosEnvController) = render(a) { ZybosEnvPage(a) }
 
+    @JvmStatic fun renderStoreLinkInstaller(a: com.lijinmu.arashi.tools.StoreLinkInstaller) = render(a) { StoreLinkInstallPage(a) }
+
     @JvmStatic fun renderQuickCommands(a: QuickCommands) = render(a) { QuickPage(a) }
     @JvmStatic fun renderZybosTools(a: ZybosTools) = render(a) { ZybosPage(a) }
     @JvmStatic fun renderZybosUninstallPicker(a: ZybosUninstallPickerActivity) =
@@ -537,6 +539,9 @@ private fun HomePage(a: Main) = Page(a, "Arashi for Zybos") {
     Group("功能") {
         Link("Hook 设置", "控制 Hook 是否启用") { a.startActivity(Intent(a, HookSettings::class.java)) }
         Link("快捷指令执行", "调整设置、冻结应用等快捷操作") { a.startActivity(Intent(a, QuickCommands::class.java)) }
+        Link("应用商店直链安装", "填写 APK 直链及校验信息，通过应用商店安装") {
+            a.startActivity(Intent(a, com.lijinmu.arashi.tools.StoreLinkInstaller::class.java))
+        }
         Link("卸载验证设置", "验证发起的卸载请求") { a.startActivity(Intent(a, UninstallSettings::class.java)) }
         val toolsBlocked = SystemToolSupport.isBlocked()
         Box(Modifier.fillMaxWidth().clickable(enabled = toolsBlocked) {
@@ -2275,4 +2280,37 @@ private fun ZybosEnvPage(a: com.lijinmu.arashi.tools.ZybosEnvController) = Page(
         Modifier.fillMaxWidth(),
         enabled = !busy,
     )
+}
+
+@Composable
+private fun StoreLinkInstallPage(a: com.lijinmu.arashi.tools.StoreLinkInstaller) {
+    var packageName by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf("") }
+    var name by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf("") }
+    var apkUrl by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf("") }
+    var md5 by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf("") }
+    var size by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf("") }
+    var version by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf("") }
+    var versionCode by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf("") }
+    var appId by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf("") }
+    var icon by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf("") }
+    Page(a, "应用商店直链安装", a::finish) {
+        IntroCard("无需 root，交由作业帮应用商店下载并安装。需先打开一次商店；HTTP 或不受信任的 HTTPS 证书可能无法下载。应用 ID 与安装信息是否被接受由商店决定")
+        Group("安装信息") {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                TextField(value = packageName, onValueChange = { packageName = it }, label = "应用包名", useLabelAsPlaceholder = true, singleLine = true, modifier = Modifier.fillMaxWidth())
+                TextField(value = name, onValueChange = { name = it }, label = "应用名称", useLabelAsPlaceholder = true, singleLine = true, modifier = Modifier.fillMaxWidth())
+                TextField(value = apkUrl, onValueChange = { apkUrl = it }, label = "APK 下载直链", useLabelAsPlaceholder = true, singleLine = true, modifier = Modifier.fillMaxWidth())
+                TextField(value = md5, onValueChange = { md5 = it }, label = "APK MD5（32 位）", useLabelAsPlaceholder = true, singleLine = true, modifier = Modifier.fillMaxWidth())
+                TextField(value = size, onValueChange = { size = it }, label = "APK 大小（字节）", useLabelAsPlaceholder = true, singleLine = true, modifier = Modifier.fillMaxWidth())
+                TextField(value = version, onValueChange = { version = it }, label = "版本名称（如 1.0）", useLabelAsPlaceholder = true, singleLine = true, modifier = Modifier.fillMaxWidth())
+                TextField(value = versionCode, onValueChange = { versionCode = it }, label = "版本号（versionCode）", useLabelAsPlaceholder = true, singleLine = true, modifier = Modifier.fillMaxWidth())
+                TextField(value = appId, onValueChange = { appId = it }, label = "商店应用 ID（正整数）", useLabelAsPlaceholder = true, singleLine = true, modifier = Modifier.fillMaxWidth())
+                TextField(value = icon, onValueChange = { icon = it }, label = "图标直链（可选）", useLabelAsPlaceholder = true, singleLine = true, modifier = Modifier.fillMaxWidth())
+                TextButton("发送安装请求", {
+                    a.sendInstall(packageName, name, apkUrl, md5, size, version, versionCode, appId, icon)
+                }, Modifier.fillMaxWidth(), colors = ButtonDefaults.textButtonColorsPrimary())
+            }
+        }
+        InfoCard("请填写 APK 的真实 MD5、文件大小和版本信息。广播发送不代表安装成功，可在应用商店查看进度")
+    }
 }
