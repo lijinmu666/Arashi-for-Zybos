@@ -1553,12 +1553,6 @@ private fun QuickPage(a: QuickCommands) {
                 a.run(title, command(enabled), done)
             }
         })
-    fun packageAction(title: String, pkg: String) =
-        QuickAction(title, listOf(false, true).map { enabled ->
-            QuickOption(if (enabled) "解冻" else "冻结") { done ->
-                a.run(title, "pm ${if (enabled) "enable" else "disable"} --user current $pkg", done)
-            }
-        })
     val completion = QuickCommands.Completion { success, output ->
         running = false
         selected = null
@@ -1590,29 +1584,6 @@ private fun QuickPage(a: QuickCommands) {
         },
     ) {
         IntroCard("以下功能使用 root 权限执行，首次使用请授予 root 权限")
-        Group("应用") {
-            QuickCommandItem("PadMs", "冻结或解冻 PadMs") {
-                selected = packageAction("PadMs", "com.zuoyebang.padms")
-            }
-            QuickCommandItem("report服务", "冻结或解冻 ZpReport") {
-                selected = packageAction("report服务", "com.zuoyebang.iot.pad.zpreport")
-            }
-            QuickCommandItem("桌面 ErrorActivity", "冻结或解冻桌面的 ErrorActivity 组件，冻结以此禁止云控锁机的页面") {
-                selected = QuickAction("桌面 ErrorActivity", listOf(false, true).map { enabled ->
-                    QuickOption(if (enabled) "解冻" else "冻结") { done ->
-                        a.setLauncherErrorActivityEnabled(enabled, done)
-                    }
-                })
-            }
-            QuickCommandItem("PadMs 后台检查", "是否允许 PadMs 在后台运行，关闭以限制 PadMs 后台卸载应用等操作") {
-                selected = choose("PadMs 后台检查") { enabled ->
-                    "appops set --user current com.zuoyebang.padms RUN_IN_BACKGROUND ${if (enabled) "allow" else "ignore"} && appops get --user current com.zuoyebang.padms RUN_IN_BACKGROUND"
-                }
-            }
-            QuickCommandItem("系统升级", "冻结或解冻 ZpLibOtaServer") {
-                selected = packageAction("系统升级", "com.zuoyebang.iot.zp.lib.ota.server")
-            }
-        }
         Group("设置") {
             Link("作业帮学习机系统环境控制", "读取和修改 persist.sys.env_config") {
                 a.startActivity(Intent(a, com.lijinmu.arashi.tools.ZybosEnvController::class.java))
