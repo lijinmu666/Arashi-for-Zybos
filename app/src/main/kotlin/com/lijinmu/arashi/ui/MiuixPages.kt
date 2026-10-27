@@ -1545,6 +1545,25 @@ private data class QuickAction(val title: String, val options: List<QuickOption>
 
 @Composable
 private fun QuickPage(a: QuickCommands) {
+    var allFrozen by remember { mutableStateOf(false) }
+    var confirmFreeze by remember { mutableStateOf<Boolean?>(null) }
+    var freezeRunning by remember { mutableStateOf(false) }
+    var freezeQueryVersion by remember { mutableIntStateOf(0) }
+    val componentSnackbar = remember { SnackbarHostState() }
+    val componentScope = rememberCoroutineScope()
+    fun refreshFrozen() {
+        val version = ++freezeQueryVersion
+        allFrozen = false
+        a.queryRecommendedFrozen { frozen, _ -> if (version == freezeQueryVersion) allFrozen = frozen }
+    }
+    DisposableEffect(a) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME && !freezeRunning) refreshFrozen()
+        }
+        a.lifecycle.addObserver(observer)
+        refreshFrozen()
+        onDispose { a.lifecycle.removeObserver(observer) }
+    }
     var selected by remember { mutableStateOf<QuickAction?>(null) }
     var running by remember { mutableStateOf(false) }
     fun choose(title: String, command: (Boolean) -> String): QuickAction =
@@ -1560,7 +1579,32 @@ private fun QuickPage(a: QuickCommands) {
     }
     Page(
         a, "快捷指令执行", a::finish,
+        snackbarHost = { SnackbarHost(componentSnackbar) },
         overlay = {
+            OverlayDialog(
+                show = confirmFreeze != null,
+                title = if (confirmFreeze == false) "解冻推荐的作业帮应用" else "冻结推荐的作业帮应用",
+                summary = if (freezeRunning) "正在执行…" else
+                    "将会立即${if (confirmFreeze == false) "解冻 (pm enable)" else "冻结 (pm disable)"}以下系统应用：ZpReport、PadMs、SlardarOsClient、日志服务",
+                onDismissRequest = { if (!freezeRunning) confirmFreeze = null },
+            ) {
+                if (!freezeRunning) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    TextButton("取消", { confirmFreeze = null }, Modifier.weight(1f))
+                    TextButton("继续", {
+                        val freeze = confirmFreeze
+                        if (freeze != null && !freezeRunning) {
+                            freezeRunning = true
+                            freezeQueryVersion++
+                            a.setRecommendedFrozen(freeze) { _, result ->
+                                freezeRunning = false
+                                confirmFreeze = null
+                                refreshFrozen()
+                                componentScope.launch { componentSnackbar.showSnackbar(result, duration = SnackbarDuration.Long) }
+                            }
+                        }
+                    }, Modifier.weight(1f), colors = ButtonDefaults.textButtonColorsPrimary())
+                }
+            }
             OverlayDialog(
                 show = selected != null,
                 title = selected?.title.orEmpty(),
@@ -1583,6 +1627,12 @@ private fun QuickPage(a: QuickCommands) {
             }
         },
     ) {
+        Group("作业帮系统组件控制") {
+            QuickCommandItem(
+                if (allFrozen) "解冻推荐的作业帮应用" else "冻结推荐的作业帮应用",
+                "ZpReport、PadMs、SlardarOsClient、日志服务",
+            ) { if (!freezeRunning) confirmFreeze = !allFrozen }
+        }
         IntroCard("以下功能使用 root 权限执行，首次使用请授予 root 权限")
         Group("设置") {
             Link("作业帮学习机系统环境控制", "读取和修改 persist.sys.env_config") {
