@@ -301,8 +301,10 @@ object MiuixPages {
             val detailed = body.length > 80 || body.lines().size > 2
             val preview = body.lineSequence().firstOrNull { it.isNotBlank() }.orEmpty()
             val summary = if (detailed) {
-                result.title + if (preview.isEmpty()) "" else "：" + preview.take(70) +
-                    if (body.length > preview.take(70).length) "…" else ""
+                (if (result.title.isBlank()) "" else result.title + if (preview.isEmpty()) "" else "：") +
+                    preview.take(70) + if (body.length > preview.take(70).length) "…" else ""
+            } else if (result.title.isBlank()) {
+                body
             } else {
                 result.title + if (body.isEmpty() || body == result.title) "" else "\n" + body
             }
@@ -538,7 +540,7 @@ private fun HomePage(a: Main) = Page(a, "Arashi for Zybos") {
         Link("卸载验证设置", "验证发起的卸载请求") { a.startActivity(Intent(a, UninstallSettings::class.java)) }
         val toolsBlocked = SystemToolSupport.isBlocked()
         Box(Modifier.fillMaxWidth().clickable(enabled = toolsBlocked) {
-            MiuixPages.showMessage(a, "暂不可用", SystemToolSupport.MESSAGE)
+            MiuixPages.showMessage(a, "", SystemToolSupport.MESSAGE)
         }) {
             ArrowPreference(
                 title = "系统特权工具",
