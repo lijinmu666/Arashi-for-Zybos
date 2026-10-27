@@ -2213,7 +2213,7 @@ private fun ZybosEnvPage(a: com.lijinmu.arashi.tools.ZybosEnvController) = Page(
                 scope.launch {
                     try {
                         accept(withContext(Dispatchers.IO) { a.applyConfig(base, selectedEnv, selectedTools, selectedTips) })
-                        MiuixPages.showMessage(a, "写入成功", "已写入并核对 persist.sys.env_config")
+                        MiuixPages.showMessage(a, "", "写入完毕")
                     } catch (cancelled: CancellationException) {
                         throw cancelled
                     } catch (failure: Exception) {
@@ -2261,7 +2261,7 @@ private fun ZybosEnvPage(a: com.lijinmu.arashi.tools.ZybosEnvController) = Page(
                         accept(withContext(Dispatchers.IO) { a.resetConfig() })
                         showTools = false
                         tips = false
-                        MiuixPages.showMessage(a, "重置成功", "已写入并核对默认环境配置")
+                        MiuixPages.showMessage(a, "", "已重置为默认")
                     } catch (cancelled: CancellationException) {
                         throw cancelled
                     } catch (failure: Exception) {
