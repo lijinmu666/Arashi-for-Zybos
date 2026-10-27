@@ -165,7 +165,6 @@ Log.w(TAG, "reject untrusted caller uid=" + Binder.getCallingUid());
         result.putBoolean(HookConfig.KEY_AOSP_APP_DETAILS, prefs.getBoolean(HookConfig.KEY_AOSP_APP_DETAILS, false));
         result.putBoolean(HookConfig.KEY_CLEAR_DETAIL_BLACK, prefs.getBoolean(HookConfig.KEY_CLEAR_DETAIL_BLACK, HookConfig.DEFAULT_ENABLED));
         result.putBoolean(HookConfig.KEY_BLOCK_SUPERVISE, prefs.getBoolean(HookConfig.KEY_BLOCK_SUPERVISE, HookConfig.defaultEnabled(HookConfig.KEY_BLOCK_SUPERVISE)));
-        result.putBoolean(HookConfig.KEY_BLOCK_USAGE_REPORT, prefs.getBoolean(HookConfig.KEY_BLOCK_USAGE_REPORT, HookConfig.defaultEnabled(HookConfig.KEY_BLOCK_USAGE_REPORT)));
         result.putBoolean(HookConfig.KEY_DEV_OPTIONS, prefs.getBoolean(HookConfig.KEY_DEV_OPTIONS, HookConfig.DEFAULT_ENABLED));
         result.putBoolean(HookConfig.KEY_DEV_OPTIONS_MENU,
                 prefs.getBoolean(HookConfig.KEY_DEV_OPTIONS_MENU,

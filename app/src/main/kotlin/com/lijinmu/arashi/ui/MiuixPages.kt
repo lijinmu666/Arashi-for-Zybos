@@ -683,7 +683,6 @@ private fun HookPage(a: HookSettings) {
         ),
         "管控服务" to listOf(
             HookItem("拦截管控服务行为", "从 SystemServer 层拦截管控服务的强杀应用和移除任务行为", HookConfig.KEY_BLOCK_SUPERVISE),
-            HookItem("阻止时长上报", "拦截管控服务的使用时长上传", HookConfig.KEY_BLOCK_USAGE_REPORT),
             HookItem("解除应用禁用", "将应用可用查询结果改为允许，绕过应用禁用和时长限制。已禁用的应用要先从其他应用打开一次才能从桌面启动", HookConfig.KEY_NEUTRALIZE_POLICY),
             HookItem("解除页面屏蔽", "将受限页面查询结果置空，允许打开被屏蔽的页面", HookConfig.KEY_NEUTRALIZE_ADVANCE),
             HookItem("阻止超时锁屏", "拦截管控服务的超时处理，达到整机时长限制或超出可用时段后不锁屏", HookConfig.KEY_NO_TIMEOUT_LOCK),

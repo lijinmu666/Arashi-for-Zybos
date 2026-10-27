@@ -36,7 +36,6 @@ public static final String KEY_CAPTIVE_PORTAL = "hook_captive_portal";
     public static final String KEY_CLEAR_DETAIL_BLACK = "hook_clear_detail_black";
 
 public static final String KEY_BLOCK_SUPERVISE = "hook_block_supervise";
-    public static final String KEY_BLOCK_USAGE_REPORT = "hook_block_usage_report";
     public static final String KEY_DEV_OPTIONS = "hook_dev_options";
     public static final String KEY_DEV_OPTIONS_MENU = "hook_dev_options_menu";
     public static final String KEY_KEEP_BACKGROUND = "hook_keep_background";
@@ -60,7 +59,6 @@ public static final String KEY_BLOCK_SUPERVISE = "hook_block_supervise";
                 && !KEY_IOS_ICONS.equals(key)
                 && !KEY_DEV_OPTIONS_MENU.equals(key)
                 && !KEY_BLOCK_SUPERVISE.equals(key)
-                && !KEY_BLOCK_USAGE_REPORT.equals(key)
                 && !KEY_NEUTRALIZE_POLICY.equals(key)
                 && !KEY_NEUTRALIZE_ADVANCE.equals(key)
                 && !KEY_NO_TIMEOUT_LOCK.equals(key)
@@ -78,7 +76,6 @@ public static final String KEY_NEUTRALIZE_POLICY = "hook_neutralize_policy";
                 KEY_CLEAR_BLACKLIST, KEY_CAPTIVE_PORTAL,
                 KEY_ALLOW_USB, KEY_LEGACY_POWER_MENU, KEY_UNLIMITED_NOTIFICATION_ICONS,
                 KEY_RECORD_INTERNAL_AUDIO, KEY_NOTIFICATION_LONG_PRESS, KEY_NOTIFICATION_REPLY, KEY_KEEP_NAVIGATION, KEY_STATUS_BAR_DATE, KEY_AOSP_STATUS_ICONS, KEY_SYSTEMUI_MONET, KEY_IOS_ICONS, KEY_ALLOW_WALLPAPER, KEY_CLEAR_DETAIL_BLACK, KEY_BLOCK_SUPERVISE,
-                KEY_BLOCK_USAGE_REPORT,
                 KEY_DEV_OPTIONS, KEY_DEV_OPTIONS_MENU, KEY_KEEP_BACKGROUND, KEY_NEUTRALIZE_POLICY,
                 KEY_NEUTRALIZE_ADVANCE, KEY_NO_TIMEOUT_LOCK, KEY_BLOCK_DEFAULT_BROWSER
         };

@@ -185,8 +185,7 @@ public final class HookScopes {
                 && !HookConfig.KEY_DEV_OPTIONS_MENU.equals(key)
                 && !HookConfig.KEY_NEUTRALIZE_POLICY.equals(key)
                 && !HookConfig.KEY_NEUTRALIZE_ADVANCE.equals(key)
-                && !HookConfig.KEY_NO_TIMEOUT_LOCK.equals(key)
-                && !HookConfig.KEY_BLOCK_USAGE_REPORT.equals(key);
+                && !HookConfig.KEY_NO_TIMEOUT_LOCK.equals(key);
     }
 
     private static String[] applicationScopes(String key) {
@@ -212,8 +211,7 @@ public final class HookScopes {
         }
         if (HookConfig.KEY_NEUTRALIZE_POLICY.equals(key)
                 || HookConfig.KEY_NEUTRALIZE_ADVANCE.equals(key)
-                || HookConfig.KEY_NO_TIMEOUT_LOCK.equals(key)
-                || HookConfig.KEY_BLOCK_USAGE_REPORT.equals(key)) {
+                || HookConfig.KEY_NO_TIMEOUT_LOCK.equals(key)) {
             return new String[] { "com.zuoyebang.iot.pad.supervise" };
         }
         if (HookConfig.KEY_ALLOW_WALLPAPER.equals(key)

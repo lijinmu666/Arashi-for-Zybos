@@ -30,37 +30,7 @@ private static final String COL_PACKAGE = "packageName";
     public static void hookSupervise(XposedModule mod, ClassLoader cl) {
         hookProviderQuery(mod, cl);
         hookPadUseTimeOut(mod, cl);
-        hookUsageReport(mod, cl);
         Log.i(TAG, "supervise hooks initialized");
-    }
-
-    private static void hookUsageReport(XposedModule mod, ClassLoader cl) {
-        try {
-            Class<?> handler = Class.forName(
-                    "com.zuoyebang.iot.pad.supervise.common.SuperviseHandler", false, cl);
-            int hooked = 0;
-            for (Method method : handler.getDeclaredMethods()) {
-                if (!"uploadUsageBusiness".equals(method.getName())) {
-                    continue;
-                }
-                method.setAccessible(true);
-                mod.hook(method).intercept(chain -> {
-                    if (ConfigManager.isEnabled(HookConfig.KEY_BLOCK_USAGE_REPORT)) {
-                        Log.i(TAG, "block app usage duration report");
-                        return Reflect.defaultReturnValue(method.getReturnType());
-                    }
-                    return chain.proceed();
-                });
-                hooked++;
-            }
-            if (hooked == 0) {
-                Log.w(TAG, "uploadUsageBusiness not found");
-            } else {
-                Log.i(TAG, "uploadUsageBusiness hooked: " + hooked + " total");
-            }
-        } catch (Throwable t) {
-            Log.w(TAG, "usage report hook failed: " + t);
-        }
     }
 
 private static void hookProviderQuery(XposedModule mod, ClassLoader cl) {
