@@ -2237,7 +2237,7 @@ private fun ZybosEnvPage(a: com.lijinmu.arashi.tools.ZybosEnvController) = Page(
                 scope.launch {
                     try {
                         val json = withContext(Dispatchers.IO) { a.readFormattedProperty() }
-                        MiuixPages.showMessage(a, "当前环境配置", json)
+                        MiuixPages.showDetails(a, "当前环境配置", json)
                     } catch (cancelled: CancellationException) {
                         throw cancelled
                     } catch (failure: Exception) {
