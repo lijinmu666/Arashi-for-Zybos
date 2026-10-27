@@ -1629,13 +1629,13 @@ private fun QuickPage(a: QuickCommands) {
             }
         },
     ) {
+        IntroCard("以下功能使用 root 权限执行，首次使用请授予 root 权限")
         Group("作业帮系统组件控制") {
             QuickCommandItem(
                 if (allFrozen) "解冻推荐的作业帮应用" else "冻结推荐的作业帮应用",
                 "ZpReport、PadMs、SlardarOsClient、日志服务",
             ) { if (!freezeRunning) confirmFreeze = !allFrozen }
         }
-        IntroCard("以下功能使用 root 权限执行，首次使用请授予 root 权限")
         Group("设置") {
             Link("作业帮学习机系统环境控制", "读取和修改 persist.sys.env_config") {
                 a.startActivity(Intent(a, com.lijinmu.arashi.tools.ZybosEnvController::class.java))
