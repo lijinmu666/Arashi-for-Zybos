@@ -1997,7 +1997,7 @@ private fun AboutPage(a: About) = Page(a, "关于 Arashi", a::finish) {
             if (versionTapCount >= 7) {
                 versionTapCount = 0
                 lastVersionTapAt = 0L
-                MiuixPages.showMessage(a, "大棍母", "棍母棍母棍母")
+                MiuixPages.showMessage(a, "", "棍母棍母棍母")
             }
     })
     AboutCard("作者", "李瑾沐", arrow = true, onClick = {
