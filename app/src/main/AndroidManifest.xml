@@ -9,34 +9,10 @@
         android:label="@string/app_name"
         android:supportsRtl="true"
         android:theme="@style/Theme.Arashi">
-        <activity android:name=".ApkInstallerActivity"
-            android:theme="@style/Theme.Arashi.Installer"
-            android:excludeFromRecents="true"
-            android:exported="true"
-            android:launchMode="singleTop">
-            <intent-filter>
-                <action android:name="android.intent.action.VIEW" />
-                <action android:name="android.intent.action.INSTALL_PACKAGE" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <data android:scheme="content" />
-                <data android:scheme="file" />
-                <data android:mimeType="application/vnd.android.package-archive" />
-                <data android:mimeType="application/octet-stream" />
-            </intent-filter>
-            <intent-filter>
-                <action android:name="android.intent.action.SEND" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <data android:mimeType="application/vnd.android.package-archive" />
-                <data android:mimeType="application/octet-stream" />
-            </intent-filter>
-        </activity>
         <activity android:name=".settings.NotificationSettings" android:exported="false" />
         <activity android:name=".settings.ArashiSettings" android:exported="false" />
         <activity android:name=".about.About" android:exported="false" />
-        <activity android:name=".tools.ZybosTools" android:exported="false" />
-        <activity android:name=".tools.ZybosUninstallPickerActivity" android:exported="false" />
         <activity android:name=".tools.ZybosEnvController" android:exported="false" />
-        <activity android:name=".tools.StoreLinkInstaller" android:exported="false" />
         <activity android:name=".tools.QuickCommands" android:exported="false" />
         <activity android:name=".settings.HookSettings" android:exported="false" />
         <activity android:name=".settings.BackgroundWhitelistActivity" android:exported="false" />
