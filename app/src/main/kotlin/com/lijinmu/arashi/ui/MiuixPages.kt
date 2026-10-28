@@ -542,7 +542,7 @@ private fun HomePage(a: Main) = Page(a, "Arashi for Zybos") {
     Group("功能") {
         Link("Hook 设置", "控制 Hook 是否启用") { a.startActivity(Intent(a, HookSettings::class.java)) }
         Link("快捷指令执行", "调整设置、冻结应用等快捷操作") { a.startActivity(Intent(a, QuickCommands::class.java)) }
-        Link("应用商店直链安装", "填写 APK 直链及校验信息，通过应用商店安装") {
+        Link("应用商店安装应用", "填写 APK 直链等信息，通过应用商店安装") {
             a.startActivity(Intent(a, com.lijinmu.arashi.tools.StoreLinkInstaller::class.java))
         }
         Link("卸载验证设置", "验证发起的卸载请求") { a.startActivity(Intent(a, UninstallSettings::class.java)) }
@@ -2308,7 +2308,7 @@ private fun StoreLinkInstallPage(a: com.lijinmu.arashi.tools.StoreLinkInstaller)
                 TextField(value = version, onValueChange = { version = it }, label = "版本名称（versionName）", useLabelAsPlaceholder = false, singleLine = true, modifier = Modifier.fillMaxWidth())
                 TextField(value = versionCode, onValueChange = { versionCode = it }, label = "版本号（versionCode）", useLabelAsPlaceholder = false, singleLine = true, modifier = Modifier.fillMaxWidth())
                 TextField(value = appId, onValueChange = { appId = it }, label = "商店应用 ID（正整数）", useLabelAsPlaceholder = false, singleLine = true, modifier = Modifier.fillMaxWidth())
-                TextField(value = icon, onValueChange = { icon = it }, label = "图标直链", useLabelAsPlaceholder = false, singleLine = true, modifier = Modifier.fillMaxWidth())
+                TextField(value = icon, onValueChange = { icon = it }, label = "图标直链（不填保持默认）", useLabelAsPlaceholder = false, singleLine = true, modifier = Modifier.fillMaxWidth())
                 TextButton("发送广播", {
                     a.sendInstall(packageName, name, apkUrl, md5, size, version, versionCode, appId, icon)
                 }, Modifier.fillMaxWidth(), colors = ButtonDefaults.textButtonColorsPrimary())
