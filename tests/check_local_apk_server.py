@@ -9,11 +9,16 @@ source = (java_dir / "LocalApkServer.java").read_text()
 method = source[source.index("    private void respond("):source.index("    private synchronized void closeServer")]
 harness = r'''
 import java.io.*;
+import javax.net.ssl.*;
 import java.net.*;
 import java.util.*;
 import java.nio.charset.StandardCharsets;
 public class HttpHarness {
   int generation=1;
+  final java.util.concurrent.atomic.AtomicBoolean requestSeen=new java.util.concurrent.atomic.AtomicBoolean();
+  void report(int current,String text,Throwable error) {
+    if(error!=null) throw new AssertionError(text,error);
+  }
   METHOD
   static byte[] request(String request, File file) throws Exception {
     try(ServerSocket server=new ServerSocket(0,1,InetAddress.getLoopbackAddress());

@@ -20,6 +20,14 @@ public final class LocalApkServer extends Service {
     private final ExecutorService clients=new ThreadPoolExecutor(2,2,0L,TimeUnit.MILLISECONDS,new ArrayBlockingQueue<>(4));
     private final Handler handler=new Handler(Looper.getMainLooper());
     private volatile int generation;
+    private final java.util.concurrent.atomic.AtomicBoolean requestSeen=new java.util.concurrent.atomic.AtomicBoolean();
+    private void report(int current,String text,Throwable error) {
+        handler.post(() -> {
+            if(current!=generation)return;
+            InstallDiagnostics.record(this,text,error);
+            notifyStatus(error==null ? text : text+"："+error.getClass().getSimpleName()+"："+error.getMessage());
+        });
+    }
     private void notifyStatus(String text) {
         NotificationManager manager=(NotificationManager)getSystemService(NOTIFICATION_SERVICE);
         if (Build.VERSION.SDK_INT>=26) manager.createNotificationChannel(
@@ -35,10 +43,12 @@ public final class LocalApkServer extends Service {
         if (intent==null || "stop".equals(intent.getAction())) { stopSelf(); return START_NOT_STICKY; }
         notifyStatus("正在启动本机 HTTPS 服务");
         int current=++generation;
+        requestSeen.set(false);
+        InstallDiagnostics.record(this,"本地安装服务已收到启动请求",null);
         closeServer();
         String path=intent.getStringExtra("path"), request=intent.getStringExtra("request");
         handler.removeCallbacksAndMessages(null);
-        handler.postDelayed(this::stopSelf,10*60*1000L);
+        handler.postDelayed(() -> { InstallDiagnostics.record(this,"HTTPS 服务达到 10 分钟期限，停止服务",null); stopSelf(); },10*60*1000L);
         new Thread(() -> serve(current,path,request),"LocalApkHttps").start();
         return START_NOT_STICKY;
     }
@@ -75,6 +85,7 @@ public final class LocalApkServer extends Service {
             File file=new File(path);
             if (!file.isFile() || !file.getCanonicalPath().startsWith(getCacheDir().getCanonicalPath()+"/store-"))
                 throw new IOException("APK 缓存不存在，请重新选择");
+            report(current,"APK 缓存检查通过，正在初始化 TLS 证书",null);
             String token=UUID.randomUUID().toString();
             listener=(SSLServerSocket)tls().getServerSocketFactory().createServerSocket(0,4,InetAddress.getByName("127.0.0.1"));
             listener.setEnabledProtocols(new String[]{"TLSv1.2"});
@@ -82,25 +93,38 @@ public final class LocalApkServer extends Service {
                 if(current!=generation) {listener.close();return;}
                 server=listener;
             }
+            report(current,"HTTPS 已监听 127.0.0.1:"+listener.getLocalPort()+"（TLS 1.2）",null);
             JSONObject json=new JSONObject(request);
             json.getJSONObject("data").put("apkUrl","https://127.0.0.1:"+listener.getLocalPort()+"/"+token+".apk");
             Intent broadcast=new Intent("com.zuoyebang.iot.push")
                 .setComponent(new ComponentName("com.zuoyebang.iot.pad.appstore","com.zuoyebang.iot.pad.push.PushMessageReceiver"))
                 .putExtra("response",json.toString());
+            InstallDiagnostics.record(this,"准备发送本地安装广播；匹配接收器数量："+getPackageManager().queryBroadcastReceivers(broadcast,0).size(),null);
             sendBroadcast(broadcast);
-            handler.post(() -> {if(current==generation) notifyStatus("安装广播已发送，HTTPS 服务保留 10 分钟；自签名证书可能被商店拒绝");});
+            report(current,"安装广播已提交系统，尚未确认商店接收；等待下载请求",null);
+            handler.postDelayed(() -> {
+                if(current==generation && !requestSeen.get())
+                    report(current,"30 秒内未收到有效 APK 下载请求；不能据此确定广播或证书是否失败",null);
+            },30000);
             while(current==generation) {
                 Socket socket=listener.accept();
+                report(current,"收到本机连接，等待 TLS 握手",null);
                 socket.setSoTimeout(15000);
                 try { clients.execute(() -> respond(socket,file,"/"+token+".apk",current)); }
-                catch(RejectedExecutionException e) {socket.close();}
+                catch(RejectedExecutionException e) {report(current,"下载连接过多，拒绝本次连接",e);socket.close();}
             }
         } catch(Exception e) {
-            if(current==generation) handler.post(() -> {if(current==generation) notifyStatus("服务异常："+e.getMessage()+"；请停止服务后重试");});
+            report(current,"HTTPS 服务启动或监听失败",e);
         } finally {try {if(listener!=null) listener.close();}catch(IOException ignored){}}
     }
     private void respond(Socket socket,File file,String route,int current) {
+        String phase="TLS 握手";
         try(Socket connection=socket) {
+            if(connection instanceof SSLSocket) {
+                ((SSLSocket)connection).startHandshake();
+                report(current,"TLS 握手成功",null);
+            }
+            phase="读取 HTTP 请求";
             BufferedReader reader=new BufferedReader(new InputStreamReader(connection.getInputStream(),java.nio.charset.StandardCharsets.US_ASCII));
             String first=reader.readLine();
             if(first==null || first.length()>8192) return;
@@ -113,10 +137,13 @@ public final class LocalApkServer extends Service {
                 if(line.length()>8192) return;
                 if(line.toLowerCase(Locale.ROOT).startsWith("range:")) range=line.substring(6).trim();
             }
+            report(current,"HTTP 请求："+parts[0]+"；APK 路径匹配："+route.equals(parts[1])+"；Range："+range,null);
             OutputStream out=connection.getOutputStream();
             if(!route.equals(parts[1]) || !("GET".equals(parts[0]) || "HEAD".equals(parts[0]))) {
                 out.write("HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: close\r\n\r\n".getBytes(java.nio.charset.StandardCharsets.US_ASCII)); return;
             }
+            requestSeen.set(true);
+            phase="发送 APK 数据";
             long length=file.length(),start=0,end=length-1;
             boolean partial=range!=null;
             if(partial) {
@@ -139,9 +166,10 @@ public final class LocalApkServer extends Service {
                 while(remaining>0 && current==generation) {int count=input.read(buffer,0,(int)Math.min(buffer.length,remaining));if(count<0)break;out.write(buffer,0,count);remaining-=count;}
             }
             out.flush();
-        }catch(Exception ignored) { /* TLS rejection or a cancelled download; another request may retry. */ }
+            report(current,remaining==0 ? "本次 APK 数据传输完成（不代表安装成功）" : "本次 APK 数据传输中断，剩余 "+remaining+" 字节",null);
+        }catch(Exception error) {report(current,phase+"失败",error);}
     }
     private synchronized void closeServer(){try {if(server!=null)server.close();}catch(IOException ignored){} server=null;}
-    @Override public void onDestroy(){generation++;closeServer();clients.shutdownNow();handler.removeCallbacksAndMessages(null);stopForeground(true);super.onDestroy();}
+    @Override public void onDestroy(){InstallDiagnostics.record(this,"本机 HTTPS 服务已停止",null);generation++;closeServer();clients.shutdownNow();handler.removeCallbacksAndMessages(null);stopForeground(true);super.onDestroy();}
     @Override public IBinder onBind(Intent intent){return null;}
 }

@@ -17,6 +17,8 @@ public final class StoreLinkInstaller extends BasePage {
     }
     public interface Prepared { void complete(LocalApk apk, String error); }
     public void prepareLocal(Uri uri, Prepared callback) {
+        InstallDiagnostics.reset(this);
+        InstallDiagnostics.record(this,"开始读取本地 APK",null);
         new Thread(() -> {
             java.io.File file = new java.io.File(getCacheDir(), "store-" + java.util.UUID.randomUUID() + ".apk");
             try {
@@ -42,8 +44,10 @@ public final class StoreLinkInstaller extends BasePage {
                     info.applicationInfo.loadLabel(getPackageManager()).toString(), hash.toString(),
                     Long.toString(file.length()), info.versionName == null ? "1.0" : info.versionName,
                     Long.toString(android.os.Build.VERSION.SDK_INT >= 28 ? info.getLongVersionCode() : info.versionCode));
+                InstallDiagnostics.record(this,"APK 读取完成；大小："+apk.size+" 字节",null);
                 runOnUiThread(() -> callback.complete(apk,null));
             } catch (Exception e) {
+                InstallDiagnostics.record(this,"读取 APK 失败",e);
                 file.delete(); runOnUiThread(() -> callback.complete(null,e.getMessage()));
             }
         }, "StoreApkReader").start();
@@ -70,6 +74,8 @@ public final class StoreLinkInstaller extends BasePage {
 
     public void sendInstall(String packageName, String name, String apkUrl, String md5,
             String size, String version, String versionCode, String appId, String icon) {
+        InstallDiagnostics.reset(this);
+        InstallDiagnostics.record(this,localPath == null ? "开始校验直接安装参数" : "开始校验本地安装参数",null);
         try {
             packageName = packageName.trim();
             if (!packageName.matches("[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)+"))
@@ -104,13 +110,18 @@ public final class StoreLinkInstaller extends BasePage {
                 MiuixPages.showMessage(this,"","正在启动本机 HTTPS 服务；启动后发送安装广播，请查看服务通知");
                 return;
             }
+            InstallDiagnostics.record(this,"准备发送直接安装广播；匹配接收器数量："+getPackageManager().queryBroadcastReceivers(intent,0).size(),null);
             sendBroadcast(intent);
+            InstallDiagnostics.record(this,"直接安装广播已提交系统，尚未确认商店接收",null);
             MiuixPages.showMessage(this, "", "安装广播已发送，请到应用商店查看进度；不代表安装成功");
         } catch (android.content.pm.PackageManager.NameNotFoundException error) {
+            InstallDiagnostics.record(this,"安装请求失败",error);
             MiuixPages.showMessage(this, "", "未找到作业帮应用商店");
         } catch (NumberFormatException error) {
+            InstallDiagnostics.record(this,"安装请求失败",error);
             MiuixPages.showMessage(this, "", "文件大小、版本号和应用 ID 需为有效正整数（不超过 2147483647）");
         } catch (Exception error) {
+            InstallDiagnostics.record(this,"安装请求失败",error);
             MiuixPages.showMessage(this, "无法发送安装请求", error.getMessage() == null ? error.toString() : error.getMessage());
         }
     }

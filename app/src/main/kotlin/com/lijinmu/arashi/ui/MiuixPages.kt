@@ -2287,6 +2287,15 @@ private fun ZybosEnvPage(a: com.lijinmu.arashi.tools.ZybosEnvController) = Page(
 
 @Composable
 private fun StoreLinkInstallPage(a: com.lijinmu.arashi.tools.StoreLinkInstaller) {
+    val diagnosticsPrefs = remember(a) { a.getSharedPreferences(com.lijinmu.arashi.tools.InstallDiagnostics.PREFS, Context.MODE_PRIVATE) }
+    var diagnostics by remember(a) { mutableStateOf(diagnosticsPrefs.getString("history", "") ?: "") }
+    DisposableEffect(a) {
+        val listener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { prefs, _ ->
+            a.runOnUiThread { diagnostics = prefs.getString("history", "") ?: "" }
+        }
+        diagnosticsPrefs.registerOnSharedPreferenceChangeListener(listener)
+        onDispose { diagnosticsPrefs.unregisterOnSharedPreferenceChangeListener(listener) }
+    }
     var mode by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(0) }
     var step by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(0) }
     var packageName by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf("") }
@@ -2336,6 +2345,14 @@ private fun StoreLinkInstallPage(a: com.lijinmu.arashi.tools.StoreLinkInstaller)
                         InfoCard("${apk.name}\n${apk.packageName}\n版本：${apk.version}（${apk.versionCode}）\n大小：${apk.size} 字节\nMD5：${apk.md5}")
                     }
                 }
+            }
+            if (diagnostics.isNotBlank()) Group("安装诊断") {
+                InfoCard(diagnostics)
+                TextButton("复制诊断信息", {
+                    val clipboard = a.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                    clipboard.setPrimaryClip(android.content.ClipData.newPlainText("安装诊断", diagnostics))
+                    MiuixPages.showMessage(a, "", "已复制诊断信息")
+                }, Modifier.fillMaxWidth())
             }
             Group("安装信息") {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
