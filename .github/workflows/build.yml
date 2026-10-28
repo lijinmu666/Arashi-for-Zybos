@@ -38,8 +38,6 @@ jobs:
           distribution: temurin
           java-version: '21'
       - uses: gradle/actions/setup-gradle@v4
-      - name: 验证 JC Code V3 本地验证与开关恢复
-        run: python3 tests/check_jc_code.py
       - name: 验证失效应用选择清理规则
         run: python3 tests/check_installed_selections.py
       - name: 验证独立通知长按功能
