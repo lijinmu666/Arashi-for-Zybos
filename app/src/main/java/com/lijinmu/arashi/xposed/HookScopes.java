@@ -168,8 +168,7 @@ public final class HookScopes {
     }
 
     private static boolean usesSystemServer(String key) {
-        return !HookConfig.KEY_JC_LOCAL_MODE.equals(key)
-                && !HookConfig.KEY_AOSP_APP_DETAILS.equals(key)
+        return !HookConfig.KEY_AOSP_APP_DETAILS.equals(key)
                 && !HookConfig.KEY_UNLIMITED_NOTIFICATION_ICONS.equals(key)
                 && !HookConfig.KEY_SYSTEMUI_MONET.equals(key)
                 && !HookConfig.KEY_AOSP_STATUS_ICONS.equals(key)
@@ -189,7 +188,6 @@ public final class HookScopes {
     }
 
     private static String[] applicationScopes(String key) {
-        if (HookConfig.KEY_JC_LOCAL_MODE.equals(key)) return new String[] { "JC.CODE.V3" };
         if (HookConfig.KEY_KEEP_NAVIGATION.equals(key)) {
             return new String[] { "com.android.systemui", "com.zuoyebang.iot.pad.launcher14", "com.android.launcher3" };
         }
