@@ -42,7 +42,7 @@ public final class StoreLinkInstaller extends BasePage {
             data.put("id", id).put("apkName", packageName).put("name", name.trim())
                 .put("apkUrl", url(apkUrl, false)).put("apkMd5", md5.trim())
                 .put("apkSize", bytes).put("apkVersion", version.trim()).put("apkVersionCode", code)
-                .put("icon", url(icon, true)).put("changeLog", "").put("developer", "")
+                .put("icon", url(icon.trim().isEmpty() ? "https://www.mcmsf.com/upload/fwq/69/cover.png" : icon, true)).put("changeLog", "").put("developer", "")
                 .put("enName", "").put("remark", "").put("summary", "").put("statusInPad", 0)
                 .put("isSensitive", 0).put("uploadTime", 0).put("from", 0).put("remoteInstallMsg", "");
             JSONObject request = new JSONObject().put("type", 2).put("sub_type", 3)
