@@ -3,9 +3,6 @@ package com.lijinmu.arashi.xposed.hooks;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Build;
-import android.os.Binder;
-import android.os.Parcel;
-import android.os.Process;
 import android.util.ArraySet;
 import android.util.Log;
 
@@ -28,8 +25,6 @@ public final class InstallHooks {
     private static volatile Class<?> installPkgHelperClass;
     private static volatile Class<?> legacyPackageManagerClass;
     private static volatile Object zybServiceInstance;
-    private static final int TRANSACTION_SILENT_INSTALL_APK = 0x19;
-    private static final ThreadLocal<Integer> arashiInstallCaller = new ThreadLocal<>();
 
     private InstallHooks() {
     }
@@ -42,8 +37,6 @@ hookZybosNoArg(mod, cl, "isDisallowInstallPackage", false);
 
 hookZybosStringArg(mod, cl, "isSilentInstallDisallow", false);
 
-hookArashiInstallCaller(mod, cl);
-
 hookHandleInstallEvent(mod, cl);
 
 hookInstallPackageHelper(mod, cl);
@@ -53,65 +46,6 @@ hookLegacyPackageManagerBlacklist(mod, cl);
 hookZybosServiceCtor(mod, cl);
 
         Log.i(TAG, "system_server hooks initialized");
-    }
-
-    private static void hookArashiInstallCaller(XposedModule mod, ClassLoader cl) {
-        try {
-            Class<?> service = Class.forName("com.android.server.ZybosSysApiService", false, cl);
-            Method onTransact = Reflect.findMethodExact(service, "onTransact",
-                    int.class, Parcel.class, Parcel.class, int.class);
-            Method enforceCaller = Reflect.findMethodExact(service, "enforceCallerIsSystem");
-            if (onTransact == null || enforceCaller == null
-                    || enforceCaller.getReturnType() != void.class) {
-                Log.i(TAG, "Zybos caller check not present on this system");
-                return;
-            }
-            mod.hook(onTransact).intercept(chain -> {
-                if ((Integer) chain.getArg(0) != TRANSACTION_SILENT_INSTALL_APK
-                        || !isArashiCaller()) {
-                    return chain.proceed();
-                }
-                Integer previous = arashiInstallCaller.get();
-                arashiInstallCaller.set(Binder.getCallingUid());
-                try {
-                    return chain.proceed();
-                } finally {
-                    if (previous == null) arashiInstallCaller.remove();
-                    else arashiInstallCaller.set(previous);
-                }
-            });
-            mod.hook(enforceCaller).intercept(chain -> {
-                Integer caller = arashiInstallCaller.get();
-                if (caller != null && caller == Binder.getCallingUid()) {
-                    Log.i(TAG, "Arashi silentInstallApk caller accepted, uid=" + caller);
-                    return null;
-                }
-                return chain.proceed();
-            });
-            Log.i(TAG, "Zybos Arashi install caller hook registered");
-        } catch (Throwable error) {
-            Log.w(TAG, "Zybos Arashi install caller hook unavailable", error);
-        }
-    }
-
-    private static boolean isArashiCaller() {
-        int caller = Binder.getCallingUid();
-        if (caller < Process.FIRST_APPLICATION_UID) return false;
-        try {
-            Class<?> activityThread = Class.forName("android.app.ActivityThread");
-            Object thread = Reflect.callStaticMethod(activityThread, "currentActivityThread");
-            Context context = (Context) Reflect.callMethod(thread, "getSystemContext");
-            if (context == null) return false;
-            String[] packages = context.getPackageManager().getPackagesForUid(caller);
-            if (packages == null) return false;
-            for (String name : packages) {
-                if ("com.lijinmu.arashi".equals(name)) return true;
-            }
-            return false;
-        } catch (Throwable error) {
-            Log.w(TAG, "Unable to verify Arashi install caller", error);
-            return false;
-        }
     }
 
     private static void hookBooleanProp(XposedModule mod, ClassLoader cl) {

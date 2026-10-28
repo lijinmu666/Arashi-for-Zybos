@@ -14,7 +14,6 @@ public abstract class BasePage extends ComponentActivity {
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
-        com.lijinmu.arashi.zybos.SystemToolSupport.enforceInstallerState(this);
         shownThemeMode = getSharedPreferences("ui", MODE_PRIVATE).getInt("mode", 0);
         shownDark = Ui.dark(this);
         getWindow().setStatusBarColor(Ui.background(this));
