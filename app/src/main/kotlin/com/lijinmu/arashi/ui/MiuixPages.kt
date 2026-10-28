@@ -1,6 +1,5 @@
 package com.lijinmu.arashi.ui
 
-import com.lijinmu.arashi.ApkInstallerActivity
 import com.lijinmu.arashi.BuildConfig
 import com.lijinmu.arashi.Main
 import com.lijinmu.arashi.UninstallPromptActivity
@@ -11,8 +10,6 @@ import com.lijinmu.arashi.settings.BackgroundWhitelistActivity
 import com.lijinmu.arashi.xposed.BackgroundPolicy
 import com.lijinmu.arashi.tools.QuickCommands
 import com.lijinmu.arashi.tools.ScopedAppStopper
-import com.lijinmu.arashi.tools.ZybosTools
-import com.lijinmu.arashi.tools.ZybosUninstallPickerActivity
 import com.lijinmu.arashi.tcp.TcpHistoryActivity
 import com.lijinmu.arashi.uninstall.UninstallHistoryActivity
 import com.lijinmu.arashi.uninstall.UninstallListActivity
@@ -66,7 +63,6 @@ import com.lijinmu.arashi.xposed.HookConfig
 import com.lijinmu.arashi.xposed.HookScopes
 import com.lijinmu.arashi.xposed.SettingsProvider
 import com.lijinmu.arashi.uninstall.UninstallHistoryStore
-import com.lijinmu.arashi.zybos.SystemToolSupport
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.basic.CardDefaults
@@ -147,46 +143,12 @@ object MiuixPages {
     ) = render(a) { UninstallPrompt(a, target, uid, packages, deadline) }
     @JvmStatic fun renderZybosEnvController(a: com.lijinmu.arashi.tools.ZybosEnvController) = render(a) { ZybosEnvPage(a) }
 
-    @JvmStatic fun renderStoreLinkInstaller(a: com.lijinmu.arashi.tools.StoreLinkInstaller) = render(a) { StoreLinkInstallPage(a) }
-
     @JvmStatic fun renderQuickCommands(a: QuickCommands) = render(a) { QuickPage(a) }
-    @JvmStatic fun renderZybosTools(a: ZybosTools) = render(a) { ZybosPage(a) }
-    @JvmStatic fun renderZybosUninstallPicker(a: ZybosUninstallPickerActivity) =
-        render(a) { ZybosUninstallPickerPage(a) }
     @JvmStatic fun renderNotificationSettings(a: com.lijinmu.arashi.settings.NotificationSettings) = render(a) { NotificationSettingsPage(a) }
 
     @JvmStatic fun renderSettings(a: ArashiSettings) = render(a) { SettingsPage(a) }
     @JvmStatic fun renderAbout(a: About) = render(a) { AboutPage(a) }
     @JvmStatic fun renderUnsupportedDevice(a: Main) = render(a) { UnsupportedDevicePage(a) }
-    @JvmStatic fun renderInstallerConfirmation(
-        a: ApkInstallerActivity,
-        path: String,
-        packageName: String?,
-        label: String,
-        icon: Drawable,
-    ) = render(a) { InstallerPage(a, path, packageName, label, icon) }
-    @JvmStatic fun renderSystemToolsUnavailable(a: ZybosTools) = render(a) {
-        Page(a, "系统特权工具", a::finish) { InfoCard(SystemToolSupport.MESSAGE) }
-    }
-    @JvmStatic fun renderInstallerProgress(
-        a: ApkInstallerActivity,
-        label: String,
-        packageName: String?,
-        icon: Drawable?,
-    ) = render(a) { InstallerProgressPage(a, label, packageName, icon) }
-    @JvmStatic fun renderInstallerResult(a: ApkInstallerActivity, title: String, message: String) =
-        render(a) {
-            Page(a, title, a::finish) {
-                InfoCard(message)
-                TextButton(
-                    "知道了",
-                    a::finish,
-                    Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.textButtonColorsPrimary(),
-                )
-            }
-        }
-
     @JvmStatic fun showMessage(a: Activity, title: String, body: String) {
         a.runOnUiThread { messageState(a).value = Message(title, body, feedback = true) }
     }
@@ -542,21 +504,7 @@ private fun HomePage(a: Main) = Page(a, "Arashi for Zybos") {
     Group("功能") {
         Link("Hook 设置", "控制 Hook 是否启用") { a.startActivity(Intent(a, HookSettings::class.java)) }
         Link("快捷指令执行", "调整设置、冻结应用等快捷操作") { a.startActivity(Intent(a, QuickCommands::class.java)) }
-        Link("应用商店安装应用", "填写 APK 直链等信息，通过应用商店安装") {
-            a.startActivity(Intent(a, com.lijinmu.arashi.tools.StoreLinkInstaller::class.java))
-        }
         Link("卸载验证设置", "验证发起的卸载请求") { a.startActivity(Intent(a, UninstallSettings::class.java)) }
-        val toolsBlocked = SystemToolSupport.isBlocked()
-        Box(Modifier.fillMaxWidth().clickable(enabled = toolsBlocked) {
-            MiuixPages.showMessage(a, "", SystemToolSupport.MESSAGE)
-        }) {
-            ArrowPreference(
-                title = "系统特权工具",
-                summary = "利用 ZybosSysApiManager 执行系统操作",
-                enabled = !toolsBlocked,
-                onClick = { a.startActivity(Intent(a, ZybosTools::class.java)) },
-            )
-        }
         Link("应用偏好设置", "配置外观等") { a.startActivity(Intent(a, ArashiSettings::class.java)) }
         Link("关于 Arashi", "有关 Arashi 的更多详细信息页") { a.startActivity(Intent(a, About::class.java)) }
     }
@@ -1671,206 +1619,10 @@ private fun QuickPage(a: QuickCommands) {
 
 
 @Composable
-private fun ZybosPage(a: ZybosTools) = Page(a, "系统特权工具", a::finish) {
-    var dialog by remember { mutableStateOf<String?>(null) }
-    var input by remember { mutableStateOf("") }
-    var packageInput by remember { mutableStateOf("") }
-    IntroCard("利用 ZybosSysApiManager 无需权限为本设备执行安装、卸载应用等操作")
-    Group("安装") {
-        Link("选择 APK 文件安装", "从文件管理器中选择 APK 安装") { a.pickApk() }
-        Link("输入 APK 路径安装", "输入 APK 的路径") {
-            input = ""
-            packageInput = ""
-            dialog = "install"
-        }
-    }
-    Group("卸载") {
-        Link("选择应用卸载", "从应用列表中选择应用卸载") { a.pickUninstallApp() }
-        Link("输入包名卸载", "输入应用包名卸载") {
-            input = ""
-            dialog = "uninstall"
-        }
-    }
-    InfoCard("本功能仅面向支持 ZybosSysApiManager 的 AIbangOS 版本")
-    OverlayDialog(
-        show = dialog != null,
-        title = if (dialog == "install") "安装 APK" else "卸载应用",
-        onDismissRequest = { dialog = null },
-    ) {
-        Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-            TextField(
-                value = input,
-                onValueChange = { input = it },
-                modifier = Modifier.fillMaxWidth(),
-                label = if (dialog == "install") "/sdcard/Download/MyApp.apk" else "com.example.kskblzdjd",
-                useLabelAsPlaceholder = true,
-                singleLine = true,
-            )
-            if (dialog == "install") {
-                TextField(
-                    value = packageInput,
-                    onValueChange = { packageInput = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    label = "应用包名（可选，路径无法读取时填写）",
-                    useLabelAsPlaceholder = true,
-                    singleLine = true,
-                )
-            }
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                TextButton("取消", { dialog = null }, Modifier.weight(1f))
-                TextButton(
-                    "确定",
-                    {
-                        val value = input.trim()
-                        val kind = dialog
-                        if (value.isNotEmpty()) {
-                            dialog = null
-                            if (kind == "install") {
-                                a.installApk(value, packageInput.trim().takeIf { it.isNotEmpty() })
-                            } else {
-                                a.uninstallApk(value)
-                            }
-                        }
-                    },
-                    Modifier.weight(1f),
-                    colors = ButtonDefaults.textButtonColorsPrimary(),
-                )
-            }
-        }
-    }
-}
+
 
 @Composable
-private fun ZybosUninstallPickerPage(a: ZybosUninstallPickerActivity) {
-    var query by remember { mutableStateOf("") }
-    var showSystemApps by remember { mutableStateOf(false) }
-    var pending by remember { mutableStateOf<UninstallChoice?>(null) }
-    val apps = rememberAppPickerData(a) {
-        val manager = a.packageManager
-        manager.getInstalledApplications(0)
-            .mapNotNull { info ->
-                val updatedSystem = (info.flags and ApplicationInfo.FLAG_UPDATED_SYSTEM_APP) != 0
-                val system = (info.flags and ApplicationInfo.FLAG_SYSTEM) != 0
-                if (system && !updatedSystem) {
-                    null
-                } else {
-                    val label = runCatching { info.loadLabel(manager).toString() }
-                        .getOrDefault(info.packageName)
-                    UninstallChoice(
-                        info.packageName,
-                        label,
-                        info.packageName + " · UID " + info.uid +
-                            (if (updatedSystem) " · 已更新的系统应用" else " · 用户应用"),
-                        if (updatedSystem) 2 else 1,
-                    )
-                }
-            }.sortedWith(compareBy<UninstallChoice> { it.kind }.thenBy { it.title.lowercase() })
-    }
-    val choices = apps.choices
-    val visible = choices.filter { choice ->
-        (showSystemApps || choice.kind == 1) &&
-            (query.isBlank() || choice.title.contains(query, true) ||
-                choice.key.contains(query, true) || choice.summary.contains(query, true))
-    }
-    Scaffold(
-        modifier = Modifier.fillMaxSize(),
-        topBar = {
-            SmallTopAppBar(
-                title = "选择应用卸载",
-                navigationIcon = {
-                    IconButton(onClick = a::finish) {
-                        Icon(MiuixIcons.Back, contentDescription = "返回")
-                    }
-                },
-                actions = {
-                    AppPickerFilterMenu(showSystemApps, onShowSystemAppsChange = { showSystemApps = it })
-                },
-            )
-        },
-    ) { innerPadding ->
-        Box(Modifier.fillMaxSize().padding(innerPadding).consumeWindowInsets(innerPadding)) {
-            AppPickerRefreshList(
-                data = apps,
-                modifier = Modifier.fillMaxSize(),
-            ) {
-                item {
-                    IntroCard("可选择用户应用或已更新的系统应用执行卸载")
-                }
-                item {
-                    AppSearchBar(
-                        query = query,
-                        onQueryChange = { query = it },
-                        label = "搜索...",
-                    )
-                }
-                item {
-                    AppPickerStatus("当前显示 " + visible.size + " 项")
-                }
-                items(visible, key = { it.key }) { choice ->
-                    val icon = remember(choice.key, apps.generation) {
-                        runCatching { a.packageManager.getApplicationIcon(choice.key) }
-                            .getOrElse { a.packageManager.defaultActivityIcon }
-                    }
-                    Card(
-                        modifier = Modifier.fillMaxWidth().clickable { pending = choice },
-                        insideMargin = PaddingValues(14.dp),
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        ) {
-                            AndroidView(
-                                factory = { context ->
-                                    ImageView(context).apply {
-                                        scaleType = ImageView.ScaleType.FIT_CENTER
-                                        setImageDrawable(icon)
-                                    }
-                                },
-                                update = { it.setImageDrawable(icon) },
-                                modifier = Modifier.size(44.dp),
-                            )
-                            Column(Modifier.weight(1f)) {
-                                Text(choice.title, style = MiuixTheme.textStyles.body1)
-                                Text(
-                                    choice.summary,
-                                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                                    style = MiuixTheme.textStyles.footnote1,
-                                )
-                            }
-                        }
-                    }
-                }
-                if (!apps.loading && visible.isEmpty()) {
-                    item { InfoCard("没有匹配的应用") }
-                }
-            }
-            OverlayDialog(
-                show = pending != null,
-                title = "确认卸载",
-                summary = pending?.let {
-                    it.title + "\n" + it.key +
-                        (if (it.kind == 2) "\n将卸载更新并恢复系统预装版本" else "\n将卸载此应用")
-                },
-                onDismissRequest = { pending = null },
-            ) {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    TextButton("取消", { pending = null }, Modifier.weight(1f))
-                    TextButton(
-                        "卸载",
-                        {
-                            val selected = pending?.key
-                            pending = null
-                            if (selected != null) a.choosePackage(selected)
-                        },
-                        Modifier.weight(1f),
-                        colors = ButtonDefaults.textButtonColorsPrimary(),
-                    )
-                }
-            }
-        }
-    }
-}
+
 
 @Composable
 private fun SettingsPage(a: ArashiSettings) = Page(a, "应用偏好设置", a::finish) {
@@ -1886,7 +1638,6 @@ private fun SettingsPage(a: ArashiSettings) = Page(a, "应用偏好设置", a::f
         mutableIntStateOf(colorSchemeValues.indexOf(prefs.getInt("color_scheme", 2)).coerceAtLeast(0))
     }
     var hidden by remember { mutableStateOf(a.isLauncherHidden) }
-    var installer by remember { mutableStateOf(a.isInstallerEnabled) }
     var moduleActive by rememberSystemServerActivation(a)
     DisposableEffect(a) {
         val observer = LifecycleEventObserver { _, event ->
@@ -1943,25 +1694,7 @@ private fun SettingsPage(a: ArashiSettings) = Page(a, "应用偏好设置", a::f
             summary = if (moduleActive) "隐藏后仍可从 LSPosed 管理器打开" else "需先激活 LSPosed 才能隐藏桌面图标",
             enabled = moduleActive,
         )
-        val installerBlocked = SystemToolSupport.isBlocked()
-        Box(Modifier.fillMaxWidth().clickable(enabled = installerBlocked) {
-            MiuixPages.showMessage(a, "暂不可用", SystemToolSupport.MESSAGE)
-        }) {
-        SwitchPreference(
-            checked = installer && !installerBlocked,
-            enabled = !installerBlocked,
-            onCheckedChange = { requested ->
-                try {
-                    a.setInstallerEnabled(requested)
-                    installer = requested
-                } catch (error: RuntimeException) {
-                    MiuixPages.showMessage(a, "切换失败", "无法更改安装器状态：${error.message}")
-                }
-            },
-            title = "启用 Arashi 安装器",
-            summary = "启用后可在打开 APK 文件时选择 Arashi 作为安装器",
-        )
-        }
+
     }
 }
 
@@ -2029,87 +1762,10 @@ private fun AboutPage(a: About) = Page(a, "关于 Arashi", a::finish) {
 }
 
 @Composable
-private fun InstallerPage(
-    a: ApkInstallerActivity,
-    path: String,
-    packageName: String?,
-    label: String,
-    icon: Drawable,
-) = Page(a, "安装应用", a::finish) {
-    Card(Modifier.fillMaxWidth(), insideMargin = PaddingValues(18.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            AndroidView(
-                factory = { context ->
-                    ImageView(context).apply {
-                        scaleType = ImageView.ScaleType.FIT_CENTER
-                        setImageDrawable(icon)
-                    }
-                },
-                update = { it.setImageDrawable(icon) },
-                modifier = Modifier.size(64.dp),
-            )
-            Spacer(Modifier.width(16.dp))
-            Column(Modifier.weight(1f)) {
-                Text(label, style = MiuixTheme.textStyles.title2)
-                Spacer(Modifier.height(5.dp))
-                if (packageName != null) {
-                    Text(packageName, color = MiuixTheme.colorScheme.onSurfaceVariantSummary)
-                }
-            }
-        }
-    }
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        TextButton("取消", a::finish, Modifier.weight(1f))
-        TextButton(
-            "继续",
-            { a.submitInstallFromMiuix(path, packageName, label, icon) },
-            Modifier.weight(1f),
-            colors = ButtonDefaults.textButtonColorsPrimary(),
-        )
-    }
-}
+
 
 @Composable
-private fun InstallerProgressPage(
-    a: ApkInstallerActivity,
-    label: String,
-    packageName: String?,
-    icon: Drawable?,
-) = Page(a, "安装应用") {
-    Card(Modifier.fillMaxWidth(), insideMargin = PaddingValues(18.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            if (icon != null) {
-                AndroidView(
-                    factory = { context ->
-                        ImageView(context).apply {
-                            scaleType = ImageView.ScaleType.FIT_CENTER
-                            setImageDrawable(icon)
-                        }
-                    },
-                    update = { it.setImageDrawable(icon) },
-                    modifier = Modifier.size(64.dp),
-                )
-                Spacer(Modifier.width(16.dp))
-            }
-            Column(Modifier.weight(1f)) {
-                Text(label, style = MiuixTheme.textStyles.title2)
-                if (packageName != null) {
-                    Spacer(Modifier.height(5.dp))
-                    Text(packageName, color = MiuixTheme.colorScheme.onSurfaceVariantSummary)
-                }
-            }
-        }
-    }
-    Card(Modifier.fillMaxWidth(), insideMargin = PaddingValues(18.dp)) {
-        Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-            LoadingIndicator("安装应用", Modifier.align(Alignment.CenterHorizontally))
-            Text(
-                "安装包较大时可能需要一些时间",
-                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-            )
-        }
-    }
-}
+
 
 
 @Composable
@@ -2286,34 +1942,4 @@ private fun ZybosEnvPage(a: com.lijinmu.arashi.tools.ZybosEnvController) = Page(
 }
 
 @Composable
-private fun StoreLinkInstallPage(a: com.lijinmu.arashi.tools.StoreLinkInstaller) {
-    var packageName by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf("") }
-    var name by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf("") }
-    var apkUrl by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf("") }
-    var md5 by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf("") }
-    var size by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf("") }
-    var version by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf("") }
-    var versionCode by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf("") }
-    var appId by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf("") }
-    var icon by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf("") }
-    Page(a, "应用商店直链安装", a::finish) {
-        IntroCard("一条广播发送至应用商店，由应用商店下载并安装 APK")
-        Group("安装信息") {
-            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                TextField(value = packageName, onValueChange = { packageName = it }, label = "应用包名", useLabelAsPlaceholder = false, singleLine = true, modifier = Modifier.fillMaxWidth())
-                TextField(value = name, onValueChange = { name = it }, label = "应用名称", useLabelAsPlaceholder = false, singleLine = true, modifier = Modifier.fillMaxWidth())
-                TextField(value = apkUrl, onValueChange = { apkUrl = it }, label = "APK 下载直链", useLabelAsPlaceholder = false, singleLine = true, modifier = Modifier.fillMaxWidth())
-                TextField(value = md5, onValueChange = { md5 = it }, label = "APK MD5（32位）", useLabelAsPlaceholder = false, singleLine = true, modifier = Modifier.fillMaxWidth())
-                TextField(value = size, onValueChange = { size = it }, label = "APK 文件大小（字节）", useLabelAsPlaceholder = false, singleLine = true, modifier = Modifier.fillMaxWidth())
-                TextField(value = version, onValueChange = { version = it }, label = "版本名称（versionName）", useLabelAsPlaceholder = false, singleLine = true, modifier = Modifier.fillMaxWidth())
-                TextField(value = versionCode, onValueChange = { versionCode = it }, label = "版本号（versionCode）", useLabelAsPlaceholder = false, singleLine = true, modifier = Modifier.fillMaxWidth())
-                TextField(value = appId, onValueChange = { appId = it }, label = "商店应用 ID（正整数）", useLabelAsPlaceholder = false, singleLine = true, modifier = Modifier.fillMaxWidth())
-                TextField(value = icon, onValueChange = { icon = it }, label = "图标直链（不填保持默认）", useLabelAsPlaceholder = false, singleLine = true, modifier = Modifier.fillMaxWidth())
-                TextButton("发送广播", {
-                    a.sendInstall(packageName, name, apkUrl, md5, size, version, versionCode, appId, icon)
-                }, Modifier.fillMaxWidth(), colors = ButtonDefaults.textButtonColorsPrimary())
-            }
-        }
-        InfoCard("请填写 APK 的真实信息。直链必须为受信任证书的 HTTPS 链接。广播发送不代表安装成功，在系统桌面可查看进度")
-    }
-}
+
