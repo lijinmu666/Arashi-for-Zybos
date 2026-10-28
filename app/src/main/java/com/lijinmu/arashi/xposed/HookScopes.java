@@ -178,28 +178,23 @@ public final class HookScopes {
 
         public boolean hasSelectedScope(String key) {
             if (!scopeKnown) return false;
-            boolean systemSelected = selected.contains("system");
-            if (HookConfig.KEY_LEGACY_POWER_MENU.equals(key))
-                return systemSelected && selected.contains("com.android.systemui");
-            if (usesSystemServer(key) && systemSelected) return true;
-            for (String pkg : applicationScopes(key)) {
+            if (usesSystemServer(key) && !selected.contains("system")) return false;
+            if (HookConfig.KEY_KEEP_NAVIGATION.equals(key)) {
+                return selected.contains("com.android.systemui")
+                        && (selected.contains("com.zuoyebang.iot.pad.launcher14")
+                        || selected.contains("com.android.launcher3"));
+            }
+            String[] packages = applicationScopes(key);
+            if (packages.length == 0) return usesSystemServer(key);
+            // Launcher package names are alternatives; other multi-process hooks also require system.
+            for (String pkg : packages) {
                 if (selected.contains(pkg)) return true;
             }
             return false;
         }
 
         public boolean isAvailable(String key) {
-            if (!scopeKnown || !hasSelectedScope(key)) return false;
-            if (HookConfig.KEY_LEGACY_POWER_MENU.equals(key)) {
-                return systemActive && scopeKnown && selected.contains("com.android.systemui");
-            }
-            if (usesSystemServer(key) && systemActive) return true;
-            if (scopeKnown) {
-                for (String pkg : applicationScopes(key)) {
-                    if (selected.contains(pkg)) return true;
-                }
-            }
-            return false;
+            return hasSelectedScope(key) && (!usesSystemServer(key) || systemActive);
         }
 
         public Set<String> getSelectedPackages() {
@@ -207,23 +202,24 @@ public final class HookScopes {
         }
 
         public String unavailableReason(String key) {
-            if (HookConfig.KEY_LEGACY_POWER_MENU.equals(key)) {
-                if (!systemActive) return "请勾选系统框架作用域并重启设备";
-                if (!scopeKnown) return "无法读取 LSPosed 作用域，请确认模块已启用并返回此页面";
-                return "请勾选系统界面 com.android.systemui 作用域并重启设备";
-            }
-            String[] packages = applicationScopes(key);
-            if (packages.length == 0) {
-                return "未检测到本次开机的 SystemServer 的 Hook，请勾选系统框架作用域并重启";
-            }
             if (!scopeKnown) {
                 return "无法读取 LSPosed 作用域，请确认模块已启用并返回此页面";
             }
-            String targets = String.join("、", packages);
-            if (usesSystemServer(key)) {
-                return "未检测到系统框架 Hook，并且且未勾选应用作用域：" + targets;
+            java.util.List<String> missing = new java.util.ArrayList<>();
+            if (usesSystemServer(key) && !selected.contains("system")) missing.add("系统框架");
+            if (HookConfig.KEY_KEEP_NAVIGATION.equals(key)) {
+                if (!selected.contains("com.android.systemui")) missing.add("系统界面 com.android.systemui");
+                if (!selected.contains("com.zuoyebang.iot.pad.launcher14")
+                        && !selected.contains("com.android.launcher3")) missing.add("桌面（两个桌面包名任选其一）");
+            } else {
+                String[] packages = applicationScopes(key);
+                boolean appSelected = packages.length == 0;
+                for (String pkg : packages) if (selected.contains(pkg)) appSelected = true;
+                if (!appSelected) missing.add(String.join(" 或 ", packages));
             }
-            return "未勾选对应作用域：" + targets + "，请在 LSPosed 中勾选后重启目标应用";
+            if (!missing.isEmpty()) return "请勾选作用域：" + String.join("、", missing);
+            if (usesSystemServer(key) && !systemActive) return "系统框架作用域已勾选，请重启设备以激活 Hook";
+            return "";
         }
     }
 }
