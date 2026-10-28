@@ -645,7 +645,6 @@ private fun HookPage(a: HookSettings) {
         Group(name) {
             entries.forEach { entry ->
                 val available = scopes.isAvailable(entry.key)
-                var requestingScope by remember(entry.key) { mutableStateOf(false) }
                 var checked by remember(entry.key) {
                     mutableStateOf(
                         if (entry.key == HookConfig.KEY_AOSP_STATUS_ICONS)
@@ -689,35 +688,14 @@ private fun HookPage(a: HookSettings) {
 
                 }
                 SwitchPreference(
-                    checked = checked,
+                    checked = available && checked,
                     onCheckedChange = { enabled ->
-                        if (!enabled || scopes.isAvailable(entry.key)) {
-                            saveHook(enabled)
-                        } else if (!requestingScope) {
-                            checked = false
-                            prefs.edit().putBoolean(entry.key, false).apply()
-                            requestingScope = true
-                            val sent = HookScopes.requestForHook(a, entry.key) { approved, message ->
-                                requestingScope = false
-                                if (!a.isFinishing && !a.isDestroyed) {
-                                    if (approved) saveHook(true)
-                                    else {
-                                        checked = false
-                                        prefs.edit().putBoolean(entry.key, false).apply()
-                                        coroutineScope.launch { snackbar.showSnackbar(message) }
-                                    }
-                                }
-                            }
-                            if (sent) coroutineScope.launch {
-                                snackbar.newestSnackbarData()?.dismiss()
-                                snackbar.showSnackbar("已发送作用域申请")
-                            }
-                        }
+                        if (available) saveHook(enabled)
                     },
                     title = entry.title,
                     summary = if (available) entry.summary
                         else entry.summary + "。" + scopes.unavailableReason(entry.key),
-                    enabled = true,
+                    enabled = available,
                 )
                 if (entry.key == HookConfig.KEY_BLOCK_TCP_LOGIN_FAIL) {
                     ArrowPreference(
@@ -748,7 +726,7 @@ private fun HookPage(a: HookSettings) {
                         onDispose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
                     }
                     AnimatedVisibility(
-                        visible = checked,
+                        visible = available && checked,
                         enter = expandVertically(
                             animationSpec = tween(250, easing = FastOutSlowInEasing),
                             expandFrom = Alignment.Top,
@@ -759,32 +737,21 @@ private fun HookPage(a: HookSettings) {
                         ) + fadeOut(animationSpec = tween(150)),
                     ) {
                         SwitchPreference(
-                            checked = injectDeveloperMenu,
+                            checked = available && injectDeveloperMenu,
                             onCheckedChange = {
-                                if (!it || available) {
+                                if (available) {
                                     injectDeveloperMenu = it
                                     prefs.edit().putBoolean(HookConfig.KEY_DEV_OPTIONS_MENU, it).apply()
-                                } else {
-                                    injectDeveloperMenu = false
-                                    prefs.edit().putBoolean(HookConfig.KEY_DEV_OPTIONS_MENU, false).apply()
-                                    val sent = HookScopes.requestForHook(a, HookConfig.KEY_DEV_OPTIONS) { approved, message ->
-                                        if (!a.isFinishing && !a.isDestroyed) {
-                                            injectDeveloperMenu = approved
-                                            prefs.edit().putBoolean(HookConfig.KEY_DEV_OPTIONS_MENU, approved).apply()
-                                            if (!approved) coroutineScope.launch { snackbar.showSnackbar(message) }
-                                        }
-                                    }
-                                    if (sent) coroutineScope.launch { snackbar.showSnackbar("已发送作用域申请") }
                                 }
                             },
                             title = "注入开发者选项入口",
                             summary = "在系统设置的左侧菜单中添加 “开发者选项” 入口",
-                            enabled = true,
+                            enabled = available,
                         )
                     }
                 }
                 AnimatedVisibility(
-                    visible = entry.key == HookConfig.KEY_KEEP_BACKGROUND && checked,
+                    visible = entry.key == HookConfig.KEY_KEEP_BACKGROUND && available && checked,
                     enter = expandVertically(
                         animationSpec = tween(250, easing = FastOutSlowInEasing),
                         expandFrom = Alignment.Top,
