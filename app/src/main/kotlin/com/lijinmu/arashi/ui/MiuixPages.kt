@@ -50,6 +50,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.ComposeView
@@ -363,23 +365,24 @@ private fun Page(
     overlay: @Composable () -> Unit = {},
     body: @Composable ColumnScope.() -> Unit,
 ) {
+    val scrollBehavior = MiuixScrollBehavior()
     Scaffold(
         snackbarHost = snackbarHost,
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier.fillMaxSize().nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
-            if (back == null) {
-                TopAppBar(title = title, largeTitle = title)
-            } else {
-                SmallTopAppBar(
-                    title = title,
-                    navigationIcon = {
+            TopAppBar(
+                title = title,
+                largeTitle = title,
+                scrollBehavior = scrollBehavior,
+                navigationIcon = {
+                    if (back != null) {
                         IconButton(onClick = back) {
                             Icon(MiuixIcons.Back, contentDescription = "返回")
                         }
-                    },
-                    actions = actions,
-                )
-            }
+                    }
+                },
+                actions = actions,
+            )
         },
     ) { innerPadding ->
         Box(
