@@ -3,6 +3,9 @@
     <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
     <application
         android:allowBackup="false"
         android:icon="@mipmap/ic_launcher"
@@ -36,6 +39,7 @@
         <activity android:name=".tools.ZybosTools" android:exported="false" />
         <activity android:name=".tools.ZybosUninstallPickerActivity" android:exported="false" />
         <activity android:name=".tools.ZybosEnvController" android:exported="false" />
+        <service android:name=".tools.LocalApkServer" android:exported="false" android:foregroundServiceType="dataSync" />
         <activity android:name=".tools.StoreLinkInstaller" android:exported="false" />
         <activity android:name=".tools.QuickCommands" android:exported="false" />
         <activity android:name=".settings.HookSettings" android:exported="false" />

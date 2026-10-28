@@ -9,6 +9,52 @@ import org.json.JSONObject;
 
 /** Sends the app store's remote-install request; does not claim installation completion. */
 public final class StoreLinkInstaller extends BasePage {
+    public static final class LocalApk {
+        public final String path, packageName, name, md5, size, version, versionCode;
+        LocalApk(String p, String pkg, String n, String hash, String bytes, String v, String code) {
+            path=p; packageName=pkg; name=n; md5=hash; size=bytes; version=v; versionCode=code;
+        }
+    }
+    public interface Prepared { void complete(LocalApk apk, String error); }
+    public void prepareLocal(Uri uri, Prepared callback) {
+        new Thread(() -> {
+            java.io.File file = new java.io.File(getCacheDir(), "store-" + java.util.UUID.randomUUID() + ".apk");
+            try {
+                java.io.File[] old = getCacheDir().listFiles((dir,n) -> n.startsWith("store-") && n.endsWith(".apk"));
+                if (old != null) for (java.io.File cached : old)
+                    if (System.currentTimeMillis() - cached.lastModified() > 86400000L) cached.delete();
+                java.security.MessageDigest digest = java.security.MessageDigest.getInstance("MD5");
+                try (java.io.InputStream in = getContentResolver().openInputStream(uri);
+                     java.io.OutputStream out = new java.io.FileOutputStream(file)) {
+                    if (in == null) throw new java.io.IOException("无法读取 APK");
+                    byte[] buffer = new byte[65536]; int count;
+                    while ((count=in.read(buffer)) != -1) {
+                        if (file.length() + count > Integer.MAX_VALUE) throw new java.io.IOException("APK 过大");
+                        out.write(buffer,0,count); digest.update(buffer,0,count);
+                    }
+                }
+                android.content.pm.PackageInfo info = getPackageManager().getPackageArchiveInfo(file.getPath(),0);
+                if (info == null || info.applicationInfo == null) throw new java.io.IOException("无法解析 APK");
+                info.applicationInfo.sourceDir=file.getPath(); info.applicationInfo.publicSourceDir=file.getPath();
+                StringBuilder hash = new StringBuilder();
+                for (byte b : digest.digest()) hash.append(String.format(java.util.Locale.ROOT,"%02x",b & 255));
+                LocalApk apk = new LocalApk(file.getPath(),info.packageName,
+                    info.applicationInfo.loadLabel(getPackageManager()).toString(), hash.toString(),
+                    Long.toString(file.length()), info.versionName == null ? "1.0" : info.versionName,
+                    Long.toString(android.os.Build.VERSION.SDK_INT >= 28 ? info.getLongVersionCode() : info.versionCode));
+                runOnUiThread(() -> callback.complete(apk,null));
+            } catch (Exception e) {
+                file.delete(); runOnUiThread(() -> callback.complete(null,e.getMessage()));
+            }
+        }, "StoreApkReader").start();
+    }
+    public void stopLocalServer() { stopService(new Intent(this, LocalApkServer.class)); }
+    private String localPath;
+    public void sendLocal(LocalApk apk, String appId, String icon) {
+        localPath=apk.path;
+        try { sendInstall(apk.packageName,apk.name,"https://127.0.0.1/local.apk",apk.md5,apk.size,apk.version,apk.versionCode,appId,icon); }
+        finally { localPath=null; }
+    }
     private static final String STORE = "com.zuoyebang.iot.pad.appstore";
     @Override protected void populate() { MiuixPages.renderStoreLinkInstaller(this); }
 
@@ -34,7 +80,7 @@ public final class StoreLinkInstaller extends BasePage {
                 throw new IllegalArgumentException("请填写应用名称和版本名称");
             int bytes = Integer.parseInt(size.trim());
             int code = Integer.parseInt(versionCode.trim());
-            int id = Integer.parseInt(appId.trim());
+            int id = appId.trim().isEmpty() ? 100 : Integer.parseInt(appId.trim());
             if (bytes <= 0 || code <= 0 || id <= 0)
                 throw new IllegalArgumentException("文件大小、版本号和应用 ID 必须为正整数");
             getPackageManager().getApplicationInfo(STORE, 0);
@@ -42,7 +88,7 @@ public final class StoreLinkInstaller extends BasePage {
             data.put("id", id).put("apkName", packageName).put("name", name.trim())
                 .put("apkUrl", url(apkUrl, false)).put("apkMd5", md5.trim())
                 .put("apkSize", bytes).put("apkVersion", version.trim()).put("apkVersionCode", code)
-                .put("icon", url(icon, true)).put("changeLog", "").put("developer", "")
+                .put("icon", url(icon.trim().isEmpty() ? "https://www.mcmsf.com/upload/fwq/69/cover.png" : icon, true)).put("changeLog", "").put("developer", "")
                 .put("enName", "").put("remark", "").put("summary", "").put("statusInPad", 0)
                 .put("isSensitive", 0).put("uploadTime", 0).put("from", 0).put("remoteInstallMsg", "");
             JSONObject request = new JSONObject().put("type", 2).put("sub_type", 3)
@@ -51,6 +97,13 @@ public final class StoreLinkInstaller extends BasePage {
             Intent intent = new Intent("com.zuoyebang.iot.push");
             intent.setComponent(new ComponentName(STORE, "com.zuoyebang.iot.pad.push.PushMessageReceiver"));
             intent.putExtra("response", request.toString());
+            if (localPath != null) {
+                Intent service = new Intent(this, LocalApkServer.class)
+                    .putExtra("path",localPath).putExtra("request",request.toString());
+                if (android.os.Build.VERSION.SDK_INT >= 26) startForegroundService(service); else startService(service);
+                MiuixPages.showMessage(this,"","正在启动本机 HTTPS 服务；启动后发送安装广播，请查看服务通知");
+                return;
+            }
             sendBroadcast(intent);
             MiuixPages.showMessage(this, "", "安装广播已发送，请到应用商店查看进度；不代表安装成功");
         } catch (android.content.pm.PackageManager.NameNotFoundException error) {
