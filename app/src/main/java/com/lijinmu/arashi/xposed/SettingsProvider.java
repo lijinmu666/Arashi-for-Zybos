@@ -84,16 +84,6 @@ private static final Map<Integer, Boolean> TRUSTED_UID_CACHE = new ConcurrentHas
         if (!METHOD_GET_ALL.equals(method) && !METHOD_GET_UNINSTALL.equals(method)) {
             return null;
         }
-        // A third-party scoped app may read only its own opt-in switch.
-        if (METHOD_GET_ALL.equals(method) && isJcCodeCaller()) {
-            Context context = getContext();
-            if (context == null) return null;
-            Bundle result = new Bundle();
-            result.putBoolean(HookConfig.KEY_JC_LOCAL_MODE,
-                    context.getSharedPreferences(HookConfig.PREF_NAME, Context.MODE_PRIVATE)
-                            .getBoolean(HookConfig.KEY_JC_LOCAL_MODE, false));
-            return result;
-        }
         if (!isTrustedCaller()) {
 
 Log.w(TAG, "reject untrusted caller uid=" + Binder.getCallingUid());
@@ -208,15 +198,6 @@ if (trusted) {
             TRUSTED_UID_CACHE.put(uid, Boolean.TRUE);
         }
         return trusted;
-    }
-
-    private boolean isJcCodeCaller() {
-        Context context = getContext();
-        if (context == null) return false;
-        String[] packages = context.getPackageManager().getPackagesForUid(Binder.getCallingUid());
-        if (packages == null) return false;
-        for (String pkg : packages) if ("JC.CODE.V3".equals(pkg)) return true;
-        return false;
     }
 
     private boolean isSystemAppUid(int uid) {
