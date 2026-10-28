@@ -1594,7 +1594,7 @@ private fun QuickPage(a: QuickCommands) {
                 show = confirmFreeze != null,
                 title = if (confirmFreeze == false) "解冻推荐的作业帮应用" else "冻结推荐的作业帮应用",
                 summary = if (freezeRunning) "正在执行…" else
-                    "将会立即${if (confirmFreeze == false) "解冻 (pm enable)" else "冻结 (pm disable)"}以下系统应用：ZpReport、PadMs、SlardarOsClient、日志服务",
+                    "将会立即${if (confirmFreeze == false) "解冻 (pm enable)" else "冻结 (pm disable)"} 以下系统应用：ZpReport、PadMs、SlardarOsClient、日志服务",
                 onDismissRequest = { if (!freezeRunning) confirmFreeze = null },
             ) {
                 if (!freezeRunning) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -2297,23 +2297,23 @@ private fun StoreLinkInstallPage(a: com.lijinmu.arashi.tools.StoreLinkInstaller)
     var appId by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf("") }
     var icon by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf("") }
     Page(a, "应用商店直链安装", a::finish) {
-        IntroCard("无需 root，交由作业帮应用商店下载并安装。需先打开一次商店；HTTP 或不受信任的 HTTPS 证书可能无法下载。应用 ID 与安装信息是否被接受由商店决定")
+        IntroCard("一条广播发送至应用商店，由应用商店下载并安装 APK")
         Group("安装信息") {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 TextField(value = packageName, onValueChange = { packageName = it }, label = "应用包名", useLabelAsPlaceholder = false, singleLine = true, modifier = Modifier.fillMaxWidth())
                 TextField(value = name, onValueChange = { name = it }, label = "应用名称", useLabelAsPlaceholder = false, singleLine = true, modifier = Modifier.fillMaxWidth())
                 TextField(value = apkUrl, onValueChange = { apkUrl = it }, label = "APK 下载直链", useLabelAsPlaceholder = false, singleLine = true, modifier = Modifier.fillMaxWidth())
-                TextField(value = md5, onValueChange = { md5 = it }, label = "APK MD5（32 位）", useLabelAsPlaceholder = false, singleLine = true, modifier = Modifier.fillMaxWidth())
-                TextField(value = size, onValueChange = { size = it }, label = "APK 大小（字节）", useLabelAsPlaceholder = false, singleLine = true, modifier = Modifier.fillMaxWidth())
-                TextField(value = version, onValueChange = { version = it }, label = "版本名称（如 1.0）", useLabelAsPlaceholder = false, singleLine = true, modifier = Modifier.fillMaxWidth())
+                TextField(value = md5, onValueChange = { md5 = it }, label = "APK MD5（32位）", useLabelAsPlaceholder = false, singleLine = true, modifier = Modifier.fillMaxWidth())
+                TextField(value = size, onValueChange = { size = it }, label = "APK 文件大小（字节）", useLabelAsPlaceholder = false, singleLine = true, modifier = Modifier.fillMaxWidth())
+                TextField(value = version, onValueChange = { version = it }, label = "版本名称（versionName）", useLabelAsPlaceholder = false, singleLine = true, modifier = Modifier.fillMaxWidth())
                 TextField(value = versionCode, onValueChange = { versionCode = it }, label = "版本号（versionCode）", useLabelAsPlaceholder = false, singleLine = true, modifier = Modifier.fillMaxWidth())
                 TextField(value = appId, onValueChange = { appId = it }, label = "商店应用 ID（正整数）", useLabelAsPlaceholder = false, singleLine = true, modifier = Modifier.fillMaxWidth())
-                TextField(value = icon, onValueChange = { icon = it }, label = "图标直链（可选）", useLabelAsPlaceholder = false, singleLine = true, modifier = Modifier.fillMaxWidth())
-                TextButton("发送安装请求", {
+                TextField(value = icon, onValueChange = { icon = it }, label = "图标直链", useLabelAsPlaceholder = false, singleLine = true, modifier = Modifier.fillMaxWidth())
+                TextButton("发送广播", {
                     a.sendInstall(packageName, name, apkUrl, md5, size, version, versionCode, appId, icon)
                 }, Modifier.fillMaxWidth(), colors = ButtonDefaults.textButtonColorsPrimary())
             }
         }
-        InfoCard("请填写 APK 的真实 MD5、文件大小和版本信息。广播发送不代表安装成功，可在应用商店查看进度")
+        InfoCard("请填写 APK 的真实信息。直链必须为受信任证书的 HTTPS 链接。广播发送不代表安装成功，在系统桌面可查看进度")
     }
 }
