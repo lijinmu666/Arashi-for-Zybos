@@ -84,6 +84,9 @@ internal fun ArashiNavigation(a: ComponentActivity, content: @Composable (Int) -
                 }
             },
         ) { padding ->
+            // Keep the floating bar inside the root Scaffold so its overlay host
+            // draws dialogs and dimming above both navigation styles.
+            Box(Modifier.fillMaxSize()) {
             HorizontalPager(
                 state = pager,
                 modifier = Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding)
@@ -103,7 +106,6 @@ internal fun ArashiNavigation(a: ComponentActivity, content: @Composable (Int) -
                     }
                 }
             }
-        }
         if (style == 1 && backdrop != null) Box(
             Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 12.dp),
         ) {
@@ -124,6 +126,9 @@ internal fun ArashiNavigation(a: ComponentActivity, content: @Composable (Int) -
             pageOrigin = pageOrigin,
             modifier = Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 12.dp),
         )
+            }
+        }
+
     }
 }
 
