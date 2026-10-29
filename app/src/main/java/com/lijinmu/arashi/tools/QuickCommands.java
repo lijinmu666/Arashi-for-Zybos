@@ -39,14 +39,24 @@ public final class QuickCommands extends BasePage {
         return android.os.Process.myUid() / 100000;
     }
 
-    private static boolean componentDisabled(String component, int userId) {
+    private boolean componentDisabled(String component, int userId) {
+        if (userId == android.os.Process.myUid() / 100000) {
+            try {
+                int enabled = getPackageManager().getComponentEnabledSetting(
+                        android.content.ComponentName.unflattenFromString(component));
+                return enabled == android.content.pm.PackageManager.COMPONENT_ENABLED_STATE_DISABLED
+                        || enabled == android.content.pm.PackageManager.COMPONENT_ENABLED_STATE_DISABLED_USER
+                        || enabled == android.content.pm.PackageManager.COMPONENT_ENABLED_STATE_DISABLED_UNTIL_USED;
+            } catch (RuntimeException ignored) {
+                // Fall back to the root query if the ROM restricts component-state access.
+            }
+        }
         int slash = component.indexOf('/');
         RootShell.Result state = RootShell.run("dumpsys package " + component.substring(0, slash));
         if (!state.ok) return false;
         String activity = component.substring(slash + 1);
         // Match the user queried by pm list packages and used for freeze commands.
         boolean userZero = false, disabledSection = false;
-        int sectionIndent = -1;
         for (String line : state.output.split("\\r?\\n")) {
             String trimmed = line.trim();
             if (trimmed.startsWith("User ")) {
@@ -54,16 +64,13 @@ public final class QuickCommands extends BasePage {
                 disabledSection = false;
             }
             if (!userZero) continue;
-            int indent = 0;
-            while (indent < line.length() && Character.isWhitespace(line.charAt(indent))) indent++;
             if (trimmed.equals("disabledComponents:")) {
                 disabledSection = true;
-                sectionIndent = indent;
                 continue;
             }
             if (disabledSection && !trimmed.isEmpty()) {
-                if (indent <= sectionIndent) disabledSection = false;
-                else if (trimmed.equals(activity)) return true;
+                if (trimmed.equals(activity) || trimmed.equals(component)) return true;
+                if (trimmed.endsWith(":") || trimmed.startsWith("User ")) disabledSection = false;
             }
         }
         return false;
