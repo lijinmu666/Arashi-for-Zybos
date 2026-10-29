@@ -1562,16 +1562,7 @@ private fun QuickPage(a: QuickCommands) {
             Link("作业帮学习机系统环境控制", "读取和修改 persist.sys.env_config") {
                 a.startActivity(Intent(a, com.lijinmu.arashi.tools.ZybosEnvController::class.java))
             }
-            QuickCommandItem("开发者模式", "调整 development_settings_enabled") {
-                selected = choose("开发者模式") { enabled ->
-                    "settings put global development_settings_enabled ${if (enabled) 1 else 0} && settings get global development_settings_enabled"
-                }
-            }
-            QuickCommandItem("USB调试", "调整 adb_enabled") {
-                selected = choose("USB调试") { enabled ->
-                    "settings put global adb_enabled ${if (enabled) 1 else 0} && settings get global adb_enabled"
-                }
-            }
+
         }
         Group("投屏") {
             QuickCommandItem("投屏", "调整无线显示和 SystemUI 投屏磁贴") {
