@@ -61,7 +61,9 @@ internal fun ArashiNavigation(a: ComponentActivity, content: @Composable (Int) -
     val pager = rememberPagerState { 2 }
     val scope = rememberCoroutineScope()
     val states = androidx.compose.runtime.saveable.rememberSaveableStateHolder()
-    val backdrop = rememberLayerBackdrop()
+    val backdrop = if (android.os.Build.VERSION.SDK_INT >= 33) rememberLayerBackdrop() else null
+    val legacyLayer = rememberGraphicsLayer()
+    var pageOrigin by remember { mutableStateOf(Offset.Zero) }
     val labels = listOf("主页", "设置")
     val icons = listOf(MiuixIcons.Home, MiuixIcons.SettingsIcon)
     val select: (Int) -> Unit = { index ->
@@ -85,7 +87,14 @@ internal fun ArashiNavigation(a: ComponentActivity, content: @Composable (Int) -
             HorizontalPager(
                 state = pager,
                 modifier = Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding)
-                    .then(if (style == 1) Modifier.layerBackdrop(backdrop) else Modifier),
+                    .onGloballyPositioned { pageOrigin = it.positionInRoot() }
+                    .then(if (style == 1 && backdrop != null) Modifier.layerBackdrop(backdrop) else Modifier)
+                    .drawWithContent {
+                        if (style == 1 && backdrop == null) {
+                            legacyLayer.record { this@drawWithContent.drawContent() }
+                            drawLayer(legacyLayer)
+                        } else drawContent()
+                    },
                 verticalAlignment = Alignment.Top,
             ) { page ->
                 states.SaveableStateProvider(page) {
@@ -95,7 +104,7 @@ internal fun ArashiNavigation(a: ComponentActivity, content: @Composable (Int) -
                 }
             }
         }
-        if (style == 1) Box(
+        if (style == 1 && backdrop != null) Box(
             Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 12.dp),
         ) {
             FloatingBottomBar(
@@ -103,12 +112,76 @@ internal fun ArashiNavigation(a: ComponentActivity, content: @Composable (Int) -
                 selectedIndex = { pager.targetPage },
                 onSelected = select,
                 backdrop = backdrop,
-                mode = if (android.os.Build.VERSION.SDK_INT >= 33) FloatingBottomBarMode.LiquidGlass else FloatingBottomBarMode.Blur,
+                mode = FloatingBottomBarMode.LiquidGlass,
                 iconContent = { _, index -> Icon(icons[index], contentDescription = null) },
                 labelContent = { label, _ ->
                     Text(label, fontSize = 11.sp, lineHeight = 14.sp, maxLines = 1, softWrap = false)
                 },
             )
+        }
+        if (style == 1 && backdrop == null) LegacyGlassNavigationBar(
+            selected = pager.targetPage, onSelected = select, backdrop = legacyLayer,
+            pageOrigin = pageOrigin,
+            modifier = Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 12.dp),
+        )
+    }
+}
+
+@Composable
+private fun LegacyGlassNavigationBar(
+    selected: Int,
+    onSelected: (Int) -> Unit,
+    backdrop: androidx.compose.ui.graphics.layer.GraphicsLayer,
+    pageOrigin: Offset,
+    modifier: Modifier = Modifier,
+) {
+    var origin by remember { mutableStateOf(Offset.Zero) }
+    val density = LocalDensity.current
+    val blur = remember(density) {
+        val radius = with(density) { 20.dp.toPx() }
+        RenderEffect.createBlurEffect(radius, radius, Shader.TileMode.CLAMP).asComposeRenderEffect()
+    }
+    val position by animateFloatAsState(selected.toFloat(), spring(dampingRatio = 0.8f, stiffness = 380f), label = "glassIndicator")
+    val surface = MiuixTheme.colorScheme.surfaceContainer
+    val primary = MiuixTheme.colorScheme.primary
+    val onSurface = MiuixTheme.colorScheme.onSurface
+    Box(modifier) {
+        Box(
+            Modifier.width(280.dp).height(76.dp)
+                .shadow(12.dp, CircleShape).clip(CircleShape)
+                .onGloballyPositioned { origin = it.positionInRoot() }
+                .selectableGroup(),
+        ) {
+            Canvas(Modifier.matchParentSize().graphicsLayer { renderEffect = blur }) {
+                val offset = origin - pageOrigin
+                drawContext.canvas.save()
+                drawContext.canvas.translate(-offset.x, -offset.y)
+                drawLayer(backdrop)
+                drawContext.canvas.restore()
+            }
+            Box(Modifier.matchParentSize()
+                .background(surface.copy(alpha = 0.68f))
+                .background(Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.16f), Color.Transparent)))
+                .border(1.dp, Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.5f), onSurface.copy(alpha = 0.08f))), CircleShape))
+            Box(Modifier.padding(6.dp).offset(x = 134.dp * position)
+                .width(134.dp).fillMaxHeight().clip(CircleShape)
+                .background(primary.copy(alpha = 0.16f))
+                .border(0.75.dp, Color.White.copy(alpha = 0.25f), CircleShape))
+            Row(Modifier.fillMaxSize().padding(6.dp)) {
+                listOf("主页", "设置").forEachIndexed { index, label ->
+                    val tint by animateColorAsState(if (selected == index) primary else onSurface, label = "glassTabColor")
+                    Column(
+                        Modifier.weight(1f).fillMaxHeight().clip(CircleShape)
+                            .selectable(selected == index, onClick = { onSelected(index) }, role = Role.Tab),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center,
+                    ) {
+                        Icon(if (index == 0) MiuixIcons.Home else MiuixIcons.SettingsIcon, contentDescription = null,
+                            tint = tint, modifier = Modifier.size(24.dp))
+                        Text(label, color = tint, style = MiuixTheme.textStyles.footnote1)
+                    }
+                }
+            }
         }
     }
 }
