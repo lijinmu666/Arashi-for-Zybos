@@ -36,7 +36,7 @@ public final class QuickCommands extends BasePage {
             try { return Integer.parseInt(result.output.trim()); }
             catch (NumberFormatException ignored) {}
         }
-        return android.os.UserHandle.getUserHandleForUid(android.os.Process.myUid()).getIdentifier();
+        return android.os.Process.myUid() / 100000;
     }
 
     private static boolean componentDisabled(String component, int userId) {
