@@ -75,12 +75,6 @@ import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.SnackbarHost
 import top.yukonga.miuix.kmp.basic.SnackbarHostState
 import top.yukonga.miuix.kmp.basic.SnackbarDuration
-import top.yukonga.miuix.kmp.basic.NavigationBar
-import top.yukonga.miuix.kmp.basic.NavigationBarItem
-import top.yukonga.miuix.kmp.basic.FloatingNavigationBar
-import top.yukonga.miuix.kmp.basic.FloatingNavigationBarItem
-import top.yukonga.miuix.kmp.icon.extended.Home
-import top.yukonga.miuix.kmp.icon.extended.Settings as SettingsIcon
 import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.PullToRefresh
 import top.yukonga.miuix.kmp.basic.SmallTopAppBar
@@ -364,7 +358,7 @@ private fun Page(
         ) {
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 28.dp),
+                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = LocalNavigationContentPadding.current),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
                 item { Column(verticalArrangement = Arrangement.spacedBy(16.dp), content = body) }
@@ -451,44 +445,9 @@ private fun rememberSystemServerActivation(a: androidx.activity.ComponentActivit
 
 @Composable
 private fun MainNavigationPage(a: Main) {
-    var tab by androidx.compose.runtime.saveable.rememberSaveable { mutableIntStateOf(0) }
-    val prefs = remember(a) { a.getSharedPreferences("ui", Context.MODE_PRIVATE) }
-    var navigationStyle by remember { mutableIntStateOf(prefs.getInt("navigation_style", 0)) }
-    DisposableEffect(prefs) {
-        val listener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
-            if (key == "navigation_style") navigationStyle = prefs.getInt(key, 0)
-        }
-        prefs.registerOnSharedPreferenceChangeListener(listener)
-        onDispose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
-    }
-    androidx.activity.compose.BackHandler(enabled = tab != 0) { tab = 0 }
-    val pageStates = androidx.compose.runtime.saveable.rememberSaveableStateHolder()
-    val bottomBar: @Composable () -> Unit = {
-        val labels = listOf("主页", "设置")
-        val icons = listOf(MiuixIcons.Home, MiuixIcons.SettingsIcon)
-        if (navigationStyle == 1) {
-            FloatingNavigationBar {
-                labels.forEachIndexed { index, label ->
-                    FloatingNavigationBarItem(
-                        selected = tab == index, onClick = { tab = index },
-                        icon = icons[index], label = label,
-                    )
-                }
-            }
-        } else {
-            NavigationBar {
-                labels.forEachIndexed { index, label ->
-                    NavigationBarItem(
-                        selected = tab == index, onClick = { tab = index },
-                        icon = icons[index], label = label,
-                    )
-                }
-            }
-        }
-    }
-    pageStates.SaveableStateProvider(tab) {
-        if (tab == 0) HomePage(a, bottomBar)
-        else SettingsPage(a, back = null, bottomBar = bottomBar)
+    ArashiNavigation(a) { page ->
+        if (page == 0) HomePage(a, bottomBar = {})
+        else SettingsPage(a, back = null)
     }
 }
 
