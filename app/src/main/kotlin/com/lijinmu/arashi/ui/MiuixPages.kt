@@ -1628,12 +1628,6 @@ private fun QuickPage(a: QuickCommands) {
 
 
 @Composable
-
-
-@Composable
-
-
-@Composable
 private fun SettingsPage(
     a: androidx.activity.ComponentActivity,
     back: (() -> Unit)? = a::finish,
@@ -1796,13 +1790,6 @@ private fun AboutPage(a: About) = Page(a, "关于 Arashi", a::finish) {
         }
     })
 }
-
-@Composable
-
-
-@Composable
-
-
 
 @Composable
 private fun NotificationSettingsPage(a: com.lijinmu.arashi.settings.NotificationSettings) = Page(a, "通知设置", a::finish) {
@@ -1976,6 +1963,4 @@ private fun ZybosEnvPage(a: com.lijinmu.arashi.tools.ZybosEnvController) = Page(
         enabled = !busy,
     )
 }
-
-@Composable
 
