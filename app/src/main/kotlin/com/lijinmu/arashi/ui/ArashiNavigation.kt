@@ -38,6 +38,12 @@ import top.yukonga.miuix.kmp.icon.extended.Home
 import top.yukonga.miuix.kmp.icon.extended.Settings as SettingsIcon
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
+import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
+import top.yukonga.miuix.kmp.blur.layerBackdrop
+import com.lijinmu.arashi.ui.installerx.library.FloatingBottomBar
+import com.lijinmu.arashi.ui.installerx.library.FloatingBottomBarMode
+import androidx.compose.ui.unit.sp
+
 internal val LocalNavigationContentPadding = compositionLocalOf { 28.dp }
 
 /** The backdrop contains only page content, never the bar itself. */
@@ -55,8 +61,7 @@ internal fun ArashiNavigation(a: ComponentActivity, content: @Composable (Int) -
     val pager = rememberPagerState { 2 }
     val scope = rememberCoroutineScope()
     val states = androidx.compose.runtime.saveable.rememberSaveableStateHolder()
-    val layer = rememberGraphicsLayer()
-    var pageOrigin by remember { mutableStateOf(Offset.Zero) }
+    val backdrop = rememberLayerBackdrop()
     val labels = listOf("主页", "设置")
     val icons = listOf(MiuixIcons.Home, MiuixIcons.SettingsIcon)
     val select: (Int) -> Unit = { index ->
@@ -80,13 +85,7 @@ internal fun ArashiNavigation(a: ComponentActivity, content: @Composable (Int) -
             HorizontalPager(
                 state = pager,
                 modifier = Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding)
-                    .onGloballyPositioned { pageOrigin = it.positionInRoot() }
-                    .drawWithContent {
-                        if (style == 1) {
-                            layer.record { this@drawWithContent.drawContent() }
-                            drawLayer(layer)
-                        } else drawContent()
-                    },
+                    .then(if (style == 1) Modifier.layerBackdrop(backdrop) else Modifier),
                 verticalAlignment = Alignment.Top,
             ) { page ->
                 states.SaveableStateProvider(page) {
@@ -96,71 +95,20 @@ internal fun ArashiNavigation(a: ComponentActivity, content: @Composable (Int) -
                 }
             }
         }
-        if (style == 1) GlassNavigationBar(
-            selected = pager.targetPage,
-            onSelected = select,
-            backdrop = layer,
-            pageOrigin = pageOrigin,
-            modifier = Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 16.dp),
-        )
-    }
-}
-
-@Composable
-private fun GlassNavigationBar(
-    selected: Int,
-    onSelected: (Int) -> Unit,
-    backdrop: androidx.compose.ui.graphics.layer.GraphicsLayer,
-    pageOrigin: Offset,
-    modifier: Modifier = Modifier,
-) {
-    var origin by remember { mutableStateOf(Offset.Zero) }
-    val density = LocalDensity.current
-    val blur = remember(density) {
-        val radius = with(density) { 20.dp.toPx() }
-        RenderEffect.createBlurEffect(radius, radius, Shader.TileMode.CLAMP).asComposeRenderEffect()
-    }
-    val position by animateFloatAsState(selected.toFloat(), spring(dampingRatio = 0.8f, stiffness = 380f), label = "glassIndicator")
-    val surface = MiuixTheme.colorScheme.surfaceContainer
-    val primary = MiuixTheme.colorScheme.primary
-    val onSurface = MiuixTheme.colorScheme.onSurface
-    Box(modifier) {
-        Box(
-            Modifier.width(280.dp).height(76.dp)
-                .shadow(12.dp, CircleShape).clip(CircleShape)
-                .onGloballyPositioned { origin = it.positionInRoot() }
-                .selectableGroup(),
+        if (style == 1) Box(
+            Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 12.dp),
         ) {
-            Canvas(Modifier.matchParentSize().graphicsLayer { renderEffect = blur }) {
-                val offset = origin - pageOrigin
-                drawContext.canvas.save()
-                drawContext.canvas.translate(-offset.x, -offset.y)
-                drawLayer(backdrop)
-                drawContext.canvas.restore()
-            }
-            Box(Modifier.matchParentSize()
-                .background(surface.copy(alpha = 0.68f))
-                .background(Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.16f), Color.Transparent)))
-                .border(1.dp, Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.5f), onSurface.copy(alpha = 0.08f))), CircleShape))
-            Box(Modifier.padding(6.dp).offset(x = 134.dp * position)
-                .width(134.dp).fillMaxHeight().clip(CircleShape)
-                .background(primary.copy(alpha = 0.16f))
-                .border(0.75.dp, Color.White.copy(alpha = 0.25f), CircleShape))
-            Row(Modifier.fillMaxSize().padding(6.dp)) {
-                listOf("主页", "设置").forEachIndexed { index, label ->
-                    val tint by animateColorAsState(if (selected == index) primary else onSurface, label = "glassTabColor")
-                    Column(
-                        Modifier.weight(1f).fillMaxHeight().clip(CircleShape)
-                            .selectable(selected == index, onClick = { onSelected(index) }, role = Role.Tab),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center,
-                    ) {
-                        Icon(if (index == 0) MiuixIcons.Home else MiuixIcons.SettingsIcon, contentDescription = null,
-                            tint = tint, modifier = Modifier.size(24.dp))
-                        Text(label, color = tint, style = MiuixTheme.textStyles.footnote1)
-                    }
-                }
-            }
+            FloatingBottomBar(
+                items = labels,
+                selectedIndex = { pager.targetPage },
+                onSelected = select,
+                backdrop = backdrop,
+                mode = if (android.os.Build.VERSION.SDK_INT >= 33) FloatingBottomBarMode.LiquidGlass else FloatingBottomBarMode.Blur,
+                iconContent = { _, index -> Icon(icons[index], contentDescription = null) },
+                labelContent = { label, _ ->
+                    Text(label, fontSize = 11.sp, lineHeight = 14.sp, maxLines = 1, softWrap = false)
+                },
+            )
         }
     }
 }
