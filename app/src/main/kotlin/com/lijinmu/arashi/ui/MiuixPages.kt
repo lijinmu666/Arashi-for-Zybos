@@ -900,11 +900,7 @@ private fun BackgroundWhitelistPage(a: BackgroundWhitelistActivity) {
                                     save(if (checked) selected + choice.packageName else selected - choice.packageName)
                                 },
                                 title = choice.label,
-                                summary = choice.packageName + when (choice.isSystem) {
-                                    true -> " · 系统应用"
-                                    false -> " · 用户应用"
-                                    null -> ""
-                                },
+                                summary = choice.packageName,
                                 checkboxLocation = CheckboxLocation.End,
                             )
                         }
@@ -1213,8 +1209,7 @@ private fun UninstallListPage(a: UninstallListActivity, blacklist: Boolean) {
             UninstallChoice(
                 "pkg:" + info.packageName,
                 label,
-                info.packageName +
-                    (if (isSystem) " · 系统应用" else " · 用户应用"),
+                info.packageName,
                 if (isSystem) 2 else 1,
             )
         }.sortedWith(compareBy<UninstallChoice> { it.kind }.thenBy { it.title.lowercase() })
