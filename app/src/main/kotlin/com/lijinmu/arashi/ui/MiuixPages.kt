@@ -1218,7 +1218,7 @@ private fun UninstallListPage(a: UninstallListActivity, blacklist: Boolean) {
             "sys" to 3, "system" to 1000, "shell" to 2000,
         )
         val uids = systemUids.map { (name, uid) ->
-            UninstallChoice("uid:" + uid, name + " (" + uid + ")", "UID " + uid, 3)
+            UninstallChoice("uid:" + uid, name, "UID " + uid, 3)
         }
         applications + uids
     }
