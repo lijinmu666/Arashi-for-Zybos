@@ -75,6 +75,12 @@ import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.SnackbarHost
 import top.yukonga.miuix.kmp.basic.SnackbarHostState
 import top.yukonga.miuix.kmp.basic.SnackbarDuration
+import top.yukonga.miuix.kmp.basic.NavigationBar
+import top.yukonga.miuix.kmp.basic.NavigationBarItem
+import top.yukonga.miuix.kmp.basic.FloatingNavigationBar
+import top.yukonga.miuix.kmp.basic.FloatingNavigationBarItem
+import top.yukonga.miuix.kmp.icon.extended.Home
+import top.yukonga.miuix.kmp.icon.extended.Settings as SettingsIcon
 import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.PullToRefresh
 import top.yukonga.miuix.kmp.basic.SmallTopAppBar
@@ -125,7 +131,7 @@ object MiuixPages {
     )
     private val messages = WeakHashMap<Activity, MutableState<Message?>>()
 
-    @JvmStatic fun renderHome(a: Main) = render(a) { HomePage(a) }
+    @JvmStatic fun renderHome(a: Main) = render(a) { MainNavigationPage(a) }
     @JvmStatic fun renderHookSettings(a: HookSettings) = render(a) { HookPage(a) }
     @JvmStatic fun renderBackgroundWhitelist(a: BackgroundWhitelistActivity) =
         render(a) { BackgroundWhitelistPage(a) }
@@ -177,6 +183,7 @@ object MiuixPages {
 
     private fun render(a: Activity, page: @Composable () -> Unit) {
         a.setContentView(ComposeView(a).apply {
+            if (a is Main) id = android.R.id.content
             setContent {
                 val uiPrefs = remember(a) { a.getSharedPreferences("ui", Context.MODE_PRIVATE) }
                 var mode by remember(uiPrefs) { mutableIntStateOf(uiPrefs.getInt("mode", 0)) }
@@ -325,11 +332,13 @@ private fun Page(
     actions: @Composable RowScope.() -> Unit = {},
     snackbarHost: @Composable () -> Unit = {},
     overlay: @Composable () -> Unit = {},
+    bottomBar: @Composable () -> Unit = {},
     body: @Composable ColumnScope.() -> Unit,
 ) {
     val scrollBehavior = MiuixScrollBehavior()
     Scaffold(
         snackbarHost = snackbarHost,
+        bottomBar = bottomBar,
         modifier = Modifier.fillMaxSize().nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
             TopAppBar(
@@ -441,7 +450,51 @@ private fun rememberSystemServerActivation(a: androidx.activity.ComponentActivit
 }
 
 @Composable
-private fun HomePage(a: Main) = Page(a, "Arashi for Zybos") {
+private fun MainNavigationPage(a: Main) {
+    var tab by androidx.compose.runtime.saveable.rememberSaveable { mutableIntStateOf(0) }
+    val prefs = remember(a) { a.getSharedPreferences("ui", Context.MODE_PRIVATE) }
+    var navigationStyle by remember { mutableIntStateOf(prefs.getInt("navigation_style", 0)) }
+    DisposableEffect(prefs) {
+        val listener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+            if (key == "navigation_style") navigationStyle = prefs.getInt(key, 0)
+        }
+        prefs.registerOnSharedPreferenceChangeListener(listener)
+        onDispose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
+    }
+    androidx.activity.compose.BackHandler(enabled = tab != 0) { tab = 0 }
+    val pageStates = androidx.compose.runtime.saveable.rememberSaveableStateHolder()
+    val bottomBar: @Composable () -> Unit = {
+        val labels = listOf("主页", "设置")
+        val icons = listOf(MiuixIcons.Home, MiuixIcons.SettingsIcon)
+        if (navigationStyle == 1) {
+            FloatingNavigationBar {
+                labels.forEachIndexed { index, label ->
+                    FloatingNavigationBarItem(
+                        selected = tab == index, onClick = { tab = index },
+                        icon = icons[index], label = label,
+                    )
+                }
+            }
+        } else {
+            NavigationBar {
+                labels.forEachIndexed { index, label ->
+                    NavigationBarItem(
+                        selected = tab == index, onClick = { tab = index },
+                        icon = icons[index], label = label,
+                    )
+                }
+            }
+        }
+    }
+    pageStates.SaveableStateProvider(tab) {
+        if (tab == 0) HomePage(a, bottomBar)
+        else SettingsPage(a, back = null, bottomBar = bottomBar)
+    }
+}
+
+@Composable
+private fun HomePage(a: Main, bottomBar: @Composable () -> Unit) =
+    Page(a, "Arashi for Zybos", bottomBar = bottomBar) {
     val moduleActive by rememberSystemServerActivation(a)
     val statusColor = if (moduleActive) MiuixTheme.colorScheme.primary
         else MiuixTheme.colorScheme.onSurfaceVariantSummary
@@ -505,8 +558,6 @@ private fun HomePage(a: Main) = Page(a, "Arashi for Zybos") {
         Link("Hook 设置", "控制 Hook 是否启用") { a.startActivity(Intent(a, HookSettings::class.java)) }
         Link("快捷指令执行", "调整设置、冻结应用等快捷操作") { a.startActivity(Intent(a, QuickCommands::class.java)) }
         Link("卸载验证设置", "验证发起的卸载请求") { a.startActivity(Intent(a, UninstallSettings::class.java)) }
-        Link("应用偏好设置", "配置外观等") { a.startActivity(Intent(a, ArashiSettings::class.java)) }
-        Link("关于 Arashi", "有关 Arashi 的更多详细信息页") { a.startActivity(Intent(a, About::class.java)) }
     }
 }
 
@@ -1583,7 +1634,11 @@ private fun QuickPage(a: QuickCommands) {
 
 
 @Composable
-private fun SettingsPage(a: ArashiSettings) = Page(a, "应用偏好设置", a::finish) {
+private fun SettingsPage(
+    a: androidx.activity.ComponentActivity,
+    back: (() -> Unit)? = a::finish,
+    bottomBar: @Composable () -> Unit = {},
+) = Page(a, "应用偏好设置", back, bottomBar = bottomBar) {
     val prefs = a.getSharedPreferences("ui", Context.MODE_PRIVATE)
     val themeNames = listOf("默认", "开启", "关闭")
     val themeModes = listOf(0, 2, 1)
@@ -1595,7 +1650,12 @@ private fun SettingsPage(a: ArashiSettings) = Page(a, "应用偏好设置", a::f
     var selectedColorScheme by remember {
         mutableIntStateOf(colorSchemeValues.indexOf(prefs.getInt("color_scheme", 2)).coerceAtLeast(0))
     }
-    var hidden by remember { mutableStateOf(a.isLauncherHidden) }
+    val launcher = remember(a) { android.content.ComponentName(a, "com.lijinmu.arashi.LauncherAlias") }
+    var hidden by remember {
+        mutableStateOf(a.packageManager.getComponentEnabledSetting(launcher) ==
+            android.content.pm.PackageManager.COMPONENT_ENABLED_STATE_DISABLED)
+    }
+    var navigationStyle by remember { mutableIntStateOf(prefs.getInt("navigation_style", 0).coerceIn(0, 1)) }
     var moduleActive by rememberSystemServerActivation(a)
     DisposableEffect(a) {
         val observer = LifecycleEventObserver { _, event ->
@@ -1608,13 +1668,21 @@ private fun SettingsPage(a: ArashiSettings) = Page(a, "应用偏好设置", a::f
     }
     Group("外观") {
         OverlayDropdownPreference(
+            items = listOf("普通", "悬浮圆条"),
+            selectedIndex = navigationStyle,
+            title = "底部导航栏样式",
+            onSelectedIndexChange = { index ->
+                navigationStyle = index
+                prefs.edit().putInt("navigation_style", index).apply()
+            },
+        )
+        OverlayDropdownPreference(
             items = listOf("系统默认", "紫色", "蓝色"),
             selectedIndex = selectedColorScheme,
             title = "配色设置",
             onSelectedIndexChange = { index ->
                 selectedColorScheme = index
                 prefs.edit().putInt("color_scheme", colorSchemeValues[index]).apply()
-                a.recreate()
             },
         )
         OverlayDropdownPreference(
@@ -1624,7 +1692,6 @@ private fun SettingsPage(a: ArashiSettings) = Page(a, "应用偏好设置", a::f
             onSelectedIndexChange = { index ->
                 selectedTheme = index
                 prefs.edit().putInt("mode", themeModes[index]).apply()
-                a.recreate()
             },
         )
     }
@@ -1641,7 +1708,12 @@ private fun SettingsPage(a: ArashiSettings) = Page(a, "应用偏好设置", a::f
                     moduleActive = false
                 } else {
                     try {
-                        a.setLauncherHidden(requested)
+                        a.packageManager.setComponentEnabledSetting(
+                            launcher,
+                            if (requested) android.content.pm.PackageManager.COMPONENT_ENABLED_STATE_DISABLED
+                            else android.content.pm.PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
+                            android.content.pm.PackageManager.DONT_KILL_APP,
+                        )
                         hidden = requested
                     } catch (error: RuntimeException) {
                         MiuixPages.showMessage(a, "切换失败", "无法更改桌面图标状态：${error.message}")
@@ -1654,6 +1726,12 @@ private fun SettingsPage(a: ArashiSettings) = Page(a, "应用偏好设置", a::f
         )
 
     }
+    Group("关于") {
+        Link("关于 Arashi", "有关 Arashi 的更多详细信息页") {
+            a.startActivity(Intent(a, About::class.java))
+        }
+    }
+
 }
 
 @Composable
