@@ -30,18 +30,27 @@ public final class QuickCommands extends BasePage {
         "ZpReport", "PadMs", "SlardarOsClient", "日志服务", "桌面 ErrorActivity"
     };
 
-    private static boolean componentDisabled(String component) {
+    private static int currentUserId() {
+        RootShell.Result result = RootShell.run("am get-current-user");
+        if (result.ok) {
+            try { return Integer.parseInt(result.output.trim()); }
+            catch (NumberFormatException ignored) {}
+        }
+        return android.os.UserHandle.getUserHandleForUid(android.os.Process.myUid()).getIdentifier();
+    }
+
+    private static boolean componentDisabled(String component, int userId) {
         int slash = component.indexOf('/');
         RootShell.Result state = RootShell.run("dumpsys package " + component.substring(0, slash));
         if (!state.ok) return false;
         String activity = component.substring(slash + 1);
-        // Only inspect user 0, matching pm disable/enable's existing default user.
+        // Match the user queried by pm list packages and used for freeze commands.
         boolean userZero = false, disabledSection = false;
         int sectionIndent = -1;
         for (String line : state.output.split("\\r?\\n")) {
             String trimmed = line.trim();
             if (trimmed.startsWith("User ")) {
-                userZero = trimmed.startsWith("User 0:");
+                userZero = trimmed.startsWith("User " + userId + ":");
                 disabledSection = false;
             }
             if (!userZero) continue;
@@ -62,13 +71,14 @@ public final class QuickCommands extends BasePage {
 
     public void queryRecommendedFrozen(Completion completion) {
         new Thread(() -> {
-            RootShell.Result result = RootShell.run("pm list packages -d --user current");
+            int userId = currentUserId();
+            RootShell.Result result = RootShell.run("pm list packages -d --user " + userId);
             java.util.List<String> disabled = java.util.Arrays.asList(result.output.split("\\r?\\n"));
             boolean allFrozen = result.ok;
             for (String[] packages : RECOMMENDED_PACKAGES) {
                 boolean groupFrozen = false;
                 for (String pkg : packages) {
-                    if (pkg.contains("/") ? componentDisabled(pkg) : disabled.contains("package:" + pkg)) groupFrozen = true;
+                    if (pkg.contains("/") ? componentDisabled(pkg, userId) : disabled.contains("package:" + pkg)) groupFrozen = true;
                 }
                 if (!groupFrozen) allFrozen = false;
             }
@@ -81,12 +91,13 @@ public final class QuickCommands extends BasePage {
 
     public void setRecommendedFrozen(boolean freeze, Completion completion) {
         new Thread(() -> {
+            int userId = currentUserId();
             java.util.List<String> failed = new java.util.ArrayList<>();
             for (int i = 0; i < RECOMMENDED_PACKAGES.length; i++) {
                 boolean succeeded = false;
                 // Try every alias even after one succeeds; count aliases as one logical item.
                 for (String pkg : RECOMMENDED_PACKAGES[i]) {
-                    RootShell.Result result = RootShell.run("pm " + (freeze ? "disable " : "enable ") + pkg);
+                    RootShell.Result result = RootShell.run("pm " + (freeze ? "disable " : "enable ") + "--user " + userId + " " + pkg);
                     if (pkg.contains("/")) {
                         // pm reports component state directly; package-list filters cannot query activities.
                         if (result.ok && result.output.contains("new state: " + (freeze ? "disabled" : "enabled"))) {
@@ -94,7 +105,7 @@ public final class QuickCommands extends BasePage {
                         }
                     } else {
                         RootShell.Result state = RootShell.run(
-                                "pm list packages " + (freeze ? "-d" : "-e") + " --user current " + pkg);
+                                "pm list packages " + (freeze ? "-d" : "-e") + " --user " + userId + " " + pkg);
                         if (result.ok && state.ok
                                 && java.util.Arrays.asList(state.output.split("\\r?\\n")).contains("package:" + pkg)) {
                             succeeded = true;

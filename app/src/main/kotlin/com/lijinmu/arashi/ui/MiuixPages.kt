@@ -1518,10 +1518,18 @@ private fun QuickPage(a: QuickCommands) {
             OverlayDialog(
                 show = confirmFreeze != null,
                 title = if (confirmFreeze == false) "解冻推荐的作业帮应用" else "冻结推荐的作业帮应用",
-                summary = if (freezeRunning) "正在执行…" else
+                summary = if (freezeRunning) null else
                     "将会立即${if (confirmFreeze == false) "解冻 (pm enable)" else "冻结 (pm disable)"} 以下系统应用：ZpReport、PadMs、SlardarOsClient、日志服务、桌面 ErrorActivity",
                 onDismissRequest = { if (!freezeRunning) confirmFreeze = null },
             ) {
+                if (freezeRunning) Row(
+                    Modifier.fillMaxWidth().padding(vertical = 16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    top.yukonga.miuix.kmp.basic.CircularProgressIndicator()
+                    Text(if (confirmFreeze == false) "正在解冻…" else "正在冻结…")
+                }
                 if (!freezeRunning) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     TextButton("取消", { confirmFreeze = null }, Modifier.weight(1f))
                     TextButton("继续", {
@@ -1599,7 +1607,7 @@ private fun SettingsPage(
         mutableIntStateOf(themeModes.indexOf(prefs.getInt("mode", 0)).coerceAtLeast(0))
     }
     // Keep persisted values: 0 = purple, 1 = blue, 2 = system Monet.
-    val colorSchemeValues = listOf(2, 0, 1)
+    val colorSchemeValues = listOf(1, 0, 2)
     var selectedColorScheme by remember {
         mutableIntStateOf(colorSchemeValues.indexOf(prefs.getInt("color_scheme", 2)).coerceAtLeast(0))
     }
@@ -1621,18 +1629,9 @@ private fun SettingsPage(
     }
     Group("外观") {
         OverlayDropdownPreference(
-            items = listOf("普通", "悬浮圆条"),
-            selectedIndex = navigationStyle,
-            title = "底部导航栏样式",
-            onSelectedIndexChange = { index ->
-                navigationStyle = index
-                prefs.edit().putInt("navigation_style", index).apply()
-            },
-        )
-        OverlayDropdownPreference(
-            items = listOf("系统默认", "紫色", "蓝色"),
+            items = listOf("蓝色", "紫色", "莫奈颜色"),
             selectedIndex = selectedColorScheme,
-            title = "配色设置",
+            title = "配色模式",
             onSelectedIndexChange = { index ->
                 selectedColorScheme = index
                 prefs.edit().putInt("color_scheme", colorSchemeValues[index]).apply()
@@ -1641,10 +1640,19 @@ private fun SettingsPage(
         OverlayDropdownPreference(
             items = themeNames,
             selectedIndex = selectedTheme,
-            title = "夜间模式",
+            title = "深色模式",
             onSelectedIndexChange = { index ->
                 selectedTheme = index
                 prefs.edit().putInt("mode", themeModes[index]).apply()
+            },
+        )
+        OverlayDropdownPreference(
+            items = listOf("默认", "悬浮"),
+            selectedIndex = navigationStyle,
+            title = "导航栏样式",
+            onSelectedIndexChange = { index ->
+                navigationStyle = index
+                prefs.edit().putInt("navigation_style", index).apply()
             },
         )
     }
