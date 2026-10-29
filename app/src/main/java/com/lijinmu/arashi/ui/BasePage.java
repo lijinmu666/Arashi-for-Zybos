@@ -1,6 +1,9 @@
 package com.lijinmu.arashi.ui;
 
+import android.content.Intent;
+import android.os.Build;
 import android.os.Bundle;
+import com.lijinmu.arashi.R;
 import android.view.WindowInsetsController;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
@@ -14,6 +17,14 @@ public abstract class BasePage extends ComponentActivity {
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
+        // Window animation styles alone are not sufficient for in-task launches.
+        // The destination owns both transitions on Android 14 and newer.
+        if (Build.VERSION.SDK_INT >= 34 && !(this instanceof com.lijinmu.arashi.Main)) {
+            overrideActivityTransition(OVERRIDE_TRANSITION_OPEN,
+                    R.anim.page_enter_right, R.anim.page_exit_left);
+            overrideActivityTransition(OVERRIDE_TRANSITION_CLOSE,
+                    R.anim.page_enter_left, R.anim.page_exit_right);
+        }
         shownThemeMode = getSharedPreferences("ui", MODE_PRIVATE).getInt("mode", 0);
         shownDark = Ui.dark(this);
         getWindow().setStatusBarColor(Ui.background(this));
@@ -43,6 +54,27 @@ public abstract class BasePage extends ComponentActivity {
         int currentMode = getSharedPreferences("ui", MODE_PRIVATE).getInt("mode", 0);
         if (shownThemeMode != currentMode || shownDark != Ui.dark(this)) {
             recreate();
+        }
+    }
+
+    @SuppressWarnings("deprecation")
+    @Override public void startActivity(Intent intent, Bundle options) {
+        super.startActivity(intent, options);
+        // Legacy overrides must run immediately after the actual launch.
+        // Leave external apps and the floating uninstall prompt to their own transitions.
+        android.content.ComponentName target = intent.getComponent();
+        if (Build.VERSION.SDK_INT < 34 && target != null
+                && getPackageName().equals(target.getPackageName())
+                && !com.lijinmu.arashi.UninstallPromptActivity.class.getName().equals(target.getClassName())) {
+            overridePendingTransition(R.anim.page_enter_right, R.anim.page_exit_left);
+        }
+    }
+
+    @SuppressWarnings("deprecation")
+    @Override public void finish() {
+        super.finish();
+        if (Build.VERSION.SDK_INT < 34 && !(this instanceof com.lijinmu.arashi.Main)) {
+            overridePendingTransition(R.anim.page_enter_left, R.anim.page_exit_right);
         }
     }
 
