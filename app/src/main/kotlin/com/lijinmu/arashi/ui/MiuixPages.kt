@@ -33,6 +33,10 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Extension
+import androidx.compose.material.icons.rounded.Terminal
+import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.foundation.Canvas
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Path
@@ -404,8 +408,26 @@ private fun IntroCard(text: String) {
 }
 
 @Composable
-private fun Link(title: String, summary: String? = null, action: () -> Unit) =
-    ArrowPreference(title = title, summary = summary, onClick = action)
+private fun Link(
+    title: String,
+    summary: String? = null,
+    icon: androidx.compose.ui.graphics.vector.ImageVector? = null,
+    action: () -> Unit,
+) = ArrowPreference(
+    title = title,
+    summary = summary,
+    startAction = if (icon == null) null else {
+        {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = MiuixTheme.colorScheme.primary,
+                modifier = Modifier.padding(end = 16.dp).size(24.dp),
+            )
+        }
+    },
+    onClick = action,
+)
 
 @Composable
 private fun StatusLine(name: String, value: String, available: Boolean) {
@@ -514,9 +536,9 @@ private fun HomePage(a: Main, bottomBar: @Composable () -> Unit) =
         }
     }
     Group("功能") {
-        Link("Hook 设置", "控制 Hook 是否启用") { a.startActivity(Intent(a, HookSettings::class.java)) }
-        Link("快捷指令执行", "调整设置、冻结应用等快捷操作") { a.startActivity(Intent(a, QuickCommands::class.java)) }
-        Link("卸载验证设置", "验证发起的卸载请求") { a.startActivity(Intent(a, UninstallSettings::class.java)) }
+        Link("Hook 设置", "控制 Hook 是否启用", Icons.Rounded.Extension) { a.startActivity(Intent(a, HookSettings::class.java)) }
+        Link("快捷指令执行", "调整设置、冻结应用等快捷操作", Icons.Rounded.Terminal) { a.startActivity(Intent(a, QuickCommands::class.java)) }
+        Link("卸载验证设置", "验证发起的卸载请求", Icons.Rounded.Delete) { a.startActivity(Intent(a, UninstallSettings::class.java)) }
     }
 }
 
