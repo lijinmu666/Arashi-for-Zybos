@@ -546,7 +546,7 @@ private fun HookPage(a: HookSettings) {
                 Icon(
                     imageVector = MiuixIcons.MoreCircle,
                     contentDescription = "更多操作",
-                    tint = MiuixTheme.colorScheme.onSurfaceVariantActions,
+                    tint = MiuixTheme.colorScheme.onSurface,
                 )
             }
             OverlayDropdownPopup(
