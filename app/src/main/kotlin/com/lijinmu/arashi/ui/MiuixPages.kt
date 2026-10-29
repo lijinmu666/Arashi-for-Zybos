@@ -51,6 +51,7 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -237,7 +238,7 @@ object MiuixPages {
                     if (a is UninstallPromptActivity) {
                         a.window.setBackgroundDrawable(ColorDrawable(android.graphics.Color.TRANSPARENT))
                     } else {
-                        applySystemBars(a, dark)
+                        applySystemBars(a, dark, colors.background.toArgb())
                     }
                 }
                 MiuixTheme(colors = colors) { page() }
@@ -246,8 +247,7 @@ object MiuixPages {
     }
 
     @Suppress("DEPRECATION")
-    private fun applySystemBars(a: Activity, dark: Boolean) {
-        val background = if (dark) 0xFF000000.toInt() else 0xFFF7F7F7.toInt()
+    private fun applySystemBars(a: Activity, dark: Boolean, background: Int) {
         a.window.statusBarColor = background
         a.window.navigationBarColor = background
         a.window.setBackgroundDrawable(ColorDrawable(background))
@@ -1880,7 +1880,7 @@ private fun ZybosEnvPage(a: com.lijinmu.arashi.tools.ZybosEnvController) = Page(
         },
         Modifier.fillMaxWidth(),
         enabled = !busy && original != null,
-        colors = ButtonDefaults.textButtonColorsPrimary(color = Color(0xFF3482FF), textColor = Color.White),
+        colors = ButtonDefaults.textButtonColorsPrimary(),
     )
     TextButton(
         "查看当前配置",
