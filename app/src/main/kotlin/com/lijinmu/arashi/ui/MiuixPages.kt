@@ -573,7 +573,7 @@ private fun HookPage(a: HookSettings) {
     val coroutineScope = rememberCoroutineScope()
     val snackbar = remember { SnackbarHostState() }
 
-    Page(a, "Hook 功能设置", a::finish,
+    Page(a, "Hook 设置", a::finish,
         snackbarHost = { SnackbarHost(snackbar) },
         actions = {
         Box {
