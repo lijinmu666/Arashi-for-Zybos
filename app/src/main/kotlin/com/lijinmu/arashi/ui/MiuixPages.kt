@@ -1200,6 +1200,7 @@ private fun UninstallListPage(a: UninstallListActivity, blacklist: Boolean) {
     val selectedOnEntry = remember(prefKey) { selected.toSet() }
     var query by remember { mutableStateOf("") }
     var showSystemApps by remember { mutableStateOf(false) }
+    var showUid by remember { mutableStateOf(false) }
     var manual by remember { mutableStateOf("") }
     var inputError by remember { mutableStateOf<String?>(null) }
     val apps = rememberAppPickerData(a) {
@@ -1236,7 +1237,7 @@ private fun UninstallListPage(a: UninstallListActivity, blacklist: Boolean) {
         }
     }
     val visible = (manualChoices + choices).filter { choice ->
-        val inFilter = showSystemApps || choice.kind == 1
+        val inFilter = if (choice.kind == 3) showUid else showSystemApps || choice.kind == 1
         inFilter && (query.isBlank() || choice.title.contains(query, true) ||
             choice.summary.contains(query, true) || choice.key.contains(query, true))
     }.sortedWith(
@@ -1261,7 +1262,12 @@ private fun UninstallListPage(a: UninstallListActivity, blacklist: Boolean) {
                     }
                 },
                 actions = {
-                    AppPickerFilterMenu(showSystemApps, onShowSystemAppsChange = { showSystemApps = it })
+                    AppPickerFilterMenu(
+                        showSystemApps,
+                        onShowSystemAppsChange = { showSystemApps = it },
+                        showUid = showUid,
+                        onShowUidChange = { showUid = it },
+                    )
                 },
             )
         },
@@ -1310,8 +1316,10 @@ private fun UninstallListPage(a: UninstallListActivity, blacklist: Boolean) {
                                 save(selected + entry)
                                 manual = ""
                                 query = ""
-                                // Keep a manually added system/UID entry visible without clearing selections.
-                                if (choices.firstOrNull { it.key == entry }?.kind != 1) {
+                                // Reveal the added entry using its own filter without clearing selections.
+                                if (entry.startsWith("uid:")) {
+                                    showUid = true
+                                } else if (choices.firstOrNull { it.key == entry }?.kind != 1) {
                                     showSystemApps = true
                                 }
                             }

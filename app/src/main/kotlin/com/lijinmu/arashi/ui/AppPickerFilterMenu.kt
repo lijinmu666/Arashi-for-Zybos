@@ -25,16 +25,19 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
 internal fun AppPickerFilterMenu(
     showSystemApps: Boolean,
     onShowSystemAppsChange: (Boolean) -> Unit,
+    showUid: Boolean? = null,
+    onShowUidChange: (Boolean) -> Unit = {},
 ) {
     var expanded by remember { mutableStateOf(false) }
-    val tint = if (showSystemApps) MiuixTheme.colorScheme.primary
+    val tint = if (showSystemApps || showUid == true) MiuixTheme.colorScheme.primary
         else MiuixTheme.colorScheme.onSurface
     Box {
         IconButton(
             onClick = { expanded = !expanded },
             modifier = Modifier.semantics {
                 contentDescription = "应用筛选"
-                stateDescription = if (showSystemApps) "显示用户应用和系统应用" else "仅显示用户应用"
+                stateDescription = (if (showSystemApps) "显示用户应用和系统应用" else "仅显示用户应用") +
+                    (if (showUid == true) "，显示 UID" else "")
             },
         ) {
             Icon(
@@ -44,7 +47,7 @@ internal fun AppPickerFilterMenu(
             )
         }
         OverlayDropdownPopup(
-            entry = DropdownEntry(listOf(
+            entry = DropdownEntry(listOfNotNull(
                 DropdownItem(
                     text = "显示系统应用",
                     selected = showSystemApps,
@@ -53,6 +56,14 @@ internal fun AppPickerFilterMenu(
                         expanded = false
                     },
                 ),
+                if (showUid != null) DropdownItem(
+                    text = "显示UID",
+                    selected = showUid,
+                    onClick = {
+                        onShowUidChange(!showUid)
+                        expanded = false
+                    },
+                ) else null,
             )),
             show = expanded,
             onDismiss = { expanded = false },
