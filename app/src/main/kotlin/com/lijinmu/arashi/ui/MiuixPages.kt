@@ -477,13 +477,19 @@ private fun MainNavigationPage(a: Main) {
         modifier = Modifier.fillMaxSize(),
         transitionSpec = {
             val forward = targetState != "main"
-            (slideInHorizontally(tween(300, easing = FastOutSlowInEasing)) {
-                if (forward) it else -it
-            } + fadeIn(tween(300))).togetherWith(
-                slideOutHorizontally(tween(300, easing = FastOutSlowInEasing)) {
-                    if (forward) -it else it
-                } + fadeOut(tween(300)),
-            )
+            // Miuix layering: only the top page travels the full width.
+            val enter = slideInHorizontally(tween(PageMotion.DurationMillis, easing = PageMotion.Easing)) {
+                if (forward) it else -it / 4
+            } + if (forward) androidx.compose.animation.EnterTransition.None else
+                fadeIn(tween(PageMotion.DurationMillis, easing = PageMotion.Easing), initialAlpha = 0.9f)
+            val exit = slideOutHorizontally(tween(PageMotion.DurationMillis, easing = PageMotion.Easing)) {
+                if (forward) -it / 4 else it
+            } + if (forward)
+                fadeOut(tween(PageMotion.DurationMillis, easing = PageMotion.Easing), targetAlpha = 0.9f)
+                else androidx.compose.animation.ExitTransition.None
+            (enter togetherWith exit).apply {
+                targetContentZIndex = if (forward) 1f else -1f
+            }.using(null)
         },
         label = "settingsNavigation",
     ) { destination ->
