@@ -3,8 +3,6 @@ package com.lijinmu.arashi.ui
 import com.lijinmu.arashi.BuildConfig
 import com.lijinmu.arashi.Main
 import com.lijinmu.arashi.UninstallPromptActivity
-import com.lijinmu.arashi.about.About
-import com.lijinmu.arashi.settings.ArashiSettings
 import com.lijinmu.arashi.settings.HookSettings
 import com.lijinmu.arashi.settings.BackgroundWhitelistActivity
 import com.lijinmu.arashi.xposed.BackgroundPolicy
@@ -26,6 +24,13 @@ import android.os.SystemClock
 import android.provider.Settings
 import android.view.View
 import android.widget.ImageView
+import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
@@ -149,10 +154,7 @@ object MiuixPages {
     @JvmStatic fun renderZybosEnvController(a: com.lijinmu.arashi.tools.ZybosEnvController) = render(a) { ZybosEnvPage(a) }
 
     @JvmStatic fun renderQuickCommands(a: QuickCommands) = render(a) { QuickPage(a) }
-    @JvmStatic fun renderNotificationSettings(a: com.lijinmu.arashi.settings.NotificationSettings) = render(a) { NotificationSettingsPage(a) }
 
-    @JvmStatic fun renderSettings(a: ArashiSettings) = render(a) { SettingsPage(a) }
-    @JvmStatic fun renderAbout(a: About) = render(a) { AboutPage(a) }
     @JvmStatic fun renderUnsupportedDevice(a: Main) = render(a) { UnsupportedDevicePage(a) }
     @JvmStatic fun showMessage(a: Activity, title: String, body: String) {
         a.runOnUiThread { messageState(a).value = Message(title, body, feedback = true) }
@@ -467,10 +469,41 @@ private fun rememberSystemServerActivation(a: androidx.activity.ComponentActivit
 
 @Composable
 private fun MainNavigationPage(a: Main) {
-    ArashiNavigation(a) { page ->
-        if (page == 0) HomePage(a, bottomBar = {})
-        else SettingsPage(a, back = null)
+    var route by rememberSaveable { mutableStateOf("main") }
+    val pageStates = rememberSaveableStateHolder()
+    val back = { route = "main" }
+    AnimatedContent(
+        targetState = route,
+        modifier = Modifier.fillMaxSize(),
+        transitionSpec = {
+            val forward = targetState != "main"
+            (slideInHorizontally(tween(300, easing = FastOutSlowInEasing)) {
+                if (forward) it else -it
+            } + fadeIn(tween(300))).togetherWith(
+                slideOutHorizontally(tween(300, easing = FastOutSlowInEasing)) {
+                    if (forward) -it else it
+                } + fadeOut(tween(300)),
+            )
+        },
+        label = "settingsNavigation",
+    ) { destination ->
+        pageStates.SaveableStateProvider(destination) {
+            when (destination) {
+                "notifications" -> NotificationSettingsPage(a, back)
+                "about" -> AboutPage(a, back)
+                else -> ArashiNavigation(a) { page ->
+                    if (page == 0) HomePage(a, bottomBar = {})
+                    else SettingsPage(
+                        a,
+                        onNotifications = { route = "notifications" },
+                        onAbout = { route = "about" },
+                    )
+                }
+            }
+        }
     }
+    // Register after the tab handler so detail pages always return to settings.
+    BackHandler(enabled = route != "main") { back() }
 }
 
 @Composable
@@ -1638,9 +1671,9 @@ private fun QuickPage(a: QuickCommands) {
 @Composable
 private fun SettingsPage(
     a: androidx.activity.ComponentActivity,
-    back: (() -> Unit)? = a::finish,
-    bottomBar: @Composable () -> Unit = {},
-) = Page(a, "应用偏好设置", back, bottomBar = bottomBar) {
+    onNotifications: () -> Unit,
+    onAbout: () -> Unit,
+) = Page(a, "应用偏好设置") {
     val prefs = a.getSharedPreferences("ui", Context.MODE_PRIVATE)
     val themeNames = listOf("默认", "开启", "关闭")
     val themeModes = listOf(0, 2, 1)
@@ -1699,7 +1732,7 @@ private fun SettingsPage(
     }
     Group("通知") {
         Link("通知设置", "管理卸载验证与 TCP 拦截通知") {
-            a.startActivity(Intent(a, com.lijinmu.arashi.settings.NotificationSettings::class.java))
+            onNotifications()
         }
     }
     Group("其他") {
@@ -1730,7 +1763,7 @@ private fun SettingsPage(
     }
     Group("关于") {
         Link("关于 Arashi", "有关 Arashi 的更多详细信息页") {
-            a.startActivity(Intent(a, About::class.java))
+            onAbout()
         }
     }
 
@@ -1765,7 +1798,7 @@ private fun AboutCard(
 }
 
 @Composable
-private fun AboutPage(a: About) = Page(a, "关于 Arashi", a::finish) {
+private fun AboutPage(a: androidx.activity.ComponentActivity, back: () -> Unit) = Page(a, "关于 Arashi", back) {
     var versionTapCount by remember { mutableIntStateOf(0) }
     var lastVersionTapAt by remember { mutableLongStateOf(0L) }
     AboutCard("版本号", BuildConfig.VERSION_NAME, onClick = {
@@ -1800,7 +1833,7 @@ private fun AboutPage(a: About) = Page(a, "关于 Arashi", a::finish) {
 }
 
 @Composable
-private fun NotificationSettingsPage(a: com.lijinmu.arashi.settings.NotificationSettings) = Page(a, "通知设置", a::finish) {
+private fun NotificationSettingsPage(a: androidx.activity.ComponentActivity, back: () -> Unit) = Page(a, "通知设置", back) {
     val prefs = a.getSharedPreferences(com.lijinmu.arashi.notifications.NotificationPreferences.PREFS, Context.MODE_PRIVATE)
     IntroCard("通知开关仅控制消息提醒，不影响卸载验证、TCP 拦截与记录保存，点按通知可查看对应记录")
     Group("卸载验证") {
