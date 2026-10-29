@@ -29,6 +29,8 @@ public abstract class BasePage extends ComponentActivity {
         shownDark = Ui.dark(this);
         getWindow().setStatusBarColor(Ui.background(this));
         getWindow().setNavigationBarColor(Ui.background(this));
+        getWindow().setStatusBarContrastEnforced(false);
+        getWindow().setNavigationBarContrastEnforced(false);
         ScrollView scroll = new ScrollView(this);
         scroll.setFillViewport(true);
         scroll.setClipToPadding(false);

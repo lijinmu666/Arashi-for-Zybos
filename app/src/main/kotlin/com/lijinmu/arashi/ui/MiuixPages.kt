@@ -256,6 +256,9 @@ object MiuixPages {
     private fun applySystemBars(a: Activity, dark: Boolean, background: Int) {
         a.window.statusBarColor = background
         a.window.navigationBarColor = background
+        // Draw the chosen background directly, without Android's contrast scrim.
+        a.window.isStatusBarContrastEnforced = false
+        a.window.isNavigationBarContrastEnforced = false
         a.window.setBackgroundDrawable(ColorDrawable(background))
         val lightFlags = View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR or View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR
         val current = a.window.decorView.systemUiVisibility
@@ -897,6 +900,37 @@ private fun PruneMissingAppSelections(
 }
 
 @Composable
+private fun AppPickerCheckbox(
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    title: String,
+    summary: String,
+    icon: Drawable?,
+) {
+    Card(Modifier.fillMaxWidth()) {
+        // The icon is inside the preference's hit/press area, not a sibling.
+        CheckboxPreference(
+            checked = checked,
+            onCheckedChange = onCheckedChange,
+            title = title,
+            summary = summary,
+            checkboxLocation = CheckboxLocation.End,
+            startAction = if (icon == null) null else {
+                {
+                    AndroidView(
+                        factory = { context ->
+                            ImageView(context).apply { scaleType = ImageView.ScaleType.FIT_CENTER }
+                        },
+                        update = { it.setImageDrawable(icon) },
+                        modifier = Modifier.padding(end = 16.dp).size(40.dp),
+                    )
+                }
+            },
+        )
+    }
+}
+
+@Composable
 private fun BackgroundWhitelistPage(a: BackgroundWhitelistActivity) {
     val prefs = a.getSharedPreferences(HookConfig.PREF_NAME, Context.MODE_PRIVATE)
     var selected by remember {
@@ -974,28 +1008,15 @@ private fun BackgroundWhitelistPage(a: BackgroundWhitelistActivity) {
                     runCatching { a.packageManager.getApplicationIcon(choice.packageName) }
                         .getOrElse { a.packageManager.defaultActivityIcon }
                 }
-                Card(Modifier.fillMaxWidth()) {
-                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        AndroidView(
-                            factory = { context ->
-                                ImageView(context).apply { scaleType = ImageView.ScaleType.FIT_CENTER }
-                            },
-                            update = { it.setImageDrawable(icon) },
-                            modifier = Modifier.padding(start = 16.dp).size(40.dp),
-                        )
-                        Box(Modifier.weight(1f)) {
-                            CheckboxPreference(
-                                checked = choice.packageName in selected,
-                                onCheckedChange = { checked ->
-                                    save(if (checked) selected + choice.packageName else selected - choice.packageName)
-                                },
-                                title = choice.label,
-                                summary = choice.packageName,
-                                checkboxLocation = CheckboxLocation.End,
-                            )
-                        }
-                    }
-                }
+                AppPickerCheckbox(
+                    checked = choice.packageName in selected,
+                    onCheckedChange = { checked ->
+                        save(if (checked) selected + choice.packageName else selected - choice.packageName)
+                    },
+                    title = choice.label,
+                    summary = choice.packageName,
+                    icon = icon,
+                )
             }
             if (!apps.loading && visible.isEmpty()) {
                 item { InfoCard("没有匹配的应用") }
@@ -1420,44 +1441,22 @@ private fun UninstallListPage(a: UninstallListActivity, blacklist: Boolean) {
                 AppPickerStatus("已选择 " + selected.size + " 项 · 当前显示 " + visible.size + " 项")
             }
             items(visible, key = { it.key }) { choice ->
-                Card(Modifier.fillMaxWidth()) {
-                    val preference: @Composable () -> Unit = {
-                        CheckboxPreference(
-                            checked = choice.key in selected,
-                            onCheckedChange = { checked ->
-                                save(if (checked) selected + choice.key else selected - choice.key)
-                            },
-                            title = choice.title,
-                            summary = choice.summary,
-                            checkboxLocation = CheckboxLocation.End,
-                        )
+                val icon = if (choice.key.startsWith("pkg:")) {
+                    remember(choice.key, apps.generation) {
+                        runCatching {
+                            a.packageManager.getApplicationIcon(choice.key.removePrefix("pkg:"))
+                        }.getOrElse { a.packageManager.defaultActivityIcon }
                     }
-                    if (choice.key.startsWith("pkg:")) {
-                        val icon = remember(choice.key, apps.generation) {
-                            runCatching {
-                                a.packageManager.getApplicationIcon(choice.key.removePrefix("pkg:"))
-                            }.getOrElse { a.packageManager.defaultActivityIcon }
-                        }
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            AndroidView(
-                                factory = { context ->
-                                    ImageView(context).apply {
-                                        scaleType = ImageView.ScaleType.FIT_CENTER
-                                        setImageDrawable(icon)
-                                    }
-                                },
-                                update = { it.setImageDrawable(icon) },
-                                modifier = Modifier.padding(start = 16.dp).size(40.dp),
-                            )
-                            Box(Modifier.weight(1f)) { preference() }
-                        }
-                    } else {
-                        preference()
-                    }
-                }
+                } else null
+                AppPickerCheckbox(
+                    checked = choice.key in selected,
+                    onCheckedChange = { checked ->
+                        save(if (checked) selected + choice.key else selected - choice.key)
+                    },
+                    title = choice.title,
+                    summary = choice.summary,
+                    icon = icon,
+                )
             }
             if (!apps.loading && visible.isEmpty()) {
                 item { InfoCard("没有匹配的项目") }
