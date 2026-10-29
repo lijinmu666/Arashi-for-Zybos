@@ -697,16 +697,29 @@ private fun HookPage(a: HookSettings) {
                     }
 
                 }
-                SwitchPreference(
-                    checked = available && checked,
-                    onCheckedChange = { enabled ->
-                        if (available) saveHook(enabled)
-                    },
-                    title = entry.title,
-                    summary = if (available) entry.summary
-                        else entry.summary + "。" + scopes.unavailableReason(entry.key),
-                    enabled = available,
-                )
+                Box {
+                    SwitchPreference(
+                        checked = available && checked,
+                        onCheckedChange = { enabled ->
+                            if (available) saveHook(enabled)
+                        },
+                        title = entry.title,
+                        summary = entry.summary,
+                        enabled = available,
+                    )
+                    if (!available) {
+                        Box(
+                            Modifier.matchParentSize()
+                                .semantics { contentDescription = entry.title + "，不可用，点击查看原因" }
+                                .clickable {
+                                    coroutineScope.launch {
+                                        snackbar.newestSnackbarData()?.dismiss()
+                                        snackbar.showSnackbar(scopes.unavailableReason(entry.key))
+                                    }
+                                },
+                        )
+                    }
+                }
                 if (entry.key == HookConfig.KEY_BLOCK_TCP_LOGIN_FAIL) {
                     ArrowPreference(
                         title = "TCP 拦截记录",
