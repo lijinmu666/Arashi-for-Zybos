@@ -477,14 +477,17 @@ private fun MainNavigationPage(a: Main) {
 private fun HomePage(a: Main, bottomBar: @Composable () -> Unit) =
     Page(a, "Arashi for Zybos", bottomBar = bottomBar) {
     val moduleActive by rememberSystemServerActivation(a)
-    val statusColor = if (moduleActive) MiuixTheme.colorScheme.primary
-        else MiuixTheme.colorScheme.onSurfaceVariantSummary
+    val statusColor = if (moduleActive) MiuixTheme.colorScheme.primary else Color.White
+    val statusBackground = if (moduleActive) MiuixTheme.colorScheme.tertiaryContainer
+        else Color(0xFFD32F2F)
+    val versionColor = if (moduleActive) MiuixTheme.colorScheme.onSurfaceVariantSummary
+        else Color.White.copy(alpha = 0.85f)
     Card(
         modifier = Modifier.fillMaxWidth(),
         insideMargin = PaddingValues(0.dp),
         colors = CardDefaults.defaultColors(
-            color = MiuixTheme.colorScheme.tertiaryContainer,
-            contentColor = MiuixTheme.colorScheme.onSurface,
+            color = statusBackground,
+            contentColor = if (moduleActive) MiuixTheme.colorScheme.onSurface else Color.White,
         ),
     ) {
         Box(Modifier.fillMaxWidth().clipToBounds()) {
@@ -532,7 +535,7 @@ private fun HomePage(a: Main, bottomBar: @Composable () -> Unit) =
                 )
                 Text(
                     "版本 ${BuildConfig.VERSION_NAME}",
-                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                    color = versionColor,
                     style = MiuixTheme.textStyles.footnote1,
                 )
             }
