@@ -33,9 +33,9 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.basic.*
-import top.yukonga.miuix.kmp.icon.MiuixIcons
-import top.yukonga.miuix.kmp.icon.extended.Home
-import top.yukonga.miuix.kmp.icon.extended.Settings as SettingsIcon
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Cottage
+import androidx.compose.material.icons.rounded.Settings
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
@@ -65,7 +65,7 @@ internal fun ArashiNavigation(a: ComponentActivity, content: @Composable (Int) -
     val legacyLayer = rememberGraphicsLayer()
     var pageOrigin by remember { mutableStateOf(Offset.Zero) }
     val labels = listOf("主页", "设置")
-    val icons = listOf(MiuixIcons.Home, MiuixIcons.SettingsIcon)
+    val icons = listOf(Icons.Rounded.Cottage, Icons.Rounded.Settings)
     val select: (Int) -> Unit = { index ->
         scope.launch { pager.animateScrollToPage(index, animationSpec = spring(dampingRatio = 0.9f, stiffness = 400f)) }
     }
@@ -181,7 +181,7 @@ private fun LegacyGlassNavigationBar(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.Center,
                     ) {
-                        Icon(if (index == 0) MiuixIcons.Home else MiuixIcons.SettingsIcon, contentDescription = null,
+                        Icon(if (index == 0) Icons.Rounded.Cottage else Icons.Rounded.Settings, contentDescription = null,
                             tint = tint, modifier = Modifier.size(24.dp))
                         Text(label, color = tint, style = MiuixTheme.textStyles.footnote1)
                     }
