@@ -421,7 +421,7 @@ private fun Link(
             Icon(
                 imageVector = icon,
                 contentDescription = null,
-                tint = MiuixTheme.colorScheme.primary,
+                tint = MiuixTheme.colorScheme.onSurface,
                 modifier = Modifier.padding(end = 16.dp).size(24.dp),
             )
         }
