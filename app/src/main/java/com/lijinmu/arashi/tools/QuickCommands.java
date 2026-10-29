@@ -22,11 +22,43 @@ public final class QuickCommands extends BasePage {
 
     private static final String[][] RECOMMENDED_PACKAGES = {
         {"com.zuoyebang.iot.pad.zpreport"}, {"com.zuoyebang.padms", "com.zuoyebang.iot.padms"},
-        {"com.bytedance.os.slardar"}, {"com.zuoyebang.iot.zlog"}
+        {"com.bytedance.os.slardar"}, {"com.zuoyebang.iot.zlog"},
+        {"com.zuoyebang.iot.pad.launcher14/com.zuoyebang.iot.pad.launcher.ErrorActivity",
+         "com.android.launcher3/com.zuoyebang.iot.pad.launcher.ErrorActivity"}
     };
     private static final String[] RECOMMENDED_NAMES = {
-        "ZpReport", "PadMs", "SlardarOsClient", "日志服务"
+        "ZpReport", "PadMs", "SlardarOsClient", "日志服务", "桌面 ErrorActivity"
     };
+
+    private static boolean componentDisabled(String component) {
+        int slash = component.indexOf('/');
+        RootShell.Result state = RootShell.run("dumpsys package " + component.substring(0, slash));
+        if (!state.ok) return false;
+        String activity = component.substring(slash + 1);
+        // Only inspect user 0, matching pm disable/enable's existing default user.
+        boolean userZero = false, disabledSection = false;
+        int sectionIndent = -1;
+        for (String line : state.output.split("\\r?\\n")) {
+            String trimmed = line.trim();
+            if (trimmed.startsWith("User ")) {
+                userZero = trimmed.startsWith("User 0:");
+                disabledSection = false;
+            }
+            if (!userZero) continue;
+            int indent = 0;
+            while (indent < line.length() && Character.isWhitespace(line.charAt(indent))) indent++;
+            if (trimmed.equals("disabledComponents:")) {
+                disabledSection = true;
+                sectionIndent = indent;
+                continue;
+            }
+            if (disabledSection && !trimmed.isEmpty()) {
+                if (indent <= sectionIndent) disabledSection = false;
+                else if (trimmed.equals(activity)) return true;
+            }
+        }
+        return false;
+    }
 
     public void queryRecommendedFrozen(Completion completion) {
         new Thread(() -> {
@@ -36,7 +68,7 @@ public final class QuickCommands extends BasePage {
             for (String[] packages : RECOMMENDED_PACKAGES) {
                 boolean groupFrozen = false;
                 for (String pkg : packages) {
-                    if (disabled.contains("package:" + pkg)) groupFrozen = true;
+                    if (pkg.contains("/") ? componentDisabled(pkg) : disabled.contains("package:" + pkg)) groupFrozen = true;
                 }
                 if (!groupFrozen) allFrozen = false;
             }
@@ -52,14 +84,21 @@ public final class QuickCommands extends BasePage {
             java.util.List<String> failed = new java.util.ArrayList<>();
             for (int i = 0; i < RECOMMENDED_PACKAGES.length; i++) {
                 boolean succeeded = false;
-                // Try every alias even after one succeeds; count PadMs as one application.
+                // Try every alias even after one succeeds; count aliases as one logical item.
                 for (String pkg : RECOMMENDED_PACKAGES[i]) {
                     RootShell.Result result = RootShell.run("pm " + (freeze ? "disable " : "enable ") + pkg);
-                    RootShell.Result state = RootShell.run(
-                            "pm list packages " + (freeze ? "-d" : "-e") + " --user current " + pkg);
-                    if (result.ok && state.ok
-                            && java.util.Arrays.asList(state.output.split("\\r?\\n")).contains("package:" + pkg)) {
-                        succeeded = true;
+                    if (pkg.contains("/")) {
+                        // pm reports component state directly; package-list filters cannot query activities.
+                        if (result.ok && result.output.contains("new state: " + (freeze ? "disabled" : "enabled"))) {
+                            succeeded = true;
+                        }
+                    } else {
+                        RootShell.Result state = RootShell.run(
+                                "pm list packages " + (freeze ? "-d" : "-e") + " --user current " + pkg);
+                        if (result.ok && state.ok
+                                && java.util.Arrays.asList(state.output.split("\\r?\\n")).contains("package:" + pkg)) {
+                            succeeded = true;
+                        }
                     }
                 }
                 if (!succeeded) failed.add(RECOMMENDED_NAMES[i]);

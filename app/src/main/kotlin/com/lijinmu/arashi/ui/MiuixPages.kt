@@ -1509,7 +1509,7 @@ private fun QuickPage(a: QuickCommands) {
                 show = confirmFreeze != null,
                 title = if (confirmFreeze == false) "解冻推荐的作业帮应用" else "冻结推荐的作业帮应用",
                 summary = if (freezeRunning) "正在执行…" else
-                    "将会立即${if (confirmFreeze == false) "解冻 (pm enable)" else "冻结 (pm disable)"} 以下系统应用：ZpReport、PadMs、SlardarOsClient、日志服务",
+                    "将会立即${if (confirmFreeze == false) "解冻 (pm enable)" else "冻结 (pm disable)"} 以下系统应用：ZpReport、PadMs、SlardarOsClient、日志服务、桌面 ErrorActivity",
                 onDismissRequest = { if (!freezeRunning) confirmFreeze = null },
             ) {
                 if (!freezeRunning) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -1555,7 +1555,7 @@ private fun QuickPage(a: QuickCommands) {
         Group("作业帮系统组件控制") {
             QuickCommandItem(
                 if (allFrozen) "解冻推荐的作业帮应用" else "冻结推荐的作业帮应用",
-                "ZpReport、PadMs、SlardarOsClient、日志服务",
+                "ZpReport、PadMs、SlardarOsClient、日志服务、桌面 ErrorActivity",
             ) { if (!freezeRunning) confirmFreeze = !allFrozen }
         }
         Group("设置") {
