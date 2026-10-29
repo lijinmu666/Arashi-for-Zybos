@@ -27,8 +27,11 @@ public abstract class BasePage extends ComponentActivity {
         }
         shownThemeMode = getSharedPreferences("ui", MODE_PRIVATE).getInt("mode", 0);
         shownDark = Ui.dark(this);
-        getWindow().setStatusBarColor(Ui.background(this));
-        getWindow().setNavigationBarColor(Ui.background(this));
+        // Compose owns inset avoidance; its root overlay must also cover the system bars.
+        // Do this before installing content so the first layout already receives full insets.
+        getWindow().setDecorFitsSystemWindows(false);
+        getWindow().setStatusBarColor(android.graphics.Color.TRANSPARENT);
+        getWindow().setNavigationBarColor(android.graphics.Color.TRANSPARENT);
         getWindow().setStatusBarContrastEnforced(false);
         getWindow().setNavigationBarContrastEnforced(false);
         ScrollView scroll = new ScrollView(this);

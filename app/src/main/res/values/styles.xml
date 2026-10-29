@@ -3,8 +3,8 @@
         <item name="android:windowAnimationStyle">@style/Animation.Arashi.Navigation</item>
         <item name="android:fontFamily">sans</item>
         <item name="android:windowLightStatusBar">true</item>
-        <item name="android:statusBarColor">#F7F7F7</item>
-        <item name="android:navigationBarColor">#F7F7F7</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:enforceStatusBarContrast">false</item>
         <item name="android:enforceNavigationBarContrast">false</item>
         <item name="android:windowActionModeOverlay">true</item>

@@ -22,7 +22,7 @@ import android.graphics.drawable.Drawable
 import android.os.Build
 import android.os.SystemClock
 import android.provider.Settings
-import android.view.View
+import android.view.WindowInsetsController
 import android.widget.ImageView
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
@@ -43,6 +43,7 @@ import androidx.compose.material.icons.rounded.Extension
 import androidx.compose.material.icons.rounded.Terminal
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
@@ -247,22 +248,32 @@ object MiuixPages {
                         applySystemBars(a, dark, colors.background.toArgb())
                     }
                 }
-                MiuixTheme(colors = colors) { page() }
+                MiuixTheme(colors = colors) {
+                    if (a is UninstallPromptActivity) {
+                        page()
+                    } else {
+                        // Paint behind transparent system bars as well as the page.
+                        Box(Modifier.fillMaxSize().background(colors.background)) { page() }
+                    }
+                }
             }
         })
     }
 
     @Suppress("DEPRECATION")
     private fun applySystemBars(a: Activity, dark: Boolean, background: Int) {
-        a.window.statusBarColor = background
-        a.window.navigationBarColor = background
+        a.window.statusBarColor = android.graphics.Color.TRANSPARENT
+        a.window.navigationBarColor = android.graphics.Color.TRANSPARENT
         // Draw the chosen background directly, without Android's contrast scrim.
         a.window.isStatusBarContrastEnforced = false
         a.window.isNavigationBarContrastEnforced = false
         a.window.setBackgroundDrawable(ColorDrawable(background))
-        val lightFlags = View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR or View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR
-        val current = a.window.decorView.systemUiVisibility
-        a.window.decorView.systemUiVisibility = if (dark) current and lightFlags.inv() else current or lightFlags
+        val lightAppearance = WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS or
+            WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS
+        a.window.insetsController?.setSystemBarsAppearance(
+            if (dark) 0 else lightAppearance,
+            lightAppearance,
+        )
     }
 
     @Composable
