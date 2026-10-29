@@ -495,13 +495,16 @@ private fun HomePage(a: Main, bottomBar: @Composable () -> Unit) =
                 val top = (size.height - extent) / 2f
                 val watermark = statusColor.copy(alpha = 0.13f)
                 if (moduleActive) {
+                    val center = Offset(left + extent * 0.54f, top + extent * 0.5f)
+                    drawCircle(watermark, radius = extent * 0.34f, center = center,
+                        style = Stroke(width = extent * 0.07f))
                     val check = Path().apply {
-                        moveTo(left + extent * 0.16f, top + extent * 0.52f)
-                        lineTo(left + extent * 0.40f, top + extent * 0.76f)
-                        lineTo(left + extent * 0.92f, top + extent * 0.20f)
+                        moveTo(center.x - extent * 0.17f, center.y)
+                        lineTo(center.x - extent * 0.04f, center.y + extent * 0.13f)
+                        lineTo(center.x + extent * 0.18f, center.y - extent * 0.13f)
                     }
                     drawPath(check, watermark, style = Stroke(
-                        width = extent * 0.14f,
+                        width = extent * 0.07f,
                         cap = StrokeCap.Round,
                         join = StrokeJoin.Round,
                     ))
