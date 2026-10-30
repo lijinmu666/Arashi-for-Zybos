@@ -621,6 +621,7 @@ private data class HookItem(val title: String, val summary: String, val key: Str
 
 @Composable
 private fun HookPage(a: HookSettings) {
+    var query by rememberSaveable { mutableStateOf("") }
     var actionsExpanded by remember { mutableStateOf(false) }
     var stoppingScopes by remember { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
@@ -670,6 +671,11 @@ private fun HookPage(a: HookSettings) {
         }
     }) {
     IntroCard("首次使用请启用模块并勾选推荐作用域并重启系统。修改应用作用域后需重启对应应用，部分需要重启系统")
+    AppSearchBar(
+        query = query,
+        onQueryChange = { query = it },
+        label = "搜索 Hook 标题或描述",
+    )
     val prefs = a.getSharedPreferences(HookConfig.PREF_NAME, Context.MODE_PRIVATE)
     var backgroundSelected by remember {
         mutableStateOf(prefs.getStringSet(HookConfig.KEY_KEEP_BACKGROUND_WHITELIST, emptySet()).orEmpty().toSet())
@@ -694,6 +700,13 @@ private fun HookPage(a: HookSettings) {
             delay(1000)
         }
     }
+    val developerMenuTitle = "注入开发者选项入口"
+    val developerMenuSummary = "在系统设置的左侧菜单中添加 “开发者选项” 入口"
+    val tcpHistoryTitle = "TCP 拦截记录"
+    val tcpHistorySummary = "查看触发时间、错误码、响应状态和调用详情"
+    val backgroundListTitle = "后台保留白名单"
+    val backgroundListSummary = if (backgroundSelected.isEmpty()) "目前划卡后保留所有应用后台进程"
+        else "目前划卡后只保留已选择的 ${backgroundSelected.size} 个应用"
     val groups = listOf(
         "安装" to listOf(
             HookItem("允许外部应用安装", "绕过 PackageInstaller 安装限制，允许安装外部应用", HookConfig.KEY_EXTERNAL_INSTALL),
@@ -732,147 +745,168 @@ private fun HookPage(a: HookSettings) {
             HookItem("阻止超时锁屏", "拦截管控服务的超时处理，达到整机时长限制或超出可用时段后不锁屏", HookConfig.KEY_NO_TIMEOUT_LOCK),
         ),
     )
-    groups.forEach { (name, entries) ->
-        Group(name) {
-            entries.forEach { entry ->
-                val available = scopes.isAvailable(entry.key)
-                var checked by remember(entry.key) {
-                    mutableStateOf(
-                        if (entry.key == HookConfig.KEY_AOSP_STATUS_ICONS)
-                            HookConfig.statusBarIconsEnabled(prefs.all)
-                        else prefs.getBoolean(entry.key, HookConfig.defaultEnabled(entry.key)),
-                    )
-                }
-                DisposableEffect(prefs, entry.key) {
-                    val listener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
-                        if (key == entry.key) {
-                            a.runOnUiThread {
-                                checked = prefs.getBoolean(entry.key, HookConfig.defaultEnabled(entry.key))
-                            }
+    val searchQuery = query.trim()
+    val visibleGroups = groups.mapNotNull { (name, entries) ->
+        val matching = entries.filter { entry ->
+            val relatedText = when (entry.key) {
+                HookConfig.KEY_DEV_OPTIONS -> developerMenuTitle + " " + developerMenuSummary
+                HookConfig.KEY_KEEP_BACKGROUND -> backgroundListTitle + " " + backgroundListSummary
+                HookConfig.KEY_BLOCK_TCP_LOGIN_FAIL -> tcpHistoryTitle + " " + tcpHistorySummary
+                else -> ""
+            }
+            searchQuery.isEmpty() || entry.title.contains(searchQuery, ignoreCase = true) ||
+                entry.summary.contains(searchQuery, ignoreCase = true) ||
+                relatedText.contains(searchQuery, ignoreCase = true)
+        }
+        if (matching.isEmpty()) null else name to matching
+    }
+    if (visibleGroups.isEmpty()) {
+        InfoCard("没有匹配的 Hook 功能")
+    }
+    visibleGroups.forEach { (name, entries) ->
+        key(name) {
+            Group(name) {
+                entries.forEach { entry ->
+                    key(entry.key) {
+                        val available = scopes.isAvailable(entry.key)
+                        var checked by remember(entry.key) {
+                            mutableStateOf(
+                                if (entry.key == HookConfig.KEY_AOSP_STATUS_ICONS)
+                                    HookConfig.statusBarIconsEnabled(prefs.all)
+                                else prefs.getBoolean(entry.key, HookConfig.defaultEnabled(entry.key)),
+                            )
                         }
-                    }
-                    prefs.registerOnSharedPreferenceChangeListener(listener)
-                    onDispose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
-                }
-                fun saveHook(enabled: Boolean) {
-                    checked = enabled
-                    prefs.edit().putBoolean(entry.key, enabled).apply()
-                    val effectMessage = when (entry.key) {
-                        HookConfig.KEY_NOTIFICATION_LONG_PRESS,
-                        HookConfig.KEY_SYSTEMUI_MONET,
-                        HookConfig.KEY_AOSP_STATUS_ICONS -> "重启 SystemUI 后生效"
-                        HookConfig.KEY_CLEAR_BLACKLIST -> "重启系统后生效"
-                        HookConfig.KEY_STATUS_BAR_DATE -> "下一次时钟刷新后生效"
-                        HookConfig.KEY_IOS_ICONS -> "重启桌面后生效"
-                        else -> null
-                    }
-                    if (effectMessage != null && scopes.isAvailable(entry.key)) {
-                        coroutineScope.launch {
-                            snackbar.newestSnackbarData()?.dismiss()
-                            snackbar.showSnackbar(effectMessage)
-                        }
-                    }
-                    if (entry.key == HookConfig.KEY_BLOCK_TCP_LOGIN_FAIL && enabled &&
-                        com.lijinmu.arashi.notifications.NotificationPreferences.enabled(a, com.lijinmu.arashi.notifications.NotificationPreferences.TCP)) {
-                        com.lijinmu.arashi.notifications.AppNotifications.requestPermissionIfNeeded(a)
-                    }
-
-                }
-                Box {
-                    SwitchPreference(
-                        checked = available && checked,
-                        onCheckedChange = { enabled ->
-                            if (available) saveHook(enabled)
-                        },
-                        title = entry.title,
-                        summary = entry.summary,
-                        enabled = available,
-                    )
-                    if (!available) {
-                        Box(
-                            Modifier.matchParentSize()
-                                .semantics { contentDescription = entry.title + "，不可用，点击查看原因" }
-                                .clickable {
-                                    coroutineScope.launch {
-                                        snackbar.newestSnackbarData()?.dismiss()
-                                        snackbar.showSnackbar(scopes.unavailableReason(entry.key))
+                        DisposableEffect(prefs, entry.key) {
+                            val listener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+                                if (key == entry.key) {
+                                    a.runOnUiThread {
+                                        checked = prefs.getBoolean(entry.key, HookConfig.defaultEnabled(entry.key))
                                     }
+                                }
+                            }
+                            prefs.registerOnSharedPreferenceChangeListener(listener)
+                            onDispose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
+                        }
+                        fun saveHook(enabled: Boolean) {
+                            checked = enabled
+                            prefs.edit().putBoolean(entry.key, enabled).apply()
+                            val effectMessage = when (entry.key) {
+                                HookConfig.KEY_NOTIFICATION_LONG_PRESS,
+                                HookConfig.KEY_SYSTEMUI_MONET,
+                                HookConfig.KEY_AOSP_STATUS_ICONS -> "重启 SystemUI 后生效"
+                                HookConfig.KEY_CLEAR_BLACKLIST -> "重启系统后生效"
+                                HookConfig.KEY_STATUS_BAR_DATE -> "下一次时钟刷新后生效"
+                                HookConfig.KEY_IOS_ICONS -> "重启桌面后生效"
+                                else -> null
+                            }
+                            if (effectMessage != null && scopes.isAvailable(entry.key)) {
+                                coroutineScope.launch {
+                                    snackbar.newestSnackbarData()?.dismiss()
+                                    snackbar.showSnackbar(effectMessage)
+                                }
+                            }
+                            if (entry.key == HookConfig.KEY_BLOCK_TCP_LOGIN_FAIL && enabled &&
+                                com.lijinmu.arashi.notifications.NotificationPreferences.enabled(a, com.lijinmu.arashi.notifications.NotificationPreferences.TCP)) {
+                                com.lijinmu.arashi.notifications.AppNotifications.requestPermissionIfNeeded(a)
+                            }
+
+                        }
+                        Box {
+                            SwitchPreference(
+                                checked = available && checked,
+                                onCheckedChange = { enabled ->
+                                    if (available) saveHook(enabled)
                                 },
-                        )
-                    }
-                }
-                if (entry.key == HookConfig.KEY_BLOCK_TCP_LOGIN_FAIL) {
-                    ArrowPreference(
-                        title = "TCP 拦截记录",
-                        summary = "查看触发时间、错误码、响应状态和调用详情",
-                        onClick = { a.startActivity(Intent(a, TcpHistoryActivity::class.java)) },
-                    )
-                }
-                if (entry.key == HookConfig.KEY_DEV_OPTIONS) {
-                    var injectDeveloperMenu by remember {
-                        mutableStateOf(
-                            prefs.getBoolean(
-                                HookConfig.KEY_DEV_OPTIONS_MENU,
-                                HookConfig.defaultEnabled(HookConfig.KEY_DEV_OPTIONS_MENU),
-                            ),
-                        )
-                    }
-                    DisposableEffect(prefs) {
-                        val listener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
-                            if (key == HookConfig.KEY_DEV_OPTIONS_MENU) {
-                                injectDeveloperMenu = prefs.getBoolean(
-                                    HookConfig.KEY_DEV_OPTIONS_MENU,
-                                    HookConfig.defaultEnabled(HookConfig.KEY_DEV_OPTIONS_MENU),
+                                title = entry.title,
+                                summary = entry.summary,
+                                enabled = available,
+                            )
+                            if (!available) {
+                                Box(
+                                    Modifier.matchParentSize()
+                                        .semantics { contentDescription = entry.title + "，不可用，点击查看原因" }
+                                        .clickable {
+                                            coroutineScope.launch {
+                                                snackbar.newestSnackbarData()?.dismiss()
+                                                snackbar.showSnackbar(scopes.unavailableReason(entry.key))
+                                            }
+                                        },
                                 )
                             }
                         }
-                        prefs.registerOnSharedPreferenceChangeListener(listener)
-                        onDispose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
-                    }
-                    AnimatedVisibility(
-                        visible = available && checked,
-                        enter = expandVertically(
-                            animationSpec = tween(250, easing = FastOutSlowInEasing),
-                            expandFrom = Alignment.Top,
-                        ) + fadeIn(animationSpec = tween(200)),
-                        exit = shrinkVertically(
-                            animationSpec = tween(250, easing = FastOutSlowInEasing),
-                            shrinkTowards = Alignment.Top,
-                        ) + fadeOut(animationSpec = tween(150)),
-                    ) {
-                        SwitchPreference(
-                            checked = available && injectDeveloperMenu,
-                            onCheckedChange = {
-                                if (available) {
-                                    injectDeveloperMenu = it
-                                    prefs.edit().putBoolean(HookConfig.KEY_DEV_OPTIONS_MENU, it).apply()
+                        if (entry.key == HookConfig.KEY_BLOCK_TCP_LOGIN_FAIL) {
+                            ArrowPreference(
+                                title = tcpHistoryTitle,
+                                summary = tcpHistorySummary,
+                                onClick = { a.startActivity(Intent(a, TcpHistoryActivity::class.java)) },
+                            )
+                        }
+                        if (entry.key == HookConfig.KEY_DEV_OPTIONS) {
+                            var injectDeveloperMenu by remember {
+                                mutableStateOf(
+                                    prefs.getBoolean(
+                                        HookConfig.KEY_DEV_OPTIONS_MENU,
+                                        HookConfig.defaultEnabled(HookConfig.KEY_DEV_OPTIONS_MENU),
+                                    ),
+                                )
+                            }
+                            DisposableEffect(prefs) {
+                                val listener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+                                    if (key == HookConfig.KEY_DEV_OPTIONS_MENU) {
+                                        injectDeveloperMenu = prefs.getBoolean(
+                                            HookConfig.KEY_DEV_OPTIONS_MENU,
+                                            HookConfig.defaultEnabled(HookConfig.KEY_DEV_OPTIONS_MENU),
+                                        )
+                                    }
                                 }
-                            },
-                            title = "注入开发者选项入口",
-                            summary = "在系统设置的左侧菜单中添加 “开发者选项” 入口",
-                            enabled = available,
-                        )
+                                prefs.registerOnSharedPreferenceChangeListener(listener)
+                                onDispose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
+                            }
+                            AnimatedVisibility(
+                                visible = available && checked,
+                                enter = expandVertically(
+                                    animationSpec = tween(250, easing = FastOutSlowInEasing),
+                                    expandFrom = Alignment.Top,
+                                ) + fadeIn(animationSpec = tween(200)),
+                                exit = shrinkVertically(
+                                    animationSpec = tween(250, easing = FastOutSlowInEasing),
+                                    shrinkTowards = Alignment.Top,
+                                ) + fadeOut(animationSpec = tween(150)),
+                            ) {
+                                SwitchPreference(
+                                    checked = available && injectDeveloperMenu,
+                                    onCheckedChange = {
+                                        if (available) {
+                                            injectDeveloperMenu = it
+                                            prefs.edit().putBoolean(HookConfig.KEY_DEV_OPTIONS_MENU, it).apply()
+                                        }
+                                    },
+                                    title = developerMenuTitle,
+                                    summary = developerMenuSummary,
+                                    enabled = available,
+                                )
+                            }
+                        }
+                        AnimatedVisibility(
+                            visible = entry.key == HookConfig.KEY_KEEP_BACKGROUND && available && checked,
+                            enter = expandVertically(
+                                animationSpec = tween(250, easing = FastOutSlowInEasing),
+                                expandFrom = Alignment.Top,
+                            ) + fadeIn(animationSpec = tween(200)),
+                            exit = shrinkVertically(
+                                animationSpec = tween(250, easing = FastOutSlowInEasing),
+                                shrinkTowards = Alignment.Top,
+                            ) + fadeOut(animationSpec = tween(150)),
+                        ) {
+                            ArrowPreference(
+                                title = backgroundListTitle,
+                                summary = backgroundListSummary,
+                                onClick = {
+                                    a.startActivity(Intent(a, BackgroundWhitelistActivity::class.java))
+                                },
+                            )
+                        }
                     }
-                }
-                AnimatedVisibility(
-                    visible = entry.key == HookConfig.KEY_KEEP_BACKGROUND && available && checked,
-                    enter = expandVertically(
-                        animationSpec = tween(250, easing = FastOutSlowInEasing),
-                        expandFrom = Alignment.Top,
-                    ) + fadeIn(animationSpec = tween(200)),
-                    exit = shrinkVertically(
-                        animationSpec = tween(250, easing = FastOutSlowInEasing),
-                        shrinkTowards = Alignment.Top,
-                    ) + fadeOut(animationSpec = tween(150)),
-                ) {
-                    ArrowPreference(
-                        title = "后台保留白名单",
-                        summary = if (backgroundSelected.isEmpty()) "目前划卡后保留所有应用后台进程"
-                            else "目前划卡后只保留已选择的 ${backgroundSelected.size} 个应用",
-                        onClick = {
-                            a.startActivity(Intent(a, BackgroundWhitelistActivity::class.java))
-                        },
-                    )
                 }
             }
         }
