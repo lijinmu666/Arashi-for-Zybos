@@ -624,7 +624,7 @@ private fun JailbreakPage(a: Main) = Page(a, "越狱") {
                                 val kernel = System.getProperty("os.version")
                                     ?: android.system.Os.uname().release
                                 val model = Build.MODEL ?: ""
-                                val android = Build.VERSION.RELEASE ?: ""
+                                val androidRelease = Build.VERSION.RELEASE ?: ""
                                 val supported = kernel.startsWith("5.10.") && kernel.contains("android12")
                                 val installed = try {
                                     a.packageManager.getPackageInfo("me.weishu.kernelsu", 0)
@@ -632,7 +632,7 @@ private fun JailbreakPage(a: Main) = Page(a, "越狱") {
                                 } catch (_: android.content.pm.PackageManager.NameNotFoundException) {
                                     false
                                 }
-                                arrayOf(kernel, model, android, supported.toString(), installed.toString())
+                                arrayOf(kernel, model, androidRelease, supported.toString(), installed.toString())
                             }
                             kernelVersion = result[0]
                             deviceModel = result[1]
