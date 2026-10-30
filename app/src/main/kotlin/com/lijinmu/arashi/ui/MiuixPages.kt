@@ -545,10 +545,113 @@ private fun MainNavigationPage(a: Main) {
                         onHookSettings = { open(ArashiRoute.HookSettings) },
                         onQuickCommands = { open(ArashiRoute.QuickCommands) },
                         onUninstallSettings = { open(ArashiRoute.UninstallSettings) })
+                    else if (page == 1) JailbreakPage(a)
                     else SettingsPage(a,
                         onNotifications = { open(ArashiRoute.Notifications) },
                         onAbout = { open(ArashiRoute.About) },
                         onLogs = { open(ArashiRoute.Logs) })
+                }
+            }
+        }
+    }
+}
+
+
+/** Guided UI only: no privileged native code is loaded or executed here. */
+@Composable
+private fun JailbreakPage(a: Main) = Page(a, "越狱") {
+    var stage by rememberSaveable { mutableIntStateOf(0) }
+    var deviceModel by remember { mutableStateOf("") }
+    var androidVersion by remember { mutableStateOf("") }
+    var kernelVersion by remember { mutableStateOf("") }
+    var problem by remember { mutableStateOf("") }
+    var managerInstalled by remember { mutableStateOf(false) }
+    var checking by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    val error = stage == 1 || stage == 6
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        insideMargin = PaddingValues(20.dp),
+        colors = if (error) CardDefaults.defaultColors(
+            color = Color(0xFFB3261E).copy(alpha = 0.20f),
+            contentColor = MiuixTheme.colorScheme.onSurface,
+        ) else CardDefaults.defaultColors(),
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            when (stage) {
+                0 -> {
+                    Text("在不解锁BL、不修改系统的情况下使用KernelSU的越狱模式。")
+                    Text("内核版本不支持，在该设备上无法使用越狱模式！")
+                }
+                1 -> Text(problem)
+                2 -> {
+                    Text("请核对信息")
+                    Text("品牌：作业帮")
+                    Text("型号：$deviceModel")
+                    Text("Android版本：$androidVersion")
+                    Text("内核版本：$kernelVersion")
+                }
+                3 -> Text("Arashi 即将开始提权操作。")
+                4 -> {
+                    Text("正在处理…")
+                    androidx.compose.material3.LinearProgressIndicator(
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+                5 -> Text("提权完毕！！！请前往 KernelSU 继续。")
+                6 -> Text("提权失败，当前版本尚未接入 DirtyFrag VR 执行组件。")
+                7 -> Text("未安装KernelSU，请安装！")
+            }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                when (stage) {
+                    0 -> TextButton("继续", {
+                        checking = true
+                        scope.launch {
+                            val result = withContext(Dispatchers.IO) {
+                                val kernel = System.getProperty("os.version")
+                                    ?: android.system.Os.uname().release
+                                val model = Build.MODEL ?: ""
+                                val android = Build.VERSION.RELEASE ?: ""
+                                val supported = kernel.startsWith("5.10.") && kernel.contains("android12")
+                                val installed = try {
+                                    a.packageManager.getPackageInfo("me.weishu.kernelsu", 0)
+                                    true
+                                } catch (_: android.content.pm.PackageManager.NameNotFoundException) {
+                                    false
+                                }
+                                arrayOf(kernel, model, android, supported.toString(), installed.toString())
+                            }
+                            kernelVersion = result[0]
+                            deviceModel = result[1]
+                            androidVersion = result[2]
+                            managerInstalled = result[4].toBoolean()
+                            problem = when {
+                                deviceModel.isBlank() || kernelVersion.isBlank() -> "读取设备信息失败"
+                                result[3] != "true" -> "内核版本不支持，在该设备上无法使用越狱模式！"
+                                else -> ""
+                            }
+                            checking = false
+                            stage = when {
+                                problem.isNotBlank() -> 1
+                                !managerInstalled -> 7
+                                else -> 2
+                            }
+                        }
+                    }, enabled = !checking)
+                    1 -> TextButton("重试", { stage = 0 })
+                    2 -> TextButton("继续", { stage = 3 })
+                    3 -> TextButton("继续", { stage = 6 })
+                    5 -> TextButton("KernelSU ↗", {
+                        a.packageManager.getLaunchIntentForPackage("me.weishu.kernelsu")?.let(a::startActivity)
+                    })
+                    6 -> TextButton("返回", { stage = 0 })
+                    7 -> {
+                        TextButton("返回", { stage = 0 })
+                        TextButton("安装", {
+                            a.startActivity(Intent(Intent.ACTION_VIEW,
+                                android.net.Uri.parse("https://github.com/tiann/KernelSU/releases")))
+                        })
+                    }
                 }
             }
         }
