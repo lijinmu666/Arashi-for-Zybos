@@ -1713,7 +1713,7 @@ private fun QuickPage(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     top.yukonga.miuix.kmp.basic.CircularProgressIndicator()
-                    Text(if (confirmFreeze == false) "正在解冻…" else "正在冻结…")
+                    Text("正在处理…")
                 }
                 if (!freezeRunning) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     TextButton("取消", { confirmFreeze = null }, Modifier.weight(1f))
@@ -1739,7 +1739,14 @@ private fun QuickPage(
             ) {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     if (running) {
-                        Text("正在执行…")
+                        Row(
+                            Modifier.fillMaxWidth().padding(vertical = 16.dp),
+                            horizontalArrangement = Arrangement.spacedBy(16.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            top.yukonga.miuix.kmp.basic.CircularProgressIndicator()
+                            Text("正在处理…")
+                        }
                     } else {
                         selected?.options?.forEach { option ->
                             TextButton(option.label, {
