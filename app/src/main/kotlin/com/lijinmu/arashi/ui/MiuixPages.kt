@@ -1732,6 +1732,23 @@ private fun SettingsPage(
     onLogs: () -> Unit,
 ) = Page(a, "应用偏好设置") {
     val prefs = a.getSharedPreferences("ui", Context.MODE_PRIVATE)
+    val logPrefs = remember(a) {
+        a.getSharedPreferences(com.lijinmu.arashi.logs.RuntimeLogStore.PREFS, Context.MODE_PRIVATE)
+    }
+    var loggingEnabled by remember(logPrefs) {
+        mutableStateOf(com.lijinmu.arashi.logs.RuntimeLogStore.isEnabled(a))
+    }
+    var togglingLogs by remember { mutableStateOf(false) }
+    val logsScope = rememberCoroutineScope()
+    DisposableEffect(logPrefs) {
+        val listener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { changed, key ->
+            if (key == com.lijinmu.arashi.logs.RuntimeLogStore.KEY_ENABLED) {
+                loggingEnabled = changed.getBoolean(key, false)
+            }
+        }
+        logPrefs.registerOnSharedPreferenceChangeListener(listener)
+        onDispose { logPrefs.unregisterOnSharedPreferenceChangeListener(listener) }
+    }
     val themeNames = listOf("默认", "开启", "关闭")
     val themeModes = listOf(0, 2, 1)
     var selectedTheme by remember {
@@ -1793,7 +1810,50 @@ private fun SettingsPage(
         }
     }
     Group("其他") {
-        Link("运行日志", "查看最近 12 小时的日志，支持导出与清除", action = onLogs)
+        SwitchPreference(
+            checked = loggingEnabled,
+            onCheckedChange = { requested ->
+                if (!togglingLogs) {
+                    togglingLogs = true
+                    loggingEnabled = requested
+                    logsScope.launch(start = kotlinx.coroutines.CoroutineStart.UNDISPATCHED) {
+                        try {
+                            withContext(kotlinx.coroutines.NonCancellable + Dispatchers.IO) {
+                                com.lijinmu.arashi.logs.RuntimeLogger.setEnabled(a, requested)
+                            }
+                        } catch (cancelled: CancellationException) {
+                            throw cancelled
+                        } catch (failure: Exception) {
+                            MiuixPages.showMessage(a, "切换日志失败", failure.message ?: "无法更新运行日志状态")
+                        } finally {
+                            loggingEnabled = com.lijinmu.arashi.logs.RuntimeLogStore.isEnabled(a)
+                            togglingLogs = false
+                        }
+                    }
+                }
+            },
+            title = "运行日志",
+            summary = "仅保留最近 12 小时的运行信息与异常，关闭后清空全部日志",
+            enabled = !togglingLogs,
+        )
+        AnimatedVisibility(
+            visible = loggingEnabled,
+            enter = expandVertically(
+                animationSpec = tween(250, easing = FastOutSlowInEasing),
+                expandFrom = Alignment.Top,
+            ) + fadeIn(animationSpec = tween(200)),
+            exit = shrinkVertically(
+                animationSpec = tween(250, easing = FastOutSlowInEasing),
+                shrinkTowards = Alignment.Top,
+            ) + fadeOut(animationSpec = tween(150)),
+        ) {
+            ArrowPreference(
+                title = "查看日志",
+                summary = "查看、复制、导出或清除运行日志",
+                enabled = !togglingLogs,
+                onClick = { if (!togglingLogs && loggingEnabled) onLogs() },
+            )
+        }
         SwitchPreference(
             checked = hidden,
             onCheckedChange = { requested ->

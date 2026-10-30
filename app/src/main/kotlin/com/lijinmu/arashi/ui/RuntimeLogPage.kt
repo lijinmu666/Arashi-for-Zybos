@@ -34,6 +34,15 @@ import java.util.Locale
 
 @Composable
 internal fun RuntimeLogPage(a: ComponentActivity, back: () -> Unit) {
+    val logPrefs = remember(a) { a.getSharedPreferences(RuntimeLogStore.PREFS, android.content.Context.MODE_PRIVATE) }
+    var loggingEnabled by remember(logPrefs) { mutableStateOf(RuntimeLogStore.isEnabled(a)) }
+    DisposableEffect(logPrefs) {
+        val listener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { changed, key ->
+            if (key == RuntimeLogStore.KEY_ENABLED) loggingEnabled = changed.getBoolean(key, false)
+        }
+        logPrefs.registerOnSharedPreferenceChangeListener(listener)
+        onDispose { logPrefs.unregisterOnSharedPreferenceChangeListener(listener) }
+    }
     var records by remember { mutableStateOf<List<RuntimeLogStore.Record>>(emptyList()) }
     var loading by remember { mutableStateOf(false) }
     var initialLoading by remember { mutableStateOf(true) }
@@ -46,7 +55,7 @@ internal fun RuntimeLogPage(a: ComponentActivity, back: () -> Unit) {
     val scope = rememberCoroutineScope()
     val operations = remember { Mutex() }
     val snackbar = remember { SnackbarHostState() }
-    val busy = loading || clearing || exporting || choosingExport
+    val busy = loading || clearing || exporting || choosingExport || !loggingEnabled
 
     suspend fun load(reset: Boolean) {
         operations.withLock {
@@ -93,7 +102,13 @@ internal fun RuntimeLogPage(a: ComponentActivity, back: () -> Unit) {
         }
     }
 
-    LaunchedEffect(a) { load(reset = true) }
+    LaunchedEffect(a, loggingEnabled) {
+        if (loggingEnabled) load(reset = true) else {
+            records = emptyList()
+            hasMore = false
+            back()
+        }
+    }
     LaunchedEffect(a) {
         while (true) {
             delay(30_000)

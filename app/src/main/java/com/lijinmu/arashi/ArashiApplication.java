@@ -1,11 +1,7 @@
 package com.lijinmu.arashi;
 
 import android.app.Application;
-import android.app.job.JobInfo;
-import android.app.job.JobScheduler;
-import android.content.ComponentName;
 import android.content.SharedPreferences;
-import com.lijinmu.arashi.logs.LogCleanupJobService;
 import com.lijinmu.arashi.logs.RuntimeLogger;
 import java.util.ArrayList;
 import java.util.List;
@@ -35,16 +31,6 @@ public final class ArashiApplication extends Application {
         observe(com.lijinmu.arashi.xposed.HookConfig.PREF_NAME);
         observe(com.lijinmu.arashi.uninstall.UninstallConfig.PREF_NAME);
         observe(com.lijinmu.arashi.notifications.NotificationPreferences.PREFS);
-        try {
-            JobScheduler scheduler = getSystemService(JobScheduler.class);
-            if (scheduler != null && scheduler.getPendingJob(LogCleanupJobService.JOB_ID) == null) {
-                scheduler.schedule(new JobInfo.Builder(LogCleanupJobService.JOB_ID,
-                        new ComponentName(this, LogCleanupJobService.class))
-                        .setPeriodic(15L * 60 * 1000).setPersisted(true).build());
-            }
-        } catch (RuntimeException error) {
-            RuntimeLogger.error("Logs", "后台日志清理任务注册失败", error);
-        }
     }
 
     private void observe(String name) {

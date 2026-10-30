@@ -1,6 +1,9 @@
 package com.lijinmu.arashi.logs;
 
 import android.app.Application;
+import android.app.job.JobInfo;
+import android.app.job.JobScheduler;
+import android.content.ComponentName;
 import android.content.Context;
 import android.os.Bundle;
 import android.os.Process;
@@ -25,9 +28,37 @@ public final class RuntimeLogger {
         application = context.getApplicationContext();
         WORKER.allowCoreThreadTimeOut(true);
         WORKER.execute(() -> {
-            try { RuntimeLogStore.prune(application); }
+            try {
+                RuntimeLogStore.prune(application);
+            }
             catch (RuntimeException ignored) { /* Logging cannot break app startup. */ }
+            finally { updateCleanupJob(application); }
         });
+    }
+
+    public static void setEnabled(Context context, boolean enabled) {
+        try {
+            RuntimeLogStore.setEnabled(context, enabled);
+        } finally {
+            if (!RuntimeLogStore.isEnabled(context)) WORKER.getQueue().clear();
+            updateCleanupJob(context);
+        }
+    }
+
+    private static void updateCleanupJob(Context context) {
+        try {
+            JobScheduler scheduler = context.getSystemService(JobScheduler.class);
+            if (scheduler == null) return;
+            if (!RuntimeLogStore.isEnabled(context)) {
+                scheduler.cancel(LogCleanupJobService.JOB_ID);
+            } else if (scheduler.getPendingJob(LogCleanupJobService.JOB_ID) == null) {
+                scheduler.schedule(new JobInfo.Builder(LogCleanupJobService.JOB_ID,
+                        new ComponentName(context, LogCleanupJobService.class))
+                        .setPeriodic(15L * 60 * 1000).setPersisted(true).build());
+            }
+        } catch (RuntimeException error) {
+            error("Logs", "后台日志清理任务更新失败", error);
+        }
     }
 
     public static void info(String tag, String message) { record("INFO", tag, message, null); }
@@ -36,7 +67,7 @@ public final class RuntimeLogger {
 
     public static void record(String level, String tag, String message, Throwable error) {
         Context context = application;
-        if (context == null) return;
+        if (context == null || !RuntimeLogStore.isEnabled(context)) return;
         Bundle data = entry(level, tag, message, error);
         WORKER.execute(() -> {
             try { RuntimeLogStore.append(context, data); }
@@ -46,7 +77,7 @@ public final class RuntimeLogger {
 
     public static void crash(Thread thread, Throwable error) {
         Context context = application;
-        if (context == null) return;
+        if (context == null || !RuntimeLogStore.isEnabled(context)) return;
         try {
             // The process may terminate before an asynchronous write gets a chance to run.
             RuntimeLogStore.append(context, entry("ERROR", "Crash", "未捕获异常，线程：" + thread.getName(), error));
