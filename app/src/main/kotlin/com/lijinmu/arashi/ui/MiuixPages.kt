@@ -1655,7 +1655,7 @@ private fun QuickCommandItem(title: String, summary: String, action: () -> Unit)
     BasicComponent(title = title, summary = summary, onClick = action)
 
 private data class QuickOption(val label: String, val execute: (QuickCommands.Completion) -> Unit)
-private data class QuickAction(val title: String, val options: List<QuickOption>)
+private data class QuickAction(val title: String, val options: List<QuickOption>, val successMessageOnly: Boolean = false)
 
 @Composable
 private fun QuickPage(
@@ -1685,16 +1685,17 @@ private fun QuickPage(
     }
     var selected by remember { mutableStateOf<QuickAction?>(null) }
     var running by remember { mutableStateOf(false) }
-    fun choose(title: String, command: (Boolean) -> String): QuickAction =
+    fun choose(title: String, successMessageOnly: Boolean = false, command: (Boolean) -> String): QuickAction =
         QuickAction(title, listOf(true, false).map { enabled ->
             QuickOption(if (enabled) "开启" else "关闭") { done ->
                 commands.run(title, command(enabled), done)
             }
-        })
+        }, successMessageOnly)
     val completion = QuickCommands.Completion { success, output ->
+        val message = if (success && selected?.successMessageOnly == true) "" else output
         running = false
         selected = null
-        MiuixPages.showMessage(a, if (success) "执行完毕" else "执行失败", output)
+        MiuixPages.showMessage(a, if (success) "执行完毕" else "执行失败", message)
     }
     Page(
         a, "快捷指令执行", back,
@@ -1773,7 +1774,7 @@ private fun QuickPage(
                 onZybosEnv()
             }
             QuickCommandItem("special_enable_adb_debug", "这个厂商自定义设置并没有什么实际用处") {
-                selected = choose("special_enable_adb_debug") { enabled ->
+                selected = choose("special_enable_adb_debug", successMessageOnly = true) { enabled ->
                     val value = if (enabled) "1" else "0"
                     "settings put global special_enable_adb_debug $value && " +
                         "[ \"\$(settings get global special_enable_adb_debug)\" = '$value' ] && " +
@@ -1781,7 +1782,7 @@ private fun QuickPage(
                 }
             }
             QuickCommandItem("允许 Shell 安装应用", "控制 sys.allow.install.package 属性") {
-                selected = choose("允许 Shell 安装应用") { enabled ->
+                selected = choose("允许 Shell 安装应用", successMessageOnly = true) { enabled ->
                     val value = if (enabled) "true" else ""
                     "setprop sys.allow.install.package '$value' && " +
                         "[ \"\$(getprop sys.allow.install.package)\" = '$value' ] && " +
