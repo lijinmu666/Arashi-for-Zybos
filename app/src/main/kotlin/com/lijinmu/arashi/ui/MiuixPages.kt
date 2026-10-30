@@ -729,11 +729,20 @@ private fun JailbreakPage(a: Main) = Page(a, "越狱") {
                             .background(Color(0xFFD32F2F)),
                     )
                     7 -> {
-                        TextButton("返回", { stage = 0 })
+                        TextButton(
+                            "返回",
+                            { stage = 0 },
+                            colors = ButtonDefaults.textButtonColors(
+                                color = Color.Transparent,
+                                textColor = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                            ),
+                        )
                         TextButton("安装", {
                             a.startActivity(Intent(Intent.ACTION_VIEW,
                                 android.net.Uri.parse("https://github.com/tiann/KernelSU/releases")))
-                        })
+                        }, colors = ButtonDefaults.textButtonColorsPrimary(
+                            textColor = Color.White,
+                        ))
                     }
                 }
             }
