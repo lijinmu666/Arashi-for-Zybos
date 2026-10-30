@@ -1,16 +1,6 @@
 name: 编译 APK
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'app/**'
-      - 'tests/**'
-      - '*.gradle'
-      - 'gradle.properties'
-      - 'gradle/**'
-      - 'gradlew'
-      - '.github/workflows/build.yml'
   workflow_dispatch:
     inputs:
       unsigned_release:
@@ -30,7 +20,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
-      ARASHI_UNSIGNED_RELEASE: ${{ github.event_name == 'push' || inputs.unsigned_release }}
+      ARASHI_UNSIGNED_RELEASE: ${{ inputs.unsigned_release }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
