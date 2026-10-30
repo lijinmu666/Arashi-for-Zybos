@@ -19,6 +19,10 @@ jobs:
       - name: 安装 SDK、NDK 与 CMake
         run: |
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'cmdline-tools;latest'
+          # Accept newly required NDK licenses; ignore only yes SIGPIPE, not sdkmanager failures.
+          set +o pipefail
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null
+          set -o pipefail
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --channel=3 'platforms;android-37.0' 'build-tools;37.0.0' 'ndk;29.0.13113456' 'cmake;3.22.1'
       - name: 编译未签名 Release
         run: bash gradlew :app:assembleRelease -ParashiUnsignedRelease=true --no-daemon --stacktrace
