@@ -570,6 +570,16 @@ private fun MainNavigationPage(a: Main) {
 @Composable
 private fun JailbreakPage(a: Main) = Page(a, "越狱") {
     var stage by rememberSaveable { mutableIntStateOf(0) }
+    val operation by JailbreakController.state.collectAsState()
+    LaunchedEffect(operation) {
+        stage = when {
+            operation.running -> 4
+            operation.finished && operation.success -> 5
+            operation.finished -> 6
+            stage == 4 -> 6 // The process died before it could report a result.
+            else -> stage
+        }
+    }
     var deviceModel by remember { mutableStateOf("") }
     var androidVersion by remember { mutableStateOf("") }
     var kernelVersion by remember { mutableStateOf("") }
@@ -654,7 +664,12 @@ private fun JailbreakPage(a: Main) = Page(a, "越狱") {
                     }
                 }
                 5 -> Text("提权完毕！！！请前往 KernelSU 继续。")
-                6 -> Text("提权失败。")
+                6 -> Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("提权失败。")
+                    TextButton("查看详情", {
+                        MiuixPages.showDetails(a, "提权详情", operation.detail.ifBlank { "提权进程已中断，请重启设备后重试" })
+                    })
+                }
                 7 -> Text("未安装 KernelSU（me.weishu.kernelsu），请先安装。")
                 }
                 }
@@ -670,7 +685,8 @@ private fun JailbreakPage(a: Main) = Page(a, "越狱") {
                                     ?: android.system.Os.uname().release
                                 val model = Build.MODEL ?: ""
                                 val androidRelease = Build.VERSION.RELEASE ?: ""
-                                val supported = kernel.startsWith("5.10.") && kernel.contains("android12")
+                                val supported = kernel.startsWith("5.10.") && android.os.Process.is64Bit()
+                                    && android.os.Process.myUid() / 100000 == 0
                                 val installed = try {
                                     a.packageManager.getPackageInfo("me.weishu.kernelsu", 0)
                                     true
@@ -698,7 +714,10 @@ private fun JailbreakPage(a: Main) = Page(a, "越狱") {
                     }, colors = ButtonDefaults.textButtonColorsPrimary())
                     1 -> TextButton("重试", { stage = 0 })
                     2 -> TextButton("继续", { stage = 3 }, colors = ButtonDefaults.textButtonColorsPrimary())
-                    3 -> TextButton("继续", { stage = 6 }, colors = ButtonDefaults.textButtonColorsPrimary())
+                    3 -> TextButton("继续", {
+                        stage = 4
+                        JailbreakController.start(a)
+                    }, colors = ButtonDefaults.textButtonColorsPrimary())
                     5 -> TextButton("KernelSU ↗", {
                         a.packageManager.getLaunchIntentForPackage("me.weishu.kernelsu")?.let(a::startActivity)
                     })

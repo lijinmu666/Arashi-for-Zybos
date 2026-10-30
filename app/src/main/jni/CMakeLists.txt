@@ -1,0 +1,7 @@
+cmake_minimum_required(VERSION 3.22.1)
+project(ArashiJailbreak LANGUAGES C ASM)
+if(NOT ANDROID_ABI STREQUAL "arm64-v8a")
+    message(FATAL_ERROR "DirtyFrag VR requires arm64-v8a")
+endif()
+find_package(Python3 REQUIRED COMPONENTS Interpreter)
+add_subdirectory(dfroot)
