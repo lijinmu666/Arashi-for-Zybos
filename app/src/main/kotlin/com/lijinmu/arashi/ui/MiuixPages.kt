@@ -680,7 +680,7 @@ private fun HookPage(a: HookSettings) {
     AppSearchBar(
         query = query,
         onQueryChange = { query = it },
-        label = "搜索 Hook 标题或描述",
+        label = "搜索…",
     )
     val prefs = a.getSharedPreferences(HookConfig.PREF_NAME, Context.MODE_PRIVATE)
     var backgroundSelected by remember {
@@ -804,7 +804,7 @@ private fun HookPage(a: HookSettings) {
                                 HookConfig.KEY_CLEAR_BLACKLIST -> "重启系统后生效"
                                 HookConfig.KEY_STATUS_BAR_DATE -> "下一次时钟刷新后生效"
                                 HookConfig.KEY_IOS_ICONS -> "重启桌面后生效"
-                                HookConfig.KEY_IOS_SYSTEM_ICON_MASK -> "重启对应应用后生效，系统界面需重启 SystemUI"
+                                HookConfig.KEY_IOS_SYSTEM_ICON_MASK -> "重启对应应用后生效"
                                 else -> null
                             }
                             if (effectMessage != null && scopes.isAvailable(entry.key)) {
@@ -1044,7 +1044,7 @@ private fun BackgroundWhitelistPage(a: BackgroundWhitelistActivity) {
         ) {
             item {
                 IntroCard(
-                    "选中的应用划卡后不会被强杀，不选择任何应用时默认全部不杀，系统原有豁免应用不显示。选择后立即保存")
+                    "选中的应用划卡后不会被强杀，不选择任何应用时默认全不杀，系统原有豁免的应用（微信、QQ等）不显示。选择后立即保存")
             }
             item {
                 AppSearchBar(
@@ -1133,7 +1133,7 @@ private fun UninstallPage(a: UninstallSettings) = Page(a, "卸载验证", a::fin
             },
             title = "启用卸载验证",
             summary = if (moduleActive) "每次卸载请求将会弹窗向你确认"
-                else "未检测到 system_server Hook，卸载验证暂时关闭。激活后会恢复此前的开启状态",
+                else "未检测到 system_server 的 Hook，卸载验证暂时关闭。激活后会恢复此前的开启状态",
             enabled = moduleActive,
         )
         OverlayDropdownPreference(
@@ -1160,7 +1160,7 @@ private fun UninstallPage(a: UninstallSettings) = Page(a, "卸载验证", a::fin
         Link("白名单", "白名单中的发起方不会弹窗向你确认，直接允许") {
             a.startActivity(Intent(a, UninstallListActivity::class.java).putExtra("blacklist", false))
         }
-        Link("黑名单", "与白名单排斥，黑名单直接拒绝卸载，并且优先于白名单") {
+        Link("黑名单", "与白名单排斥，黑名单直接拒绝卸载。优先于白名单") {
             a.startActivity(Intent(a, UninstallListActivity::class.java).putExtra("blacklist", true))
         }
     }
@@ -1701,7 +1701,7 @@ private fun QuickPage(a: QuickCommands) {
             }
         },
     ) {
-        IntroCard("以下功能使用 root 权限执行，首次使用请授予 root 权限")
+        IntroCard("包含冻结应用、调整厂商设置等控制")
         Group("作业帮系统组件控制") {
             QuickCommandItem(
                 if (allFrozen) "解冻推荐的作业帮应用" else "冻结推荐的作业帮应用",
@@ -1712,7 +1712,7 @@ private fun QuickPage(a: QuickCommands) {
             Link("作业帮学习机系统环境控制", "读取和修改 persist.sys.env_config") {
                 a.startActivity(Intent(a, com.lijinmu.arashi.tools.ZybosEnvController::class.java))
             }
-            QuickCommandItem("special_enable_adb_debug", "设置值：开启为 1，关闭为 0") {
+            QuickCommandItem("special_enable_adb_debug", "这个厂商自定义设置并没有什么实际用处") {
                 selected = choose("special_enable_adb_debug") { enabled ->
                     val value = if (enabled) "1" else "0"
                     "settings put global special_enable_adb_debug $value && " +
@@ -1720,8 +1720,8 @@ private fun QuickPage(a: QuickCommands) {
                         "echo 'special_enable_adb_debug = $value'"
                 }
             }
-            QuickCommandItem("允许安装应用", "控制 sys.allow.install.package，关闭时清空属性") {
-                selected = choose("允许安装应用") { enabled ->
+            QuickCommandItem("允许 Shell 安装应用", "控制 sys.allow.install.package 属性") {
+                selected = choose("允许 Shell 安装应用") { enabled ->
                     val value = if (enabled) "true" else ""
                     "setprop sys.allow.install.package '$value' && " +
                         "[ \"\$(getprop sys.allow.install.package)\" = '$value' ] && " +
@@ -1737,7 +1737,7 @@ private fun QuickPage(a: QuickCommands) {
                 }
             }
         }
-        InfoCard("需要 root 权限，KernelSU 请手动授权，Magisk 弹窗时请允许授权。官方版 Arashi 不会执行危险指令")
+        InfoCard("Arashi 需要使用超级用户权限执行这些指令")
     }
 }
 
@@ -1795,7 +1795,7 @@ private fun SettingsPage(
     }
     Group("外观") {
         OverlayDropdownPreference(
-            items = listOf("蓝色", "紫色", "莫奈颜色"),
+            items = listOf("蓝色", "紫色", "系统默认的 Monet 颜色"),
             selectedIndex = selectedColorScheme,
             title = "配色模式",
             onSelectedIndexChange = { index ->
@@ -1851,7 +1851,7 @@ private fun SettingsPage(
                 }
             },
             title = "运行日志",
-            summary = "仅保留最近 12 小时的运行信息与异常，关闭后清空全部日志",
+            summary = "仅保留最近 12 小时的运行信息与异常",
             enabled = !togglingLogs,
         )
         AnimatedVisibility(
@@ -1893,7 +1893,7 @@ private fun SettingsPage(
                 }
             },
             title = "隐藏桌面图标",
-            summary = if (moduleActive) "隐藏后仍可从 LSPosed 管理器打开" else "需先激活 LSPosed 才能隐藏桌面图标",
+            summary = if (moduleActive) "隐藏后仍可从 LSPosed 管理器打开" else "需要先激活 LSPosed 才能隐藏桌面图标",
             enabled = moduleActive,
         )
 
@@ -1949,7 +1949,7 @@ private fun AboutPage(a: androidx.activity.ComponentActivity, back: () -> Unit) 
             }
     })
     AboutCard("作者", "李瑾沐", arrow = true, onClick = {
-        MiuixPages.showDetails(a, "关于作者", "首席开发者 : 李瑾沐 (H…Hey)\n小红书号 : failgach")
+        MiuixPages.showDetails(a, "关于作者", "首席开发者 : 李瑾沐 (H…Hey)\n小红书号 : failgacha")
     })
     AboutCard("GitHub 仓库", "lijinmu666/Arashi-for-Zybos", externalLink = true, onClick = {
         val url = "https://github.com/lijinmu666/Arashi-for-Zybos"
