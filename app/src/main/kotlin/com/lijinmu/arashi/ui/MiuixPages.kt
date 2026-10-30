@@ -1685,9 +1685,15 @@ private fun QuickPage(
     }
     var selected by remember { mutableStateOf<QuickAction?>(null) }
     var running by remember { mutableStateOf(false) }
-    fun choose(title: String, successMessageOnly: Boolean = false, command: (Boolean) -> String): QuickAction =
+    fun choose(
+        title: String,
+        successMessageOnly: Boolean = false,
+        enabledLabel: String = "开启",
+        disabledLabel: String = "关闭",
+        command: (Boolean) -> String,
+    ): QuickAction =
         QuickAction(title, listOf(true, false).map { enabled ->
-            QuickOption(if (enabled) "开启" else "关闭") { done ->
+            QuickOption(if (enabled) enabledLabel else disabledLabel) { done ->
                 commands.run(title, command(enabled), done)
             }
         }, successMessageOnly)
@@ -1782,7 +1788,8 @@ private fun QuickPage(
                 }
             }
             QuickCommandItem("允许 Shell 安装应用", "控制 sys.allow.install.package 属性") {
-                selected = choose("允许 Shell 安装应用", successMessageOnly = true) { enabled ->
+                selected = choose("允许 Shell 安装应用", successMessageOnly = true,
+                    enabledLabel = "true", disabledLabel = "默认") { enabled ->
                     val value = if (enabled) "true" else ""
                     "setprop sys.allow.install.package '$value' && " +
                         "[ \"\$(getprop sys.allow.install.package)\" = '$value' ] && " +
