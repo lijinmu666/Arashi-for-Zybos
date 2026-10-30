@@ -702,16 +702,13 @@ private fun JailbreakPage(a: Main) = Page(a, "越狱") {
                     5 -> TextButton("KernelSU ↗", {
                         a.packageManager.getLaunchIntentForPackage("me.weishu.kernelsu")?.let(a::startActivity)
                     })
-                    6 -> Box(
+                    6 -> TextButton(
+                        "返回",
+                        { stage = 0 },
                         modifier = Modifier
-                            .clip(androidx.compose.foundation.shape.RoundedCornerShape(14.dp))
-                            .background(Color(0xFFD32F2F))
-                            .clickable { stage = 0 }
-                            .padding(horizontal = 26.dp, vertical = 12.dp),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Text("返回", color = Color.White)
-                    }
+                            .clip(androidx.compose.foundation.shape.RoundedCornerShape(50))
+                            .background(Color(0xFFD32F2F)),
+                    )
                     7 -> {
                         TextButton("返回", { stage = 0 })
                         TextButton("安装", {
