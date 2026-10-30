@@ -585,7 +585,7 @@ private fun JailbreakPage(a: Main) = Page(a, "越狱") {
         label = "jailbreakCardColor",
     )
     Card(
-        modifier = Modifier.fillMaxWidth().animateContentSize(animationSpec = tween(360, easing = FastOutSlowInEasing)),
+        modifier = Modifier.fillMaxWidth().animateContentSize(animationSpec = tween(220, easing = FastOutSlowInEasing)),
         insideMargin = PaddingValues(20.dp),
         colors = CardDefaults.defaultColors(color = cardColor, contentColor = MiuixTheme.colorScheme.onSurface),
     ) {
@@ -593,11 +593,11 @@ private fun JailbreakPage(a: Main) = Page(a, "越狱") {
             AnimatedContent(
                 targetState = stage,
                 transitionSpec = {
-                    (fadeIn(tween(260, delayMillis = 60)) +
-                        slideInHorizontally(tween(320, easing = FastOutSlowInEasing)) { it / 9 })
+                    (fadeIn(tween(150)) +
+                        slideInHorizontally(tween(190, easing = FastOutSlowInEasing)) { it / 9 })
                         .togetherWith(
-                            fadeOut(tween(160)) +
-                                slideOutHorizontally(tween(240)) { -it / 9 }
+                            fadeOut(tween(110)) +
+                                slideOutHorizontally(tween(160)) { -it / 9 }
                         ).using(SizeTransform(clip = false))
                 },
                 label = "jailbreakStage",
@@ -609,7 +609,7 @@ private fun JailbreakPage(a: Main) = Page(a, "越狱") {
                 }
                 1 -> Text(problem)
                 2 -> {
-                    Text("请核对信息", style = MiuixTheme.textStyles.title2, fontWeight = FontWeight.Bold, color = MiuixTheme.colorScheme.onSurface)
+                    Text("请核对信息", style = MiuixTheme.textStyles.title3, fontWeight = FontWeight.Bold, color = MiuixTheme.colorScheme.onSurface)
                     listOf(
                         "产品型号" to deviceModel,
                         "Android 版本" to androidVersion,
