@@ -46,6 +46,7 @@ internal fun RuntimeLogPage(a: ComponentActivity, back: () -> Unit) {
     var records by remember { mutableStateOf<List<RuntimeLogStore.Record>>(emptyList()) }
     var loading by remember { mutableStateOf(false) }
     var initialLoading by remember { mutableStateOf(true) }
+    var refreshing by remember { mutableStateOf(false) }
     var exporting by remember { mutableStateOf(false) }
     var choosingExport by rememberSaveable { mutableStateOf(false) }
     var clearing by remember { mutableStateOf(false) }
@@ -55,7 +56,7 @@ internal fun RuntimeLogPage(a: ComponentActivity, back: () -> Unit) {
     val scope = rememberCoroutineScope()
     val operations = remember { Mutex() }
     val snackbar = remember { SnackbarHostState() }
-    val busy = loading || clearing || exporting || choosingExport || !loggingEnabled
+    val busy = initialLoading || loading || refreshing || clearing || exporting || choosingExport || !loggingEnabled
 
     suspend fun load(reset: Boolean) {
         operations.withLock {
@@ -73,6 +74,19 @@ internal fun RuntimeLogPage(a: ComponentActivity, back: () -> Unit) {
             } finally {
                 loading = false
                 initialLoading = false
+            }
+        }
+    }
+
+    fun refreshLogs() {
+        // Mark the request before launching so repeated pull gestures cannot queue reads.
+        if (initialLoading || loading || refreshing || clearing || exporting || choosingExport || !loggingEnabled) return
+        refreshing = true
+        scope.launch {
+            try {
+                load(reset = true)
+            } finally {
+                refreshing = false
             }
         }
     }
@@ -139,69 +153,75 @@ internal fun RuntimeLogPage(a: ComponentActivity, back: () -> Unit) {
             )
         },
     ) { innerPadding ->
-        LazyColumn(
+        PullToRefresh(
+            isRefreshing = refreshing,
+            onRefresh = ::refreshLogs,
             modifier = Modifier.fillMaxSize().padding(innerPadding).consumeWindowInsets(innerPadding),
-            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 28.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            refreshTexts = listOf("下拉刷新", "松开刷新", "正在刷新", "刷新完成"),
         ) {
-            item {
-                LogInfoCard("仅保留最近 12 小时的应用运行与 Hook 加载日志。导出包含全部保留日志，日志量过大时优先保留最新记录")
-            }
-            item {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    TextButton("刷新", { scope.launch { load(reset = true) } }, Modifier.weight(1f), enabled = !busy)
-                    TextButton(if (exporting) "正在导出…" else "导出", {
-                        choosingExport = true
-                        try {
-                            val stamp = SimpleDateFormat("yyyyMMdd-HHmmss", Locale.ROOT).format(Date())
-                            export.launch("Arashi-log-$stamp.txt")
-                        } catch (failure: RuntimeException) {
-                            choosingExport = false
-                            scope.launch { snackbar.showSnackbar("无法打开文件保存界面：${failure.message.orEmpty()}") }
-                        }
-                    }, Modifier.weight(1f), enabled = !busy)
-                    TextButton("清除", { confirmClear = true }, Modifier.weight(1f), enabled = !busy)
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 28.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                item {
+                    LogInfoCard("仅保留最近 12 小时的应用运行与 Hook 加载日志。导出包含全部保留日志，日志量过大时优先保留最新记录")
                 }
-            }
-            if (initialLoading || loading || clearing) item {
-                LogInfoCard(if (clearing) "正在清除日志…" else "正在读取日志…")
-            }
-            if (error != null) item { LogInfoCard("操作失败：${error.orEmpty()}") }
-            items(records, key = { it.id }) { record ->
-                var expanded by rememberSaveable(record.id) { mutableStateOf(false) }
-                val timestamp = remember(record.time) {
-                    SimpleDateFormat("MM-dd HH:mm:ss.SSS", Locale.getDefault()).format(Date(record.time))
-                }
-                Card(Modifier.fillMaxWidth(), insideMargin = PaddingValues(16.dp)) {
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("${record.level} · ${record.tag}", style = MiuixTheme.textStyles.title3,
-                            color = MiuixTheme.colorScheme.primary)
-                        Text("$timestamp · ${record.process} (${record.pid})",
-                            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                            style = MiuixTheme.textStyles.footnote1)
-                        SelectionContainer {
-                            Text(if (expanded) record.message else record.message.lineSequence().firstOrNull().orEmpty().take(240),
-                                style = MiuixTheme.textStyles.body1)
-                        }
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            if (record.message.contains('\n') || record.message.length > 240) {
-                                TextButton(if (expanded) "收起" else "查看详情", { expanded = !expanded })
+                item {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        TextButton(if (exporting) "正在导出…" else "导出", {
+                            choosingExport = true
+                            try {
+                                val stamp = SimpleDateFormat("yyyyMMdd-HHmmss", Locale.ROOT).format(Date())
+                                export.launch("Arashi-log-$stamp.txt")
+                            } catch (failure: RuntimeException) {
+                                choosingExport = false
+                                scope.launch { snackbar.showSnackbar("无法打开文件保存界面：${failure.message.orEmpty()}") }
                             }
-                            TextButton("复制", {
-                                a.getSystemService(ClipboardManager::class.java)?.setPrimaryClip(
-                                    ClipData.newPlainText("Arashi 运行日志", RuntimeLogStore.format(record)),
-                                )
-                                scope.launch { snackbar.showSnackbar("已复制日志") }
-                            })
+                        }, Modifier.weight(1f), enabled = !busy)
+                        TextButton("清除", { confirmClear = true }, Modifier.weight(1f), enabled = !busy)
+                    }
+                }
+                if (initialLoading || (loading && !refreshing) || clearing) item {
+                    LogInfoCard(if (clearing) "正在清除日志…" else "正在读取日志…")
+                }
+                if (error != null) item { LogInfoCard("操作失败：${error.orEmpty()}") }
+                items(records, key = { it.id }) { record ->
+                    var expanded by rememberSaveable(record.id) { mutableStateOf(false) }
+                    val timestamp = remember(record.time) {
+                        SimpleDateFormat("MM-dd HH:mm:ss.SSS", Locale.getDefault()).format(Date(record.time))
+                    }
+                    Card(Modifier.fillMaxWidth(), insideMargin = PaddingValues(16.dp)) {
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text("${record.level} · ${record.tag}", style = MiuixTheme.textStyles.title3,
+                                color = MiuixTheme.colorScheme.primary)
+                            Text("$timestamp · ${record.process} (${record.pid})",
+                                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                                style = MiuixTheme.textStyles.footnote1)
+                            SelectionContainer {
+                                Text(if (expanded) record.message else record.message.lineSequence().firstOrNull().orEmpty().take(240),
+                                    style = MiuixTheme.textStyles.body1)
+                            }
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                if (record.message.contains('\n') || record.message.length > 240) {
+                                    TextButton(if (expanded) "收起" else "查看详情", { expanded = !expanded })
+                                }
+                                TextButton("复制", {
+                                    a.getSystemService(ClipboardManager::class.java)?.setPrimaryClip(
+                                        ClipData.newPlainText("Arashi 运行日志", RuntimeLogStore.format(record)),
+                                    )
+                                    scope.launch { snackbar.showSnackbar("已复制日志") }
+                                })
+                            }
                         }
                     }
                 }
-            }
-            if (!initialLoading && !loading && records.isEmpty() && error == null) item {
-                LogInfoCard("最近 12 小时内暂无日志")
-            }
-            if (hasMore) item {
-                TextButton("加载更多", { scope.launch { load(reset = false) } }, Modifier.fillMaxWidth(), enabled = !busy)
+                if (!initialLoading && !loading && records.isEmpty() && error == null) item {
+                    LogInfoCard("最近 12 小时内暂无日志")
+                }
+                if (hasMore) item {
+                    TextButton("加载更多", { scope.launch { load(reset = false) } }, Modifier.fillMaxWidth(), enabled = !busy)
+                }
             }
         }
         OverlayDialog(
