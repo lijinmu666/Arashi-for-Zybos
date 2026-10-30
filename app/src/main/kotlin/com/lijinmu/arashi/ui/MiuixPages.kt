@@ -581,7 +581,6 @@ private fun JailbreakPage(a: Main) = Page(a, "越狱") {
             when (stage) {
                 0 -> {
                     Text("在不解锁BL、不修改系统的情况下使用KernelSU的越狱模式。")
-                    Text("内核版本不支持，在该设备上无法使用越狱模式！")
                 }
                 1 -> Text(problem)
                 2 -> {
@@ -594,9 +593,21 @@ private fun JailbreakPage(a: Main) = Page(a, "越狱") {
                 3 -> Text("Arashi 即将开始提权操作。")
                 4 -> {
                     Text("正在处理…")
-                    androidx.compose.material3.LinearProgressIndicator(
-                        modifier = Modifier.fillMaxWidth(),
+                    val infinite = androidx.compose.animation.core.rememberInfiniteTransition(label = "jailbreakProgress")
+                    val progress by infinite.animateFloat(
+                        initialValue = 0f, targetValue = 1f,
+                        animationSpec = androidx.compose.animation.core.infiniteRepeatable(
+                            animation = androidx.compose.animation.core.tween(1300),
+                        ), label = "progress",
                     )
+                    Canvas(Modifier.fillMaxWidth().height(4.dp)) {
+                        drawRoundRect(Color.Gray.copy(alpha = 0.25f), cornerRadius = androidx.compose.ui.geometry.CornerRadius(size.height / 2))
+                        val left = (size.width + size.width * 0.32f) * progress - size.width * 0.32f
+                        drawRoundRect(MiuixTheme.colorScheme.primary,
+                            topLeft = Offset(left, 0f),
+                            size = androidx.compose.ui.geometry.Size(size.width * 0.32f, size.height),
+                            cornerRadius = androidx.compose.ui.geometry.CornerRadius(size.height / 2))
+                    }
                 }
                 5 -> Text("提权完毕！！！请前往 KernelSU 继续。")
                 6 -> Text("提权失败，当前版本尚未接入 DirtyFrag VR 执行组件。")
@@ -604,7 +615,7 @@ private fun JailbreakPage(a: Main) = Page(a, "越狱") {
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                 when (stage) {
-                    0 -> TextButton("继续", {
+                    0 -> TextButton(if (checking) "正在检查…" else "继续", {
                         checking = true
                         scope.launch {
                             val result = withContext(Dispatchers.IO) {
@@ -637,7 +648,7 @@ private fun JailbreakPage(a: Main) = Page(a, "越狱") {
                                 else -> 2
                             }
                         }
-                    }, enabled = !checking)
+                    })
                     1 -> TextButton("重试", { stage = 0 })
                     2 -> TextButton("继续", { stage = 3 })
                     3 -> TextButton("继续", { stage = 6 })
