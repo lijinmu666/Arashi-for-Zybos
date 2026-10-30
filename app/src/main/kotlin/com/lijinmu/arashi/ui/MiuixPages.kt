@@ -24,13 +24,18 @@ import android.os.SystemClock
 import android.provider.Settings
 import android.view.WindowInsetsController
 import android.widget.ImageView
-import androidx.activity.compose.BackHandler
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
-import androidx.compose.animation.togetherWith
+import androidx.activity.ComponentActivity
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.saveable.rememberSaveableStateHolder
+import androidx.compose.runtime.saveable.Saver
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.unit.LayoutDirection
+import top.yukonga.miuix.kmp.nav.core.NavBackStack
+import top.yukonga.miuix.kmp.nav.core.NavKey
+import top.yukonga.miuix.kmp.nav.core.NavDisplay
+import top.yukonga.miuix.kmp.nav.core.NavDisplayEffects
+import top.yukonga.miuix.kmp.nav.core.navBackStackOf
+import top.yukonga.miuix.kmp.nav.core.rememberNavSystemCornerRadius
+import top.yukonga.miuix.kmp.nav.transition.NavSwipeDirection
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
@@ -485,55 +490,79 @@ private fun rememberSystemServerActivation(a: androidx.activity.ComponentActivit
     return active
 }
 
+// Enum names form a stable, Bundle-saveable route format without reflection/serialization.
+internal enum class ArashiRoute : NavKey {
+    Main, HookSettings, BackgroundWhitelist, TcpHistory, UninstallSettings,
+    UninstallWhitelist, UninstallBlacklist, UninstallHistory, Notifications, About, Logs, QuickCommands, ZybosEnv,
+}
+
+private val ArashiBackStackSaver = Saver<NavBackStack, ArrayList<String>>(
+    save = { stack -> ArrayList(stack.map { (it as ArashiRoute).name }) },
+    restore = { names ->
+        val routes = names.mapNotNull { name -> ArashiRoute.entries.find { it.name == name } }
+        navBackStackOf(*routes.ifEmpty { listOf(ArashiRoute.Main) }.toTypedArray())
+    },
+)
+
 @Composable
 private fun MainNavigationPage(a: Main) {
-    var route by rememberSaveable { mutableStateOf("main") }
-    val pageStates = rememberSaveableStateHolder()
-    val back = { route = "main" }
-    AnimatedContent(
-        targetState = route,
+    val stack = rememberSaveable(saver = ArashiBackStackSaver) { navBackStackOf(ArashiRoute.Main) }
+    val back: () -> Unit = { if (stack.size > 1) stack.removeAt(stack.lastIndex) }
+    val open: (ArashiRoute) -> Unit = { route ->
+        // The library requires unique entry identities, including during rapid repeated taps.
+        if (route !in stack) stack.add(route)
+    }
+    val direction = if (LocalLayoutDirection.current == LayoutDirection.Rtl)
+        NavSwipeDirection.RightToLeft else NavSwipeDirection.LeftToRight
+    NavDisplay(
+        backStack = stack,
         modifier = Modifier.fillMaxSize(),
-        transitionSpec = {
-            val forward = targetState != "main"
-            // Miuix layering: only the top page travels the full width.
-            val enter = slideInHorizontally(tween(PageMotion.DurationMillis, easing = PageMotion.Easing)) {
-                if (forward) it else -it / 4
-            } + if (forward) androidx.compose.animation.EnterTransition.None else
-                fadeIn(tween(PageMotion.DurationMillis, easing = PageMotion.Easing), initialAlpha = 0.9f)
-            val exit = slideOutHorizontally(tween(PageMotion.DurationMillis, easing = PageMotion.Easing)) {
-                if (forward) -it / 4 else it
-            } + if (forward)
-                fadeOut(tween(PageMotion.DurationMillis, easing = PageMotion.Easing), targetAlpha = 0.9f)
-                else androidx.compose.animation.ExitTransition.None
-            (enter togetherWith exit).apply {
-                targetContentZIndex = if (forward) 1f else -1f
-            }.using(null)
-        },
-        label = "settingsNavigation",
-    ) { destination ->
-        pageStates.SaveableStateProvider(destination) {
+        onBack = back,
+        effects = NavDisplayEffects(
+            cornerClipRadius = rememberNavSystemCornerRadius(),
+            backdropColor = MiuixTheme.colorScheme.background,
+        ),
+    ) {
+        entry<ArashiRoute>(swipeDismiss = direction) { destination ->
             when (destination) {
-                "notifications" -> NotificationSettingsPage(a, back)
-                "about" -> AboutPage(a, back)
-                "logs" -> RuntimeLogPage(a, back)
-                else -> ArashiNavigation(a) { page ->
-                    if (page == 0) HomePage(a, bottomBar = {})
-                    else SettingsPage(
-                        a,
-                        onNotifications = { route = "notifications" },
-                        onAbout = { route = "about" },
-                        onLogs = { route = "logs" },
-                    )
+                ArashiRoute.HookSettings -> HookPage(a, back,
+                    { open(ArashiRoute.TcpHistory) }, { open(ArashiRoute.BackgroundWhitelist) })
+                ArashiRoute.BackgroundWhitelist -> BackgroundWhitelistPage(a, back)
+                ArashiRoute.TcpHistory -> TcpHistoryPage(a, back)
+                ArashiRoute.UninstallSettings -> UninstallPage(a, back,
+                    { open(ArashiRoute.UninstallWhitelist) }, { open(ArashiRoute.UninstallBlacklist) },
+                    { open(ArashiRoute.UninstallHistory) })
+                ArashiRoute.UninstallWhitelist -> UninstallListPage(a, false, back)
+                ArashiRoute.UninstallBlacklist -> UninstallListPage(a, true, back)
+                ArashiRoute.UninstallHistory -> UninstallHistoryPage(a, back)
+                ArashiRoute.QuickCommands -> QuickPage(a, back, { open(ArashiRoute.ZybosEnv) })
+                ArashiRoute.ZybosEnv -> ZybosEnvPage(a, back)
+                ArashiRoute.Notifications -> NotificationSettingsPage(a, back)
+                ArashiRoute.About -> AboutPage(a, back)
+                ArashiRoute.Logs -> RuntimeLogPage(a, back)
+                ArashiRoute.Main -> ArashiNavigation(a) { page ->
+                    if (page == 0) HomePage(a, bottomBar = {},
+                        onHookSettings = { open(ArashiRoute.HookSettings) },
+                        onQuickCommands = { open(ArashiRoute.QuickCommands) },
+                        onUninstallSettings = { open(ArashiRoute.UninstallSettings) })
+                    else SettingsPage(a,
+                        onNotifications = { open(ArashiRoute.Notifications) },
+                        onAbout = { open(ArashiRoute.About) },
+                        onLogs = { open(ArashiRoute.Logs) })
                 }
             }
         }
     }
-    // Register after the tab handler so detail pages always return to settings.
-    BackHandler(enabled = route != "main") { back() }
 }
 
 @Composable
-private fun HomePage(a: Main, bottomBar: @Composable () -> Unit) =
+private fun HomePage(
+    a: Main,
+    bottomBar: @Composable () -> Unit,
+    onHookSettings: () -> Unit,
+    onQuickCommands: () -> Unit,
+    onUninstallSettings: () -> Unit,
+) =
     Page(a, "Arashi for Zybos", bottomBar = bottomBar) {
     val moduleActive by rememberSystemServerActivation(a)
     val statusColor = if (moduleActive) MiuixTheme.colorScheme.primary else Color.White
@@ -601,9 +630,9 @@ private fun HomePage(a: Main, bottomBar: @Composable () -> Unit) =
         }
     }
     Group("功能") {
-        Link("Hook 设置", "控制 Hook 是否启用", Icons.Rounded.Extension) { a.startActivity(Intent(a, HookSettings::class.java)) }
-        Link("快捷指令执行", "调整设置、冻结应用等快捷操作", Icons.Rounded.Terminal) { a.startActivity(Intent(a, QuickCommands::class.java)) }
-        Link("卸载验证设置", "验证发起的卸载请求", Icons.Rounded.Delete) { a.startActivity(Intent(a, UninstallSettings::class.java)) }
+        Link("Hook 设置", "控制 Hook 是否启用", Icons.Rounded.Extension) { onHookSettings() }
+        Link("快捷指令执行", "调整设置、冻结应用等快捷操作", Icons.Rounded.Terminal) { onQuickCommands() }
+        Link("卸载验证设置", "验证发起的卸载请求", Icons.Rounded.Delete) { onUninstallSettings() }
     }
 }
 
@@ -626,14 +655,27 @@ private fun UnsupportedDevicePage(a: Main) = Page(a, "Arashi") {
 private data class HookItem(val title: String, val summary: String, val key: String)
 
 @Composable
-private fun HookPage(a: HookSettings) {
+private fun HookPage(
+    a: ComponentActivity,
+    back: () -> Unit = a::finish,
+    onTcpHistory: () -> Unit = { a.startActivity(Intent(a, TcpHistoryActivity::class.java)) },
+    onBackgroundWhitelist: () -> Unit = { a.startActivity(Intent(a, BackgroundWhitelistActivity::class.java)) },
+) {
+    LaunchedEffect(a) {
+        if (a.getSharedPreferences(HookConfig.PREF_NAME, Context.MODE_PRIVATE)
+                .getBoolean(HookConfig.KEY_BLOCK_TCP_LOGIN_FAIL, false) &&
+            com.lijinmu.arashi.notifications.NotificationPreferences.enabled(a,
+                com.lijinmu.arashi.notifications.NotificationPreferences.TCP)) {
+            com.lijinmu.arashi.notifications.AppNotifications.requestPermissionIfNeeded(a)
+        }
+    }
     var query by rememberSaveable { mutableStateOf("") }
     var actionsExpanded by remember { mutableStateOf(false) }
     var stoppingScopes by remember { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
     val snackbar = remember { SnackbarHostState() }
 
-    Page(a, "Hook 设置", a::finish,
+    Page(a, "Hook 设置", back,
         snackbarHost = { SnackbarHost(snackbar) },
         actions = {
         Box {
@@ -846,7 +888,7 @@ private fun HookPage(a: HookSettings) {
                             ArrowPreference(
                                 title = tcpHistoryTitle,
                                 summary = tcpHistorySummary,
-                                onClick = { a.startActivity(Intent(a, TcpHistoryActivity::class.java)) },
+                                onClick = onTcpHistory,
                             )
                         }
                         if (entry.key == HookConfig.KEY_DEV_OPTIONS) {
@@ -910,7 +952,7 @@ private fun HookPage(a: HookSettings) {
                                 title = backgroundListTitle,
                                 summary = backgroundListSummary,
                                 onClick = {
-                                    a.startActivity(Intent(a, BackgroundWhitelistActivity::class.java))
+                                    onBackgroundWhitelist()
                                 },
                             )
                         }
@@ -984,7 +1026,7 @@ private fun AppPickerCheckbox(
 }
 
 @Composable
-private fun BackgroundWhitelistPage(a: BackgroundWhitelistActivity) {
+private fun BackgroundWhitelistPage(a: ComponentActivity, back: () -> Unit = a::finish) {
     val prefs = a.getSharedPreferences(HookConfig.PREF_NAME, Context.MODE_PRIVATE)
     var selected by remember {
         mutableStateOf(prefs.getStringSet(HookConfig.KEY_KEEP_BACKGROUND_WHITELIST, emptySet()).orEmpty().toSet())
@@ -1028,7 +1070,7 @@ private fun BackgroundWhitelistPage(a: BackgroundWhitelistActivity) {
             SmallTopAppBar(
                 title = "后台保留白名单",
                 navigationIcon = {
-                    IconButton(onClick = a::finish) {
+                    IconButton(onClick = back) {
                         Icon(MiuixIcons.Back, contentDescription = "返回")
                     }
                 },
@@ -1086,7 +1128,13 @@ private data class UninstallChoice(
 )
 
 @Composable
-private fun UninstallPage(a: UninstallSettings) = Page(a, "卸载验证", a::finish) {
+private fun UninstallPage(
+    a: ComponentActivity,
+    back: () -> Unit = a::finish,
+    onWhitelist: () -> Unit = { a.startActivity(Intent(a, UninstallListActivity::class.java).putExtra("blacklist", false)) },
+    onBlacklist: () -> Unit = { a.startActivity(Intent(a, UninstallListActivity::class.java).putExtra("blacklist", true)) },
+    onHistory: () -> Unit = { a.startActivity(Intent(a, UninstallHistoryActivity::class.java)) },
+) = Page(a, "卸载验证", back) {
     val prefs = a.getSharedPreferences(UninstallConfig.PREF_NAME, Context.MODE_PRIVATE)
     var moduleActive by rememberSystemServerActivation(a)
     var enabled by remember { mutableStateOf(prefs.getBoolean(UninstallConfig.ENABLED, false)) }
@@ -1158,21 +1206,21 @@ private fun UninstallPage(a: UninstallSettings) = Page(a, "卸载验证", a::fin
 
     Group("发起方策略") {
         Link("白名单", "白名单中的发起方不会弹窗向你确认，直接允许") {
-            a.startActivity(Intent(a, UninstallListActivity::class.java).putExtra("blacklist", false))
+            onWhitelist()
         }
         Link("黑名单", "与白名单排斥，黑名单直接拒绝卸载。优先于白名单") {
-            a.startActivity(Intent(a, UninstallListActivity::class.java).putExtra("blacklist", true))
+            onBlacklist()
         }
     }
     Group("记录") {
         Link("卸载记录", "查看允许和拒绝的卸载验证记录") {
-            a.startActivity(Intent(a, UninstallHistoryActivity::class.java))
+            onHistory()
         }
     }
 }
 
 @Composable
-private fun UninstallHistoryPage(a: UninstallHistoryActivity) {
+private fun UninstallHistoryPage(a: ComponentActivity, back: () -> Unit = a::finish) {
     var records by remember { mutableStateOf<List<UninstallHistoryStore.Record>>(emptyList()) }
     var request by remember { mutableIntStateOf(0) }
     var confirmClear by remember { mutableStateOf(false) }
@@ -1244,7 +1292,7 @@ private fun UninstallHistoryPage(a: UninstallHistoryActivity) {
             SmallTopAppBar(
                 title = "卸载记录",
                 navigationIcon = {
-                    IconButton(onClick = a::finish) {
+                    IconButton(onClick = back) {
                         Icon(MiuixIcons.Back, contentDescription = "返回")
                     }
                 },
@@ -1349,7 +1397,7 @@ private fun UninstallHistoryPage(a: UninstallHistoryActivity) {
 }
 
 @Composable
-private fun UninstallListPage(a: UninstallListActivity, blacklist: Boolean) {
+private fun UninstallListPage(a: ComponentActivity, blacklist: Boolean, back: () -> Unit = a::finish) {
     val prefKey = if (blacklist) UninstallConfig.BLACKLIST else UninstallConfig.WHITELIST
     val title = if (blacklist) "卸载黑名单" else "卸载白名单"
     val prefs = a.getSharedPreferences(UninstallConfig.PREF_NAME, Context.MODE_PRIVATE)
@@ -1416,7 +1464,7 @@ private fun UninstallListPage(a: UninstallListActivity, blacklist: Boolean) {
             SmallTopAppBar(
                 title = title,
                 navigationIcon = {
-                    IconButton(onClick = a::finish) {
+                    IconButton(onClick = back) {
                         Icon(MiuixIcons.Back, contentDescription = "返回")
                     }
                 },
@@ -1610,7 +1658,12 @@ private data class QuickOption(val label: String, val execute: (QuickCommands.Co
 private data class QuickAction(val title: String, val options: List<QuickOption>)
 
 @Composable
-private fun QuickPage(a: QuickCommands) {
+private fun QuickPage(
+    a: ComponentActivity,
+    back: () -> Unit = a::finish,
+    onZybosEnv: () -> Unit = { a.startActivity(Intent(a, com.lijinmu.arashi.tools.ZybosEnvController::class.java)) },
+) {
+    val commands = remember(a) { com.lijinmu.arashi.tools.QuickCommandController(a) }
     var allFrozen by remember { mutableStateOf(false) }
     var confirmFreeze by remember { mutableStateOf<Boolean?>(null) }
     var freezeRunning by remember { mutableStateOf(false) }
@@ -1620,7 +1673,7 @@ private fun QuickPage(a: QuickCommands) {
     fun refreshFrozen() {
         val version = ++freezeQueryVersion
         allFrozen = false
-        a.queryRecommendedFrozen { frozen, _ -> if (version == freezeQueryVersion) allFrozen = frozen }
+        commands.queryRecommendedFrozen { frozen, _ -> if (version == freezeQueryVersion) allFrozen = frozen }
     }
     DisposableEffect(a) {
         val observer = LifecycleEventObserver { _, event ->
@@ -1635,7 +1688,7 @@ private fun QuickPage(a: QuickCommands) {
     fun choose(title: String, command: (Boolean) -> String): QuickAction =
         QuickAction(title, listOf(true, false).map { enabled ->
             QuickOption(if (enabled) "开启" else "关闭") { done ->
-                a.run(title, command(enabled), done)
+                commands.run(title, command(enabled), done)
             }
         })
     val completion = QuickCommands.Completion { success, output ->
@@ -1644,7 +1697,7 @@ private fun QuickPage(a: QuickCommands) {
         MiuixPages.showMessage(a, if (success) "执行完毕" else "执行失败", output)
     }
     Page(
-        a, "快捷指令执行", a::finish,
+        a, "快捷指令执行", back,
         snackbarHost = { SnackbarHost(componentSnackbar) },
         overlay = {
             OverlayDialog(
@@ -1669,7 +1722,7 @@ private fun QuickPage(a: QuickCommands) {
                         if (freeze != null && !freezeRunning) {
                             freezeRunning = true
                             freezeQueryVersion++
-                            a.setRecommendedFrozen(freeze) { _, result ->
+                            commands.setRecommendedFrozen(freeze) { _, result ->
                                 freezeRunning = false
                                 confirmFreeze = null
                                 refreshFrozen()
@@ -1710,7 +1763,7 @@ private fun QuickPage(a: QuickCommands) {
         }
         Group("设置") {
             Link("作业帮学习机系统环境控制", "读取和修改 persist.sys.env_config") {
-                a.startActivity(Intent(a, com.lijinmu.arashi.tools.ZybosEnvController::class.java))
+                onZybosEnv()
             }
             QuickCommandItem("special_enable_adb_debug", "这个厂商自定义设置并没有什么实际用处") {
                 selected = choose("special_enable_adb_debug") { enabled ->
@@ -2013,7 +2066,7 @@ private fun NotificationSettingsPage(a: androidx.activity.ComponentActivity, bac
 }
 
 @Composable
-private fun ZybosEnvPage(a: com.lijinmu.arashi.tools.ZybosEnvController) = Page(a, "Zybos 环境控制", a::finish) {
+private fun ZybosEnvPage(a: ComponentActivity, back: () -> Unit = a::finish) = Page(a, "Zybos 环境控制", back) {
     val environments = listOf("PRODUCTION", "TEST", "MOCK")
     var original by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf<String?>(null) }
     var environment by androidx.compose.runtime.saveable.rememberSaveable { mutableIntStateOf(0) }
@@ -2031,7 +2084,7 @@ private fun ZybosEnvPage(a: com.lijinmu.arashi.tools.ZybosEnvController) = Page(
         if (original == null) {
             busy = true
             try {
-                accept(withContext(Dispatchers.IO) { a.readConfig() })
+                accept(withContext(Dispatchers.IO) { com.lijinmu.arashi.tools.ZybosEnvController.readConfig() })
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (failure: Exception) {
@@ -2076,7 +2129,7 @@ private fun ZybosEnvPage(a: com.lijinmu.arashi.tools.ZybosEnvController) = Page(
                 val selectedTips = tips
                 scope.launch {
                     try {
-                        accept(withContext(Dispatchers.IO) { a.applyConfig(base, selectedEnv, selectedTools, selectedTips) })
+                        accept(withContext(Dispatchers.IO) { com.lijinmu.arashi.tools.ZybosEnvController.applyConfig(base, selectedEnv, selectedTools, selectedTips) })
                         MiuixPages.showMessage(a, "", "写入完毕")
                     } catch (cancelled: CancellationException) {
                         throw cancelled
@@ -2100,7 +2153,7 @@ private fun ZybosEnvPage(a: com.lijinmu.arashi.tools.ZybosEnvController) = Page(
                 busy = true
                 scope.launch {
                     try {
-                        val json = withContext(Dispatchers.IO) { a.readFormattedProperty() }
+                        val json = withContext(Dispatchers.IO) { com.lijinmu.arashi.tools.ZybosEnvController.readFormattedProperty() }
                         MiuixPages.showDetails(a, "当前环境配置", json)
                     } catch (cancelled: CancellationException) {
                         throw cancelled
@@ -2122,7 +2175,7 @@ private fun ZybosEnvPage(a: com.lijinmu.arashi.tools.ZybosEnvController) = Page(
                 busy = true
                 scope.launch {
                     try {
-                        accept(withContext(Dispatchers.IO) { a.resetConfig() })
+                        accept(withContext(Dispatchers.IO) { com.lijinmu.arashi.tools.ZybosEnvController.resetConfig() })
                         showTools = false
                         tips = false
                         MiuixPages.showMessage(a, "", "已重置为默认")

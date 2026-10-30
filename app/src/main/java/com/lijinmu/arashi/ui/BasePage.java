@@ -18,13 +18,10 @@ public abstract class BasePage extends ComponentActivity {
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
         com.lijinmu.arashi.logs.RuntimeLogger.info("Activity", "打开 " + getClass().getSimpleName());
-        // Window animation styles alone are not sufficient for in-task launches.
-        // The destination owns both transitions on Android 14 and newer.
-        if (Build.VERSION.SDK_INT >= 34 && !(this instanceof com.lijinmu.arashi.Main)) {
-            overrideActivityTransition(OVERRIDE_TRANSITION_OPEN,
-                    R.anim.page_enter_right, R.anim.page_exit_left);
-            overrideActivityTransition(OVERRIDE_TRANSITION_CLOSE,
-                    R.anim.page_enter_left, R.anim.page_exit_right);
+        // Android 14+ owns cross-Activity predictive transitions. XML/legacy overrides
+        // are retained only for older Android releases below.
+        if (Build.VERSION.SDK_INT >= 34) {
+            getWindow().setWindowAnimations(android.R.style.Animation_Activity);
         }
         shownThemeMode = getSharedPreferences("ui", MODE_PRIVATE).getInt("mode", 0);
         shownDark = Ui.dark(this);

@@ -38,7 +38,7 @@ import java.util.Date
 import java.util.Locale
 
 @Composable
-internal fun TcpHistoryPage(a: TcpHistoryActivity) {
+internal fun TcpHistoryPage(a: androidx.activity.ComponentActivity, back: () -> Unit = a::finish) {
     var records by remember { mutableStateOf<List<TcpHistoryStore.Record>>(emptyList()) }
     var request by remember { mutableIntStateOf(0) }
     var loading by remember { mutableStateOf(true) }
@@ -110,7 +110,7 @@ internal fun TcpHistoryPage(a: TcpHistoryActivity) {
             SmallTopAppBar(
                 title = "TCP 拦截记录",
                 navigationIcon = {
-                    IconButton(onClick = a::finish) {
+                    IconButton(onClick = back) {
                         Icon(MiuixIcons.Back, contentDescription = "返回")
                     }
                 },

@@ -9,17 +9,17 @@ public final class ZybosEnvController extends BasePage {
         MiuixPages.renderZybosEnvController(this);
     }
 
-    private String readProperty() {
+    private static String readProperty() {
         RootShell.Result result = RootShell.run("getprop " + ZybosEnvConfig.PROPERTY);
         if (!result.ok) throw new IllegalStateException(result.output);
         return result.output.trim();
     }
 
-    public ZybosEnvConfig readConfig() throws Exception {
+    public static ZybosEnvConfig readConfig() throws Exception {
         return ZybosEnvConfig.parse(readProperty());
     }
 
-    public String readFormattedProperty() {
+    public static String readFormattedProperty() {
         String raw = readProperty();
         if (raw.isEmpty()) return "属性为空";
         try {
@@ -29,16 +29,16 @@ public final class ZybosEnvController extends BasePage {
         }
     }
 
-    public ZybosEnvConfig applyConfig(String original, String environment, boolean showTools, boolean tips)
+    public static ZybosEnvConfig applyConfig(String original, String environment, boolean showTools, boolean tips)
             throws Exception {
         return write(ZybosEnvConfig.update(original, environment, showTools, tips));
     }
 
-    public ZybosEnvConfig resetConfig() throws Exception {
+    public static ZybosEnvConfig resetConfig() throws Exception {
         return write(ZybosEnvConfig.DEFAULT_JSON);
     }
 
-    private ZybosEnvConfig write(String json) throws Exception {
+    private static ZybosEnvConfig write(String json) throws Exception {
         RootShell.Result result = RootShell.run(ZybosEnvConfig.writeCommand(json));
         if (!result.ok) throw new IllegalStateException(result.output);
         if (!json.equals(result.output.trim())) {

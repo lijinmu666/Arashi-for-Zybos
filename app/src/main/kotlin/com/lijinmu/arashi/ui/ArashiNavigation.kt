@@ -3,7 +3,9 @@ package com.lijinmu.arashi.ui
 import android.graphics.RenderEffect
 import android.graphics.Shader
 import androidx.activity.ComponentActivity
-import androidx.activity.compose.BackHandler
+import androidx.navigationevent.NavigationEventInfo
+import androidx.navigationevent.compose.NavigationBackHandler
+import androidx.navigationevent.compose.rememberNavigationEventState
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
@@ -69,7 +71,14 @@ internal fun ArashiNavigation(a: ComponentActivity, content: @Composable (Int) -
     val select: (Int) -> Unit = { index ->
         scope.launch { pager.animateScrollToPage(index, animationSpec = spring(dampingRatio = 0.9f, stiffness = 400f)) }
     }
-    BackHandler(enabled = pager.currentPage != 0) { select(0) }
+    // Use the entry-scoped dispatcher, as KernelSU does, so a covered tab cannot
+    // intercept the detail page's predictive gesture or an open overlay's back.
+    val backState = rememberNavigationEventState(NavigationEventInfo.None)
+    NavigationBackHandler(
+        state = backState,
+        isBackEnabled = pager.currentPage != 0,
+        onBackCompleted = { select(0) },
+    )
     Box(Modifier.fillMaxSize()) {
         Scaffold(
             contentWindowInsets = WindowInsets(0, 0, 0, 0),
