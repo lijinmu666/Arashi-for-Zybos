@@ -610,10 +610,28 @@ private fun JailbreakPage(a: Main) = Page(a, "越狱") {
                 1 -> Text(problem)
                 2 -> {
                     Text("请核对信息")
-                    Text("品牌：作业帮")
-                    Text("型号：$deviceModel")
-                    Text("Android版本：$androidVersion")
-                    Text("内核版本：$kernelVersion")
+                    listOf(
+                        "型号" to deviceModel,
+                        "Android 版本" to androidVersion,
+                        "内核版本" to kernelVersion,
+                    ).forEach { (label, value) ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.Top,
+                        ) {
+                            Text(
+                                text = label,
+                                modifier = Modifier.width(116.dp),
+                                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                            )
+                            Text(
+                                text = value,
+                                modifier = Modifier.weight(1f),
+                                textAlign = androidx.compose.ui.text.style.TextAlign.End,
+                            )
+                        }
+                    }
                 }
                 3 -> Text("Arashi 即将开始提权操作。")
                 4 -> {
