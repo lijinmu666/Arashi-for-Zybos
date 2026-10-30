@@ -674,7 +674,7 @@ private fun JailbreakPage(a: Main) = Page(a, "越狱") {
                 }
                 }
             }
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.End)) {
                 when (stage) {
                     0 -> TextButton(if (checking) "正在检查…" else "继续", {
                         if (checking) return@TextButton
