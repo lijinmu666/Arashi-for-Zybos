@@ -1,8 +1,5 @@
 name: Debug APK v1.2.0 预发布
 on:
-  push:
-    branches: [main]
-    paths: ['.github/workflows/debug-prerelease.yml']
   workflow_dispatch:
 permissions:
   contents: write
