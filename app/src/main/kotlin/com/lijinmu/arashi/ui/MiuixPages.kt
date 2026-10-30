@@ -580,7 +580,7 @@ private fun JailbreakPage(a: Main) = Page(a, "越狱") {
     val error = stage == 1 || stage == 6
     val cardColor by animateColorAsState(
         targetValue = if (error) Color(0xFFB3261E).copy(alpha = 0.20f)
-            else MiuixTheme.colorScheme.surface,
+            else MiuixTheme.colorScheme.tertiaryContainer,
         animationSpec = tween(durationMillis = 320),
         label = "jailbreakCardColor",
     )
