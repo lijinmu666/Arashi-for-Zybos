@@ -97,6 +97,7 @@ public final class QuickCommands extends BasePage {
     }
 
     public void setRecommendedFrozen(boolean freeze, Completion completion) {
+        com.lijinmu.arashi.logs.RuntimeLogger.info("QuickCommands", (freeze ? "冻结" : "解冻") + "推荐的作业帮应用");
         new Thread(() -> {
             int userId = currentUserId();
             java.util.List<String> failed = new java.util.ArrayList<>();
@@ -125,6 +126,8 @@ public final class QuickCommands extends BasePage {
             String message = failed.isEmpty() ? action + "指令全部执行成功"
                     : failed.size() == RECOMMENDED_PACKAGES.length ? action + "指令全部执行失败"
                     : action + "指令部分执行失败：" + String.join("、", failed);
+            com.lijinmu.arashi.logs.RuntimeLogger.record(failed.isEmpty() ? "INFO" : "WARN",
+                    "QuickCommands", message, null);
             ui.post(() -> {
                 if (!isFinishing() && !isDestroyed()) completion.onComplete(failed.isEmpty(), message);
             });
@@ -132,8 +135,10 @@ public final class QuickCommands extends BasePage {
     }
 
     public void run(String title, String command, Completion completion) {
+        com.lijinmu.arashi.logs.RuntimeLogger.info("QuickCommands", "执行：" + title);
         new Thread(() -> {
             RootShell.Result result = RootShell.run(command);
+            com.lijinmu.arashi.logs.RuntimeLogger.info("QuickCommands", title + (result.ok ? "：成功" : "：失败"));
             ui.post(() -> {
                 if (isFinishing() || isDestroyed()) return;
                 completion.onComplete(result.ok, result.output);
@@ -141,3 +146,4 @@ public final class QuickCommands extends BasePage {
         }, "Arashi-Root").start();
     }
 }
+

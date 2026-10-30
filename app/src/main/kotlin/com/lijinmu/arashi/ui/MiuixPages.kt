@@ -158,6 +158,10 @@ object MiuixPages {
 
     @JvmStatic fun renderUnsupportedDevice(a: Main) = render(a) { UnsupportedDevicePage(a) }
     @JvmStatic fun showMessage(a: Activity, title: String, body: String) {
+        com.lijinmu.arashi.logs.RuntimeLogger.record(
+            if (title.contains("失败") || title.contains("错误")) "WARN" else "INFO",
+            "Operation", (title + "\n" + body).trim(), null,
+        )
         a.runOnUiThread { messageState(a).value = Message(title, body, feedback = true) }
     }
 
@@ -511,12 +515,14 @@ private fun MainNavigationPage(a: Main) {
             when (destination) {
                 "notifications" -> NotificationSettingsPage(a, back)
                 "about" -> AboutPage(a, back)
+                "logs" -> RuntimeLogPage(a, back)
                 else -> ArashiNavigation(a) { page ->
                     if (page == 0) HomePage(a, bottomBar = {})
                     else SettingsPage(
                         a,
                         onNotifications = { route = "notifications" },
                         onAbout = { route = "about" },
+                        onLogs = { route = "logs" },
                     )
                 }
             }
@@ -1723,6 +1729,7 @@ private fun SettingsPage(
     a: androidx.activity.ComponentActivity,
     onNotifications: () -> Unit,
     onAbout: () -> Unit,
+    onLogs: () -> Unit,
 ) = Page(a, "应用偏好设置") {
     val prefs = a.getSharedPreferences("ui", Context.MODE_PRIVATE)
     val themeNames = listOf("默认", "开启", "关闭")
@@ -1786,6 +1793,7 @@ private fun SettingsPage(
         }
     }
     Group("其他") {
+        Link("运行日志", "查看最近 12 小时的日志，支持导出与清除", action = onLogs)
         SwitchPreference(
             checked = hidden,
             onCheckedChange = { requested ->
@@ -1800,6 +1808,7 @@ private fun SettingsPage(
                             android.content.pm.PackageManager.DONT_KILL_APP,
                         )
                         hidden = requested
+                        com.lijinmu.arashi.logs.RuntimeLogger.info("Settings", "隐藏桌面图标 = $requested")
                     } catch (error: RuntimeException) {
                         MiuixPages.showMessage(a, "切换失败", "无法更改桌面图标状态：${error.message}")
                     }
@@ -2054,4 +2063,5 @@ private fun ZybosEnvPage(a: com.lijinmu.arashi.tools.ZybosEnvController) = Page(
         enabled = !busy,
     )
 }
+
 

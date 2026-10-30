@@ -39,11 +39,29 @@ private static final Map<Integer, Boolean> TRUSTED_UID_CACHE = new ConcurrentHas
 
     @Override
     public Bundle call(String method, String arg, Bundle extras) {
+        if (com.lijinmu.arashi.logs.HookLogBridge.METHOD.equals(method)) {
+            Context context = getContext();
+            if (context == null || extras == null || !isTrustedCaller()) return null;
+            try {
+                java.util.ArrayList<Bundle> entries = android.os.Build.VERSION.SDK_INT >= 33
+                        ? extras.getParcelableArrayList("entries", Bundle.class)
+                        : extras.getParcelableArrayList("entries");
+                if (entries == null) return null;
+                // Bound each IPC request before processing host-supplied data.
+                com.lijinmu.arashi.logs.RuntimeLogStore.appendBatch(context,
+                        entries.subList(0, Math.min(16, entries.size())));
+                return Bundle.EMPTY;
+            } catch (RuntimeException error) {
+                Log.w(TAG, "Runtime logs unavailable", error);
+                return null;
+            }
+        }
         if (METHOD_ADD_TCP_RECORD.equals(method)) {
             Context context = getContext();
             if (context == null || extras == null || !isTcpRecordCaller(context)) return null;
             try {
                 long recordId = com.lijinmu.arashi.tcp.TcpHistoryStore.append(context, extras);
+                com.lijinmu.arashi.logs.RuntimeLogger.info("TCP", "已记录 login.fail 广播拦截，记录 ID=" + recordId);
                 // Attribute notification permission and PendingIntent ownership to Arashi,
                 // not the remote TCP caller. Authenticate before clearing Binder identity.
                 long identity = Binder.clearCallingIdentity();
@@ -67,6 +85,7 @@ private static final Map<Integer, Boolean> TRUSTED_UID_CACHE = new ConcurrentHas
             if (context == null) return null;
             try {
                 long recordId = UninstallHistoryStore.append(context, extras);
+                com.lijinmu.arashi.logs.RuntimeLogger.info("Uninstall", "已处理卸载验证请求，记录 ID=" + recordId);
                 long identity = Binder.clearCallingIdentity();
                 try {
                     com.lijinmu.arashi.notifications.UninstallNotifications.post(context, recordId, extras);
@@ -105,6 +124,7 @@ Log.w(TAG, "reject untrusted caller uid=" + Binder.getCallingUid());
                             STATUS_PREF_NAME, Context.MODE_PRIVATE);
                     if (runtime.getInt(KEY_SYSTEM_SERVER_BOOT, -1) != boot) {
                         runtime.edit().putInt(KEY_SYSTEM_SERVER_BOOT, boot).apply();
+                        com.lijinmu.arashi.logs.RuntimeLogger.info("Hook", "系统框架 Hook 已响应，启动编号=" + boot);
                     }
                     UninstallConfig.syncActivation(context, true);
                 }
@@ -247,3 +267,4 @@ if (trusted) {
         return 0;
     }
 }
+

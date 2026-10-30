@@ -28,6 +28,8 @@ jobs:
           distribution: temurin
           java-version: '21'
       - uses: gradle/actions/setup-gradle@v4
+      - name: 验证运行日志保留、分页和跨进程队列
+        run: python3 tests/check_runtime_logs.py
       - name: 验证失效应用选择清理规则
         run: python3 tests/check_installed_selections.py
       - name: 验证独立通知长按功能
@@ -159,3 +161,4 @@ jobs:
       - name: 清除临时签名文件
         if: always()
         run: rm -f keystore.properties "$RUNNER_TEMP/arashi-signing.jks"
+

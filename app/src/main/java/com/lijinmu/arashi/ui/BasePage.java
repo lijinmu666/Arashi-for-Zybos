@@ -17,6 +17,7 @@ public abstract class BasePage extends ComponentActivity {
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
+        com.lijinmu.arashi.logs.RuntimeLogger.info("Activity", "打开 " + getClass().getSimpleName());
         // Window animation styles alone are not sufficient for in-task launches.
         // The destination owns both transitions on Android 14 and newer.
         if (Build.VERSION.SDK_INT >= 34 && !(this instanceof com.lijinmu.arashi.Main)) {
@@ -110,3 +111,4 @@ public abstract class BasePage extends ComponentActivity {
         box.addView(description, p);
     }
 }
+

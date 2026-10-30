@@ -18,6 +18,7 @@ private static final int TIMEOUT_SECONDS = 60;
         Result(boolean ok, String output) {
             this.ok = ok;
             this.output = output;
+            if (!ok) com.lijinmu.arashi.logs.RuntimeLogger.warn("Root", "Root 命令执行失败：" + output);
         }
     }
 
@@ -57,3 +58,4 @@ static Result run(String command) {
         }
     }
 }
+

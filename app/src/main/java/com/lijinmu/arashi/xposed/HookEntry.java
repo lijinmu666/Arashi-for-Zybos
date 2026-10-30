@@ -39,6 +39,8 @@ public final class HookEntry extends XposedModule {
 
     @Override
     public void onModuleLoaded(ModuleLoadedParam param) {
+        try { com.lijinmu.arashi.logs.HookLogBridge.start(param.getProcessName()); }
+        catch (Throwable ignored) {}
         log("=== libxposed102 BUILD " + BUILD_TAG + " ===");
         ConfigManager.attach(this, param.isSystemServer());
         try {
@@ -51,6 +53,15 @@ public final class HookEntry extends XposedModule {
 
     @Override
     public void onSystemServerStarting(SystemServerStartingParam param) {
+        try {
+            installSystemServerHooks(param);
+        } catch (RuntimeException | Error error) {
+            com.lijinmu.arashi.logs.HookLogBridge.error("system_server Hook 加载失败", error);
+            throw error;
+        }
+    }
+
+    private void installSystemServerHooks(SystemServerStartingParam param) {
         log("onSystemServerStarting");
         ClassLoader cl = param.getClassLoader();
         ConfigManager.init("android");
@@ -64,6 +75,16 @@ public final class HookEntry extends XposedModule {
 
     @Override
     public void onPackageReady(PackageReadyParam param) {
+        try {
+            installPackageHooks(param);
+            log("onPackageReady complete: " + param.getPackageName());
+        } catch (RuntimeException | Error error) {
+            com.lijinmu.arashi.logs.HookLogBridge.error("应用 Hook 加载失败：" + param.getPackageName(), error);
+            throw error;
+        }
+    }
+
+    private void installPackageHooks(PackageReadyParam param) {
         String pkg = param.getPackageName();
         log("onPackageReady: " + pkg);
         if (PKG_SELF.equals(pkg)) {
@@ -108,11 +129,13 @@ private void hookSelfActivation(ClassLoader cl) {
             hook(m).intercept(chain -> true);
             log("module activation hook installed");
         } catch (Throwable t) {
+            com.lijinmu.arashi.logs.HookLogBridge.error("激活状态 Hook 安装失败", t);
             log("activation hook failed: " + t);
         }
     }
 
 private void log(String msg) {
+        com.lijinmu.arashi.logs.HookLogBridge.info(msg);
         android.util.Log.i(TAG, msg);
         try {
             log(android.util.Log.INFO, TAG, msg);
@@ -121,3 +144,4 @@ private void log(String msg) {
         }
     }
 }
+
