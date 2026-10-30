@@ -1712,6 +1712,22 @@ private fun QuickPage(a: QuickCommands) {
             Link("作业帮学习机系统环境控制", "读取和修改 persist.sys.env_config") {
                 a.startActivity(Intent(a, com.lijinmu.arashi.tools.ZybosEnvController::class.java))
             }
+            QuickCommandItem("特殊 ADB 调试", "控制 special_enable_adb_debug") {
+                selected = choose("特殊 ADB 调试") { enabled ->
+                    val value = if (enabled) "1" else "0"
+                    "settings put global special_enable_adb_debug $value && " +
+                        "[ \"\$(settings get global special_enable_adb_debug)\" = '$value' ] && " +
+                        "echo 'special_enable_adb_debug = $value'"
+                }
+            }
+            QuickCommandItem("允许安装应用", "控制 sys.allow.install.package，关闭时清空属性") {
+                selected = choose("允许安装应用") { enabled ->
+                    val value = if (enabled) "true" else ""
+                    "setprop sys.allow.install.package '$value' && " +
+                        "[ \"\$(getprop sys.allow.install.package)\" = '$value' ] && " +
+                        "echo 'sys.allow.install.package = $value'"
+                }
+            }
 
         }
         Group("投屏") {
