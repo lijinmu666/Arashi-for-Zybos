@@ -1712,8 +1712,8 @@ private fun QuickPage(a: QuickCommands) {
             Link("作业帮学习机系统环境控制", "读取和修改 persist.sys.env_config") {
                 a.startActivity(Intent(a, com.lijinmu.arashi.tools.ZybosEnvController::class.java))
             }
-            QuickCommandItem("特殊 ADB 调试", "控制 special_enable_adb_debug") {
-                selected = choose("特殊 ADB 调试") { enabled ->
+            QuickCommandItem("special_enable_adb_debug", "设置值：开启为 1，关闭为 0") {
+                selected = choose("special_enable_adb_debug") { enabled ->
                     val value = if (enabled) "1" else "0"
                     "settings put global special_enable_adb_debug $value && " +
                         "[ \"\$(settings get global special_enable_adb_debug)\" = '$value' ] && " +
