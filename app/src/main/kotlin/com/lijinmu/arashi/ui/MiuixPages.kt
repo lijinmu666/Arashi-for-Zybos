@@ -609,7 +609,7 @@ private fun JailbreakPage(a: Main) = Page(a, "越狱") {
                 }
                 1 -> Text(problem)
                 2 -> {
-                    Text("请核对信息", style = MiuixTheme.textStyles.title2, color = MiuixTheme.colorScheme.onSurface)
+                    Text("请核对信息", style = MiuixTheme.textStyles.title2, fontWeight = FontWeight.Bold, color = MiuixTheme.colorScheme.onSurface)
                     listOf(
                         "产品型号" to deviceModel,
                         "Android 版本" to androidVersion,
