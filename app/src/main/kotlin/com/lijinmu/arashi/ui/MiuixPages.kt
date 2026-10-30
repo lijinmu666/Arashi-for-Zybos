@@ -600,10 +600,11 @@ private fun JailbreakPage(a: Main) = Page(a, "越狱") {
                             animation = androidx.compose.animation.core.tween(1300),
                         ), label = "progress",
                     )
+                    val progressColor = MiuixTheme.colorScheme.primary
                     Canvas(Modifier.fillMaxWidth().height(4.dp)) {
                         drawRoundRect(Color.Gray.copy(alpha = 0.25f), cornerRadius = androidx.compose.ui.geometry.CornerRadius(size.height / 2))
                         val left = (size.width + size.width * 0.32f) * progress - size.width * 0.32f
-                        drawRoundRect(MiuixTheme.colorScheme.primary,
+                        drawRoundRect(progressColor,
                             topLeft = Offset(left, 0f),
                             size = androidx.compose.ui.geometry.Size(size.width * 0.32f, size.height),
                             cornerRadius = androidx.compose.ui.geometry.CornerRadius(size.height / 2))
@@ -616,6 +617,7 @@ private fun JailbreakPage(a: Main) = Page(a, "越狱") {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                 when (stage) {
                     0 -> TextButton(if (checking) "正在检查…" else "继续", {
+                        if (checking) return@TextButton
                         checking = true
                         scope.launch {
                             val result = withContext(Dispatchers.IO) {
