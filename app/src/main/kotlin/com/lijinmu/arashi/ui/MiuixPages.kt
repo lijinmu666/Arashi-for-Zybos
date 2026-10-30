@@ -191,7 +191,7 @@ object MiuixPages {
         a.runOnUiThread {
             messageState(a).value = Message(
                 "签名验证",
-                "当前应用与原作者签名不匹配，安装包可能被篡改！点击仍可继续使用",
+                "当前应用与原作者签名不匹配，安装包可能被篡改！",
                 "哦",
             )
         }
@@ -605,13 +605,13 @@ private fun JailbreakPage(a: Main) = Page(a, "越狱") {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 when (visibleStage) {
                 0 -> {
-                    Text("在不解锁BL、不修改系统的情况下使用KernelSU的越狱模式。")
+                    Text("在不修改系统的情况下使用 KernelSU 的越狱模式。Arashi 将会执行提权操作，以此越狱获得超级用户权限。")
                 }
                 1 -> Text(problem)
                 2 -> {
                     Text("请核对信息", style = MiuixTheme.textStyles.title2, color = MiuixTheme.colorScheme.onSurface)
                     listOf(
-                        "型号" to deviceModel,
+                        "产品型号" to deviceModel,
                         "Android 版本" to androidVersion,
                         "内核版本" to kernelVersion,
                     ).forEach { (label, value) ->
@@ -654,8 +654,8 @@ private fun JailbreakPage(a: Main) = Page(a, "越狱") {
                     }
                 }
                 5 -> Text("提权完毕！！！请前往 KernelSU 继续。")
-                6 -> Text("提权失败，当前版本尚未接入 DirtyFrag VR 执行组件。")
-                7 -> Text("未安装KernelSU，请安装！")
+                6 -> Text("提权失败。")
+                7 -> Text("未安装 KernelSU（me.weishu.kernelsu），请先安装。")
                 }
                 }
             }
@@ -684,8 +684,8 @@ private fun JailbreakPage(a: Main) = Page(a, "越狱") {
                             androidVersion = result[2]
                             managerInstalled = result[4].toBoolean()
                             problem = when {
-                                deviceModel.isBlank() || kernelVersion.isBlank() -> "读取设备信息失败"
-                                result[3] != "true" -> "内核版本不支持，在该设备上无法使用越狱模式！"
+                                deviceModel.isBlank() || kernelVersion.isBlank() -> "读取设备信息失败。"
+                                result[3] != "true" -> "内核版本不支持，在该设备上无法使用越狱模式。"
                                 else -> ""
                             }
                             checking = false
