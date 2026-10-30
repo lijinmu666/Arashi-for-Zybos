@@ -171,6 +171,8 @@ Log.w(TAG, "reject untrusted caller uid=" + Binder.getCallingUid());
                 prefs.getBoolean(HookConfig.KEY_UNLIMITED_NOTIFICATION_ICONS, false));
         result.putBoolean(HookConfig.KEY_STATUS_BAR_DATE, prefs.getBoolean(HookConfig.KEY_STATUS_BAR_DATE, false));
         result.putBoolean(HookConfig.KEY_IOS_ICONS, prefs.getBoolean(HookConfig.KEY_IOS_ICONS, false));
+        result.putBoolean(HookConfig.KEY_IOS_SYSTEM_ICON_MASK,
+                prefs.getBoolean(HookConfig.KEY_IOS_SYSTEM_ICON_MASK, false));
         result.putBoolean(HookConfig.KEY_ALLOW_WALLPAPER, prefs.getBoolean(HookConfig.KEY_ALLOW_WALLPAPER, HookConfig.DEFAULT_ENABLED));
         result.putBoolean(HookConfig.KEY_AOSP_APP_DETAILS, prefs.getBoolean(HookConfig.KEY_AOSP_APP_DETAILS, false));
         result.putBoolean(HookConfig.KEY_CLEAR_DETAIL_BLACK, prefs.getBoolean(HookConfig.KEY_CLEAR_DETAIL_BLACK, HookConfig.DEFAULT_ENABLED));

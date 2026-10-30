@@ -30,6 +30,7 @@ public static final String KEY_CAPTIVE_PORTAL = "hook_captive_portal";
     public static final String KEY_UNLIMITED_NOTIFICATION_ICONS = "hook_unlimited_notification_icons";
     public static final String KEY_STATUS_BAR_DATE = "hook_status_bar_date";
     public static final String KEY_IOS_ICONS = "hook_ios_icons";
+    public static final String KEY_IOS_SYSTEM_ICON_MASK = "hook_ios_system_icon_mask";
     public static final String KEY_ALLOW_WALLPAPER = "hook_allow_wallpaper";
     public static final String KEY_AOSP_APP_DETAILS = "hook_aosp_app_details";
     public static final String KEY_CLEAR_DETAIL_BLACK = "hook_clear_detail_black";
@@ -55,6 +56,7 @@ public static final String KEY_BLOCK_SUPERVISE = "hook_block_supervise";
                 && !KEY_KEEP_NAVIGATION.equals(key)
                 && !KEY_STATUS_BAR_DATE.equals(key)
                 && !KEY_IOS_ICONS.equals(key)
+                && !KEY_IOS_SYSTEM_ICON_MASK.equals(key)
                 && !KEY_DEV_OPTIONS_MENU.equals(key)
                 && !KEY_BLOCK_SUPERVISE.equals(key)
                 && !KEY_NEUTRALIZE_POLICY.equals(key)
@@ -71,7 +73,7 @@ public static final String KEY_NEUTRALIZE_POLICY = "hook_neutralize_policy";
     public static String[] keys() {
         return new String[] {
                 KEY_AOSP_APP_DETAILS, KEY_BLOCK_TCP_LOGIN_FAIL, KEY_EXTERNAL_INSTALL, KEY_SHELL_INSTALL,
-                KEY_CLEAR_BLACKLIST, KEY_CAPTIVE_PORTAL,
+                KEY_CLEAR_BLACKLIST, KEY_CAPTIVE_PORTAL, KEY_IOS_SYSTEM_ICON_MASK,
                 KEY_ALLOW_USB, KEY_LEGACY_POWER_MENU, KEY_UNLIMITED_NOTIFICATION_ICONS,
                 KEY_RECORD_INTERNAL_AUDIO, KEY_NOTIFICATION_LONG_PRESS, KEY_NOTIFICATION_REPLY, KEY_KEEP_NAVIGATION, KEY_STATUS_BAR_DATE, KEY_AOSP_STATUS_ICONS, KEY_SYSTEMUI_MONET, KEY_IOS_ICONS, KEY_ALLOW_WALLPAPER, KEY_CLEAR_DETAIL_BLACK, KEY_BLOCK_SUPERVISE,
                 KEY_DEV_OPTIONS, KEY_DEV_OPTIONS_MENU, KEY_KEEP_BACKGROUND, KEY_NEUTRALIZE_POLICY,
@@ -87,3 +89,4 @@ public static final String KEY_NEUTRALIZE_POLICY = "hook_neutralize_policy";
                 || Boolean.TRUE.equals(values.get(KEY_AOSP_BATTERY));
     }
 }
+
