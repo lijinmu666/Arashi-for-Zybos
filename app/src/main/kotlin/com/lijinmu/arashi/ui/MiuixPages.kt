@@ -37,12 +37,20 @@ import top.yukonga.miuix.kmp.nav.core.navBackStackOf
 import top.yukonga.miuix.kmp.nav.core.rememberNavSystemCornerRadius
 import top.yukonga.miuix.kmp.nav.transition.NavSwipeDirection
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.SizeTransform
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Extension
@@ -570,16 +578,32 @@ private fun JailbreakPage(a: Main) = Page(a, "越狱") {
     var checking by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val error = stage == 1 || stage == 6
+    val cardColor by animateColorAsState(
+        targetValue = if (error) Color(0xFFB3261E).copy(alpha = 0.20f)
+            else MiuixTheme.colorScheme.surface,
+        animationSpec = tween(durationMillis = 320),
+        label = "jailbreakCardColor",
+    )
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth().animateContentSize(animationSpec = tween(360, easing = FastOutSlowInEasing)),
         insideMargin = PaddingValues(20.dp),
-        colors = if (error) CardDefaults.defaultColors(
-            color = Color(0xFFB3261E).copy(alpha = 0.20f),
-            contentColor = MiuixTheme.colorScheme.onSurface,
-        ) else CardDefaults.defaultColors(),
+        colors = CardDefaults.defaultColors(color = cardColor, contentColor = MiuixTheme.colorScheme.onSurface),
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            when (stage) {
+            AnimatedContent(
+                targetState = stage,
+                transitionSpec = {
+                    (fadeIn(tween(260, delayMillis = 60)) +
+                        slideInHorizontally(tween(320, easing = FastOutSlowInEasing)) { it / 9 })
+                        .togetherWith(
+                            fadeOut(tween(160)) +
+                                slideOutHorizontally(tween(240)) { -it / 9 }
+                        ).using(SizeTransform(clip = false))
+                },
+                label = "jailbreakStage",
+            ) { visibleStage ->
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                when (visibleStage) {
                 0 -> {
                     Text("在不解锁BL、不修改系统的情况下使用KernelSU的越狱模式。")
                 }
@@ -614,6 +638,8 @@ private fun JailbreakPage(a: Main) = Page(a, "越狱") {
                 5 -> Text("提权完毕！！！请前往 KernelSU 继续。")
                 6 -> Text("提权失败，当前版本尚未接入 DirtyFrag VR 执行组件。")
                 7 -> Text("未安装KernelSU，请安装！")
+                }
+                }
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                 when (stage) {
