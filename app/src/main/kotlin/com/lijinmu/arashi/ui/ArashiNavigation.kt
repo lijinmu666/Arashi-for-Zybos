@@ -38,6 +38,7 @@ import top.yukonga.miuix.kmp.basic.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Cottage
 import androidx.compose.material.icons.rounded.Settings
+import androidx.compose.material.icons.rounded.Security
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
@@ -60,14 +61,14 @@ internal fun ArashiNavigation(a: ComponentActivity, content: @Composable (Int) -
         prefs.registerOnSharedPreferenceChangeListener(listener)
         onDispose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
     }
-    val pager = rememberPagerState { 2 }
+    val pager = rememberPagerState { 3 }
     val scope = rememberCoroutineScope()
     val states = androidx.compose.runtime.saveable.rememberSaveableStateHolder()
     val backdrop = if (android.os.Build.VERSION.SDK_INT >= 33) rememberLayerBackdrop() else null
     val legacyLayer = rememberGraphicsLayer()
     var pageOrigin by remember { mutableStateOf(Offset.Zero) }
-    val labels = listOf("主页", "设置")
-    val icons = listOf(Icons.Rounded.Cottage, Icons.Rounded.Settings)
+    val labels = listOf("主页", "越狱", "设置")
+    val icons = listOf(Icons.Rounded.Cottage, Icons.Rounded.Security, Icons.Rounded.Settings)
     val select: (Int) -> Unit = { index ->
         scope.launch { pager.animateScrollToPage(index, animationSpec = spring(dampingRatio = 0.9f, stiffness = 400f)) }
     }
@@ -161,7 +162,7 @@ private fun LegacyGlassNavigationBar(
     val onSurface = MiuixTheme.colorScheme.onSurface
     Box(modifier) {
         Box(
-            Modifier.width(280.dp).height(76.dp)
+            Modifier.width(336.dp).height(76.dp)
                 .shadow(12.dp, CircleShape).clip(CircleShape)
                 .onGloballyPositioned { origin = it.positionInRoot() }
                 .selectableGroup(),
@@ -177,8 +178,8 @@ private fun LegacyGlassNavigationBar(
                 .background(surface.copy(alpha = 0.68f))
                 .background(Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.16f), Color.Transparent)))
                 .border(1.dp, Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.5f), onSurface.copy(alpha = 0.08f))), CircleShape))
-            Box(Modifier.padding(6.dp).offset(x = 134.dp * position)
-                .width(134.dp).fillMaxHeight().clip(CircleShape)
+            Box(Modifier.padding(6.dp).offset(x = 108.dp * position)
+                .width(108.dp).fillMaxHeight().clip(CircleShape)
                 .background(primary.copy(alpha = 0.16f))
                 .border(0.75.dp, Color.White.copy(alpha = 0.25f), CircleShape))
             Row(Modifier.fillMaxSize().padding(6.dp)) {
@@ -190,7 +191,7 @@ private fun LegacyGlassNavigationBar(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.Center,
                     ) {
-                        Icon(if (index == 0) Icons.Rounded.Cottage else Icons.Rounded.Settings, contentDescription = null,
+                        Icon(when (index) { 0 -> Icons.Rounded.Cottage; 1 -> Icons.Rounded.Security; else -> Icons.Rounded.Settings }, contentDescription = null,
                             tint = tint, modifier = Modifier.size(24.dp))
                         Text(label, color = tint, style = MiuixTheme.textStyles.footnote1)
                     }
