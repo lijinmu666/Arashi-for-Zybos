@@ -2059,7 +2059,7 @@ private fun QuickPage(
                         "echo 'special_enable_adb_debug = $value'"
                 }
             }
-            QuickCommandItem("允许 Shell 安装应用", "控制 sys.allow.install.package 属性") {
+            QuickCommandItem("允许 Shell 安装应用", "控制 sys.allow.install.package 属性。重启后失效，其作用与 Hook 的“允许 Shell 安装应用”效果相同") {
                 selected = choose("允许 Shell 安装应用", successMessageOnly = true,
                     enabledLabel = "true", disabledLabel = "默认") { enabled ->
                     val value = if (enabled) "true" else ""
