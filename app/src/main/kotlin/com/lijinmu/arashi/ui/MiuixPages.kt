@@ -803,7 +803,7 @@ private fun JailbreakPage(a: Main) = Page(a, "越狱") {
                             "返回",
                             { stage = 0 },
                             colors = ButtonDefaults.textButtonColors(
-                                color = Color.Transparent,
+                                color = MiuixTheme.colorScheme.onSurface.copy(alpha = 0.06f),
                                 textColor = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                             ),
                         )
