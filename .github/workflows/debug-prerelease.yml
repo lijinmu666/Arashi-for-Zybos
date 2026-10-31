@@ -1,4 +1,4 @@
-name: Debug APK v1.2.0 预发布
+name: Debug APK 预发布
 on:
   workflow_dispatch:
 permissions:
@@ -31,23 +31,34 @@ jobs:
         run: |
           chmod +x gradlew
           ./gradlew :app:assembleDebug --no-daemon --stacktrace
+      - name: 读取 APK 版本信息
+        shell: bash
+        run: |
+          set -euo pipefail
+          metadata="app/build/outputs/apk/debug/output-metadata.json"
+          code="$(jq -er '.elements[0].versionCode | numbers' "$metadata")"
+          version="$(jq -er '.elements[0].versionName | strings' "$metadata")"
+          [[ "$code" =~ ^[0-9]+$ && "$version" =~ ^v?[0-9]+([.][0-9]+)*([A-Za-z0-9._-]*)?$ ]]
+          echo "ARASHI_VERSION_CODE=$code" >> "$GITHUB_ENV"
+          echo "ARASHI_VERSION_NAME=$version" >> "$GITHUB_ENV"
+          echo "ARASHI_VERSION_TAG=v${version#v}" >> "$GITHUB_ENV"
       - name: 校验 APK
         run: |
           set -euo pipefail
           mkdir -p dist
-          cp app/build/outputs/apk/debug/app-debug.apk dist/Arashi-1.2.0-debug.apk
-          "$ANDROID_HOME/build-tools/37.0.0/apksigner" verify --verbose dist/Arashi-1.2.0-debug.apk
-          "$ANDROID_HOME/build-tools/37.0.0/aapt" dump badging dist/Arashi-1.2.0-debug.apk > "$RUNNER_TEMP/badging.txt"
-          grep "package: name='com.lijinmu.arashi' versionCode='47' versionName='v1.2.0'" "$RUNNER_TEMP/badging.txt"
+          cp app/build/outputs/apk/debug/app-debug.apk dist/Arashi-${ARASHI_VERSION_NAME}-debug.apk
+          "$ANDROID_HOME/build-tools/37.0.0/apksigner" verify --verbose dist/Arashi-${ARASHI_VERSION_NAME}-debug.apk
+          "$ANDROID_HOME/build-tools/37.0.0/aapt" dump badging dist/Arashi-${ARASHI_VERSION_NAME}-debug.apk > "$RUNNER_TEMP/badging.txt"
+          grep "package: name='com.lijinmu.arashi' versionCode='${ARASHI_VERSION_CODE}' versionName='${ARASHI_VERSION_NAME}'" "$RUNNER_TEMP/badging.txt"
           grep 'application-debuggable' "$RUNNER_TEMP/badging.txt"
-          test "$(unzip -p dist/Arashi-1.2.0-debug.apk META-INF/xposed/java_init.list)" = 'com.lijinmu.arashi.xposed.HookEntry'
-          (cd dist && sha256sum Arashi-1.2.0-debug.apk > SHA256SUMS-debug.txt)
+          test "$(unzip -p dist/Arashi-${ARASHI_VERSION_NAME}-debug.apk META-INF/xposed/java_init.list)" = 'com.lijinmu.arashi.xposed.HookEntry'
+          (cd dist && sha256sum Arashi-${ARASHI_VERSION_NAME}-debug.apk > SHA256SUMS-debug.txt)
       - uses: actions/upload-artifact@v4
         with:
-          name: Arashi-1.2.0-Debug-APK
+          name: Arashi-${{ env.ARASHI_VERSION_NAME }}-Debug-APK
           path: dist/*
           if-no-files-found: error
-      - name: 发布 v1.2.0 预发布
+      - name: 发布 Debug 预发布
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
@@ -55,4 +66,4 @@ jobs:
         run: |
           set -euo pipefail
           printf 'Debug 测试版本。\n\n源码提交：%s\n\n锁屏通知裁剪等修改尚待真机验证。使用 Android Debug 签名。\n' "$BUILD_SHA" > "$RUNNER_TEMP/release-notes.md"
-          gh release create v1.2.0 --target "$BUILD_SHA" --title 'v1.2.0 预发布' --prerelease --notes-file "$RUNNER_TEMP/release-notes.md" dist/Arashi-1.2.0-debug.apk dist/SHA256SUMS-debug.txt
+          gh release create "$ARASHI_VERSION_TAG" --target "$BUILD_SHA" --title "$ARASHI_VERSION_TAG 预发布" --prerelease --notes-file "$RUNNER_TEMP/release-notes.md" dist/Arashi-${ARASHI_VERSION_NAME}-debug.apk dist/SHA256SUMS-debug.txt

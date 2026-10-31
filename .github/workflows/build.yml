@@ -132,6 +132,17 @@ jobs:
           set -euo pipefail
           chmod +x gradlew
           ./gradlew :app:assembleRelease -ParashiUnsignedRelease="$ARASHI_UNSIGNED_RELEASE" --no-daemon --stacktrace
+      - name: 读取 APK 版本信息
+        shell: bash
+        run: |
+          set -euo pipefail
+          metadata="app/build/outputs/apk/release/output-metadata.json"
+          code="$(jq -er '.elements[0].versionCode | numbers' "$metadata")"
+          version="$(jq -er '.elements[0].versionName | strings' "$metadata")"
+          [[ "$code" =~ ^[0-9]+$ && "$version" =~ ^v?[0-9]+([.][0-9]+)*([A-Za-z0-9._-]*)?$ ]]
+          echo "ARASHI_VERSION_CODE=$code" >> "$GITHUB_ENV"
+          echo "ARASHI_VERSION_NAME=$version" >> "$GITHUB_ENV"
+          echo "ARASHI_VERSION_TAG=v${version#v}" >> "$GITHUB_ENV"
       - name: 校验并整理 APK
         env:
           OFFICIAL_SIGNED: ${{ steps.signing.outputs.signed }}
@@ -141,14 +152,14 @@ jobs:
           mkdir -p dist
           tools="$ANDROID_HOME/build-tools/37.0.0"
           if [[ "$OFFICIAL_SIGNED" == 'true' ]]; then
-            cp app/build/outputs/apk/release/app-release.apk dist/Arashi-1.2.0-release.apk
+            cp app/build/outputs/apk/release/app-release.apk dist/Arashi-${ARASHI_VERSION_NAME}-release.apk
           else
-            cp app/build/outputs/apk/release/app-release-unsigned.apk dist/Arashi-1.2.0-release-unsigned.apk
+            cp app/build/outputs/apk/release/app-release-unsigned.apk dist/Arashi-${ARASHI_VERSION_NAME}-release-unsigned.apk
           fi
           for apk in dist/*.apk; do
             python3 tests/check_release_apk.py "$apk"
             "$tools/aapt" dump badging "$apk" > "$RUNNER_TEMP/arashi-badging.txt"
-            grep "package: name='com.lijinmu.arashi' versionCode='47' versionName='v1.2.0'" "$RUNNER_TEMP/arashi-badging.txt"
+            grep "package: name='com.lijinmu.arashi' versionCode='${ARASHI_VERSION_CODE}' versionName='${ARASHI_VERSION_NAME}'" "$RUNNER_TEMP/arashi-badging.txt"
             test "$(unzip -p "$apk" META-INF/xposed/java_init.list)" = 'com.lijinmu.arashi.xposed.HookEntry'
             if [[ "$apk" != *-unsigned.apk ]]; then
               "$tools/apksigner" verify --verbose --print-certs "$apk"
@@ -160,7 +171,7 @@ jobs:
           sha256sum dist/*.apk > dist/SHA256SUMS.txt
       - uses: actions/upload-artifact@v4
         with:
-          name: Arashi-1.2.0-Release-APK
+          name: Arashi-${{ env.ARASHI_VERSION_NAME }}-Release-APK
           path: dist/*
           if-no-files-found: error
           retention-days: 14
