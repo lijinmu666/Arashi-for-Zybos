@@ -712,9 +712,11 @@ private fun JailbreakPage(a: Main) = Page(a, "越狱") {
                         stage = 4
                         JailbreakController.start(a)
                     }, colors = ButtonDefaults.textButtonColorsPrimary())
-                    5 -> TextButton("KernelSU ↗", {
+                    5 -> TextButton("打开 KernelSU", {
                         a.packageManager.getLaunchIntentForPackage("me.weishu.kernelsu")?.let(a::startActivity)
-                    })
+                    }, colors = ButtonDefaults.textButtonColorsPrimary(
+                        textColor = Color.White,
+                    ))
                     6 -> TextButton(
                         "返回",
                         { stage = 0 },
