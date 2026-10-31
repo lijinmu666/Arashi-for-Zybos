@@ -855,6 +855,9 @@ private fun JailbreakPage(a: Main) = Page(a, "越狱") {
             }
         }
     }
+    if (stage == 2 && !rootWarning) {
+        InfoCard("如果设备已获得 Root 权限，不建议重复提权，以免提权失败或出现系统异常。")
+    }
     if (stage == 3) {
         Group("更多选项") {
             CheckboxPreference(
