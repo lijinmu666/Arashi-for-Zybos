@@ -48,7 +48,6 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.material.icons.Icons
@@ -105,6 +104,7 @@ import top.yukonga.miuix.kmp.basic.PullToRefresh
 import top.yukonga.miuix.kmp.basic.SmallTopAppBar
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextButton
+import top.yukonga.miuix.kmp.basic.LinearProgressIndicator
 import top.yukonga.miuix.kmp.basic.TextField
 import top.yukonga.miuix.kmp.basic.TopAppBar
 import top.yukonga.miuix.kmp.icon.MiuixIcons
@@ -652,22 +652,10 @@ private fun JailbreakPage(a: Main) = Page(a, "越狱") {
                 3 -> Text("Arashi 即将开始提权操作。")
                 4 -> {
                     Text("正在处理…")
-                    val infinite = androidx.compose.animation.core.rememberInfiniteTransition(label = "jailbreakProgress")
-                    val progress by infinite.animateFloat(
-                        initialValue = 0f, targetValue = 1f,
-                        animationSpec = androidx.compose.animation.core.infiniteRepeatable(
-                            animation = androidx.compose.animation.core.tween(1300),
-                        ), label = "progress",
+                    LinearProgressIndicator(
+                        modifier = Modifier.fillMaxWidth(),
+                        progress = null,
                     )
-                    val progressColor = MiuixTheme.colorScheme.primary
-                    Canvas(Modifier.fillMaxWidth().height(4.dp)) {
-                        drawRoundRect(Color.Gray.copy(alpha = 0.25f), cornerRadius = androidx.compose.ui.geometry.CornerRadius(size.height / 2))
-                        val left = (size.width + size.width * 0.32f) * progress - size.width * 0.32f
-                        drawRoundRect(progressColor,
-                            topLeft = Offset(left, 0f),
-                            size = androidx.compose.ui.geometry.Size(size.width * 0.32f, size.height),
-                            cornerRadius = androidx.compose.ui.geometry.CornerRadius(size.height / 2))
-                    }
                 }
                 5 -> Text("提权完毕！！！请前往 KernelSU 继续。")
                 6 -> Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
