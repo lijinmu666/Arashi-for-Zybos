@@ -726,6 +726,7 @@ private fun JailbreakPage(a: Main) = Page(a, "越狱") {
                             textColor = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                         ),
                     )
+                    Spacer(Modifier.weight(1f))
                 }
                 when (stage) {
                     0 -> TextButton(if (checking) "正在检查…" else "继续", {
