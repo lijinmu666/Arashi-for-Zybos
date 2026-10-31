@@ -658,12 +658,7 @@ private fun JailbreakPage(a: Main) = Page(a, "越狱") {
                     )
                 }
                 5 -> Text("提权完毕！！！请前往 KernelSU 继续。")
-                6 -> Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("提权失败。")
-                    TextButton("查看详情", {
-                        MiuixPages.showDetails(a, "提权详情", operation.detail.ifBlank { "提权进程已中断，请重启设备后重试" })
-                    })
-                }
+                6 -> Text("提权失败。")
                 7 -> Text("未安装 KernelSU（me.weishu.kernelsu），请先安装。")
                 }
                 }
@@ -706,7 +701,12 @@ private fun JailbreakPage(a: Main) = Page(a, "越狱") {
                             }
                         }
                     }, colors = ButtonDefaults.textButtonColorsPrimary())
-                    1 -> TextButton("重试", { stage = 0 })
+                    1 -> TextButton("重试", { stage = 0 },
+                        colors = ButtonDefaults.textButtonColors(
+                            color = Color(0xFFB3261E),
+                            textColor = Color.White,
+                        ),
+                    )
                     2 -> TextButton("继续", { stage = 3 }, colors = ButtonDefaults.textButtonColorsPrimary())
                     3 -> TextButton("继续", {
                         stage = 4
@@ -717,13 +717,23 @@ private fun JailbreakPage(a: Main) = Page(a, "越狱") {
                     }, colors = ButtonDefaults.textButtonColorsPrimary(
                         textColor = Color.White,
                     ))
-                    6 -> TextButton(
-                        "返回",
-                        { stage = 0 },
-                        modifier = Modifier
-                            .clip(androidx.compose.foundation.shape.RoundedCornerShape(50))
-                            .background(Color(0xFFD32F2F)),
-                    )
+                    6 -> {
+                        TextButton("查看详情", {
+                            MiuixPages.showDetails(a, "提权详情",
+                                operation.detail.ifBlank { "提权进程已中断，请重启设备后重试" })
+                        }, colors = ButtonDefaults.textButtonColors(
+                            color = Color.Transparent,
+                            textColor = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                        ))
+                        TextButton(
+                            "返回",
+                            { stage = 0 },
+                            colors = ButtonDefaults.textButtonColors(
+                                color = Color(0xFFB3261E),
+                                textColor = Color.White,
+                            ),
+                        )
+                    }
                     7 -> {
                         TextButton(
                             "返回",
