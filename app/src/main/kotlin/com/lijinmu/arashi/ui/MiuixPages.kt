@@ -717,6 +717,16 @@ private fun JailbreakPage(a: Main) = Page(a, "越狱") {
                 horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.End),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
+                if (stage == 2 || stage == 3) {
+                    TextButton(
+                        "上一步",
+                        { stage = if (stage == 3) 2 else 0 },
+                        colors = ButtonDefaults.textButtonColors(
+                            color = Color.Transparent,
+                            textColor = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                        ),
+                    )
+                }
                 when (stage) {
                     0 -> TextButton(if (checking) "正在检查…" else "继续", {
                         if (checking) return@TextButton
