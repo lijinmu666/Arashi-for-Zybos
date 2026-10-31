@@ -51,6 +51,12 @@ import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.ErrorOutline
+import androidx.compose.material.icons.rounded.Download
+import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.HourglassTop
+import androidx.compose.material.icons.rounded.FactCheck
+import androidx.compose.material.icons.rounded.Shield
 import androidx.compose.material.icons.rounded.Extension
 import androidx.compose.material.icons.rounded.Terminal
 import androidx.compose.material.icons.rounded.Delete
@@ -618,52 +624,99 @@ private fun JailbreakPage(a: Main) = Page(a, "越狱") {
                 },
                 label = "jailbreakStage",
             ) { visibleStage ->
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                when (visibleStage) {
-                0 -> {
-                    Text("在不修改系统的情况下使用 KernelSU 的越狱模式。Arashi 将会执行提权操作，以此越狱获得超级用户权限。")
-                }
-                1 -> Text(problem)
-                2 -> {
-                    Text("请核对信息", style = MiuixTheme.textStyles.title3, fontWeight = FontWeight.Bold, color = MiuixTheme.colorScheme.onSurface)
-                    listOf(
-                        "产品型号" to deviceModel,
-                        "Android 版本" to androidVersion,
-                        "内核版本" to kernelVersion,
-                    ).forEach { (label, value) ->
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.Top,
+                Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    val statusTitle = when (visibleStage) {
+                        1 -> "无法继续"
+                        2 -> "请核对信息"
+                        3 -> "准备提权"
+                        4 -> "正在提权"
+                        5 -> "越狱成功"
+                        6 -> "提权失败"
+                        7 -> "安装 KernelSU"
+                        else -> "准备越狱"
+                    }
+                    val statusIcon = when (visibleStage) {
+                        1, 6 -> Icons.Rounded.ErrorOutline
+                        2 -> Icons.Rounded.FactCheck
+                        4 -> Icons.Rounded.HourglassTop
+                        5 -> Icons.Rounded.CheckCircle
+                        7 -> Icons.Rounded.Download
+                        else -> Icons.Rounded.Shield
+                    }
+                    val statusColor = if (visibleStage == 1 || visibleStage == 6)
+                        Color(0xFFB3261E) else MiuixTheme.colorScheme.primary
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Box(
+                            modifier = Modifier.size(44.dp)
+                                .background(statusColor.copy(alpha = 0.12f),
+                                    androidx.compose.foundation.shape.CircleShape),
+                            contentAlignment = Alignment.Center,
                         ) {
-                            Text(
-                                text = label,
-                                modifier = Modifier.width(116.dp),
-                                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                            Icon(statusIcon, contentDescription = null,
+                                modifier = Modifier.size(26.dp), tint = statusColor)
+                        }
+                        Text(statusTitle, style = MiuixTheme.textStyles.title3,
+                            fontWeight = FontWeight.Bold,
+                            color = MiuixTheme.colorScheme.onSurface)
+                    }
+                    val summary = when (visibleStage) {
+                        1 -> problem
+                        2 -> "确认设备信息后继续"
+                        3 -> "Arashi 即将开始提权操作。"
+                        4 -> "正在处理，请稍候…"
+                        5 -> "提权完毕，请前往 KernelSU 继续。"
+                        6 -> "本次提权未完成，可查看详情了解原因。"
+                        7 -> "未安装 KernelSU（me.weishu.kernelsu），请先安装。"
+                        else -> "在不修改系统的情况下使用 KernelSU 的越狱模式。Arashi 将会执行提权操作，以此越狱获得超级用户权限。"
+                    }
+                    Text(summary, color = MiuixTheme.colorScheme.onSurfaceVariantSummary)
+                    if (visibleStage == 2) {
+                        Column(
+                            modifier = Modifier.fillMaxWidth()
+                                .clip(androidx.compose.foundation.shape.RoundedCornerShape(16.dp))
+                                .background(MiuixTheme.colorScheme.surface.copy(alpha = 0.5f))
+                                .padding(horizontal = 16.dp),
+                        ) {
+                            val deviceInfo = listOf(
+                                "产品型号" to deviceModel,
+                                "Android 版本" to androidVersion,
+                                "内核版本" to kernelVersion,
                             )
-                            Text(
-                                text = value,
-                                modifier = Modifier.weight(1f),
-                                textAlign = androidx.compose.ui.text.style.TextAlign.End,
-                            )
+                            deviceInfo.forEachIndexed { index, (label, value) ->
+                                if (index > 0) {
+                                    Box(Modifier.fillMaxWidth().height(1.dp)
+                                        .background(MiuixTheme.colorScheme.onSurface.copy(alpha = 0.08f)))
+                                }
+                                Row(
+                                    modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                                    verticalAlignment = Alignment.Top,
+                                ) {
+                                    Text(label, modifier = Modifier.width(116.dp),
+                                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary)
+                                    Text(value, modifier = Modifier.weight(1f),
+                                        color = MiuixTheme.colorScheme.onSurface,
+                                        textAlign = androidx.compose.ui.text.style.TextAlign.End)
+                                }
+                            }
                         }
                     }
-                }
-                3 -> Text("Arashi 即将开始提权操作。")
-                4 -> {
-                    Text("正在处理…")
-                    LinearProgressIndicator(
-                        modifier = Modifier.fillMaxWidth(),
-                        progress = null,
-                    )
-                }
-                5 -> Text("提权完毕！！！请前往 KernelSU 继续。")
-                6 -> Text("提权失败。")
-                7 -> Text("未安装 KernelSU（me.weishu.kernelsu），请先安装。")
-                }
+                    if (visibleStage == 4) {
+                        LinearProgressIndicator(
+                            modifier = Modifier.fillMaxWidth(),
+                            progress = null,
+                        )
+                    }
                 }
             }
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.End)) {
+            Row(
+                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.End),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
                 when (stage) {
                     0 -> TextButton(if (checking) "正在检查…" else "继续", {
                         if (checking) return@TextButton
