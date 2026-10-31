@@ -48,10 +48,15 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.ErrorOutline
+import androidx.compose.material.icons.rounded.Download
+import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.HourglassTop
+import androidx.compose.material.icons.rounded.FactCheck
+import androidx.compose.material.icons.rounded.Shield
 import androidx.compose.material.icons.rounded.Extension
 import androidx.compose.material.icons.rounded.Terminal
 import androidx.compose.material.icons.rounded.Delete
@@ -105,6 +110,7 @@ import top.yukonga.miuix.kmp.basic.PullToRefresh
 import top.yukonga.miuix.kmp.basic.SmallTopAppBar
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextButton
+import top.yukonga.miuix.kmp.basic.LinearProgressIndicator
 import top.yukonga.miuix.kmp.basic.TextField
 import top.yukonga.miuix.kmp.basic.TopAppBar
 import top.yukonga.miuix.kmp.icon.MiuixIcons
@@ -570,6 +576,16 @@ private fun MainNavigationPage(a: Main) {
 @Composable
 private fun JailbreakPage(a: Main) = Page(a, "越狱") {
     var stage by rememberSaveable { mutableIntStateOf(0) }
+    val operation by JailbreakController.state.collectAsState()
+    LaunchedEffect(operation) {
+        stage = when {
+            operation.running -> 4
+            operation.finished && operation.success -> 5
+            operation.finished -> 6
+            stage == 4 -> 6 // The process died before it could report a result.
+            else -> stage
+        }
+    }
     var deviceModel by remember { mutableStateOf("") }
     var androidVersion by remember { mutableStateOf("") }
     var kernelVersion by remember { mutableStateOf("") }
@@ -577,7 +593,7 @@ private fun JailbreakPage(a: Main) = Page(a, "越狱") {
     var managerInstalled by remember { mutableStateOf(false) }
     var checking by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
-    val error = stage == 1 || stage == 6
+    val error = stage == 1 || stage == 6 || stage == 7
     val cardColor by animateColorAsState(
         targetValue = if (error) Color(0xFFB3261E).copy(alpha = 0.20f)
             else MiuixTheme.colorScheme.tertiaryContainer,
@@ -585,7 +601,7 @@ private fun JailbreakPage(a: Main) = Page(a, "越狱") {
         label = "jailbreakCardColor",
     )
     Card(
-        modifier = Modifier.fillMaxWidth().animateContentSize(animationSpec = tween(220, easing = FastOutSlowInEasing)),
+        modifier = Modifier.fillMaxWidth(),
         insideMargin = PaddingValues(20.dp),
         colors = CardDefaults.defaultColors(color = cardColor, contentColor = MiuixTheme.colorScheme.onSurface),
     ) {
@@ -598,68 +614,120 @@ private fun JailbreakPage(a: Main) = Page(a, "越狱") {
                         .togetherWith(
                             fadeOut(tween(110)) +
                                 slideOutHorizontally(tween(160)) { -it / 9 }
-                        ).using(SizeTransform(clip = false))
+                        ).using(
+                            // One size animation owns the card height; avoid the default spring
+                            // and an outer animateContentSize chasing its intermediate sizes.
+                            SizeTransform(clip = false) { _, _ ->
+                                tween(durationMillis = 190, easing = FastOutSlowInEasing)
+                            },
+                        )
                 },
                 label = "jailbreakStage",
             ) { visibleStage ->
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                when (visibleStage) {
-                0 -> {
-                    Text("在不修改系统的情况下使用 KernelSU 的越狱模式。Arashi 将会执行提权操作，以此越狱获得超级用户权限。")
-                }
-                1 -> Text(problem)
-                2 -> {
-                    Text("请核对信息", style = MiuixTheme.textStyles.title3, fontWeight = FontWeight.Bold, color = MiuixTheme.colorScheme.onSurface)
-                    listOf(
-                        "产品型号" to deviceModel,
-                        "Android 版本" to androidVersion,
-                        "内核版本" to kernelVersion,
-                    ).forEach { (label, value) ->
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.Top,
+                Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    val statusTitle = when (visibleStage) {
+                        1 -> "无法继续"
+                        2 -> "请核对信息"
+                        3 -> "准备提权"
+                        4 -> "正在提权"
+                        5 -> "越狱成功"
+                        6 -> "提权失败"
+                        7 -> "安装 KernelSU"
+                        else -> "准备越狱"
+                    }
+                    val statusIcon = when (visibleStage) {
+                        1, 6 -> Icons.Rounded.ErrorOutline
+                        2 -> Icons.Rounded.FactCheck
+                        4 -> Icons.Rounded.HourglassTop
+                        5 -> Icons.Rounded.CheckCircle
+                        7 -> Icons.Rounded.Download
+                        else -> Icons.Rounded.Shield
+                    }
+                    val statusColor = if (visibleStage == 1 || visibleStage == 6 || visibleStage == 7)
+                        Color(0xFFB3261E) else MiuixTheme.colorScheme.primary
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Box(
+                            modifier = Modifier.size(44.dp)
+                                .background(statusColor.copy(alpha = 0.12f),
+                                    androidx.compose.foundation.shape.CircleShape),
+                            contentAlignment = Alignment.Center,
                         ) {
-                            Text(
-                                text = label,
-                                modifier = Modifier.width(116.dp),
-                                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                            Icon(statusIcon, contentDescription = null,
+                                modifier = Modifier.size(26.dp), tint = statusColor)
+                        }
+                        Text(statusTitle, style = MiuixTheme.textStyles.title3,
+                            fontWeight = FontWeight.Bold,
+                            color = MiuixTheme.colorScheme.onSurface)
+                    }
+                    val summary = when (visibleStage) {
+                        1 -> problem
+                        2 -> "确认设备信息后继续"
+                        3 -> "Arashi 即将开始提权操作。"
+                        4 -> "正在处理，请稍候…"
+                        5 -> "提权完毕，请前往 KernelSU 继续。"
+                        6 -> "本次提权未完成，可查看详情了解原因。"
+                        7 -> "未安装 KernelSU（me.weishu.kernelsu），请先安装。"
+                        else -> "在不修改系统的情况下使用 KernelSU 的越狱模式。Arashi 将会执行提权操作，以此越狱获得超级用户权限。"
+                    }
+                    Text(summary, color = MiuixTheme.colorScheme.onSurfaceVariantSummary)
+                    if (visibleStage == 2) {
+                        Column(
+                            modifier = Modifier.fillMaxWidth()
+                                .clip(androidx.compose.foundation.shape.RoundedCornerShape(16.dp))
+                                .background(MiuixTheme.colorScheme.surface.copy(alpha = 0.5f))
+                                .padding(horizontal = 16.dp),
+                        ) {
+                            val deviceInfo = listOf(
+                                "产品型号" to deviceModel,
+                                "Android 版本" to androidVersion,
+                                "内核版本" to kernelVersion,
                             )
-                            Text(
-                                text = value,
-                                modifier = Modifier.weight(1f),
-                                textAlign = androidx.compose.ui.text.style.TextAlign.End,
-                            )
+                            deviceInfo.forEachIndexed { index, (label, value) ->
+                                if (index > 0) {
+                                    Box(Modifier.fillMaxWidth().height(1.dp)
+                                        .background(MiuixTheme.colorScheme.onSurface.copy(alpha = 0.08f)))
+                                }
+                                Row(
+                                    modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                                    verticalAlignment = Alignment.Top,
+                                ) {
+                                    Text(label, modifier = Modifier.width(116.dp),
+                                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary)
+                                    Text(value, modifier = Modifier.weight(1f),
+                                        color = MiuixTheme.colorScheme.onSurface,
+                                        textAlign = androidx.compose.ui.text.style.TextAlign.End)
+                                }
+                            }
                         }
                     }
-                }
-                3 -> Text("Arashi 即将开始提权操作。")
-                4 -> {
-                    Text("正在处理…")
-                    val infinite = androidx.compose.animation.core.rememberInfiniteTransition(label = "jailbreakProgress")
-                    val progress by infinite.animateFloat(
-                        initialValue = 0f, targetValue = 1f,
-                        animationSpec = androidx.compose.animation.core.infiniteRepeatable(
-                            animation = androidx.compose.animation.core.tween(1300),
-                        ), label = "progress",
-                    )
-                    val progressColor = MiuixTheme.colorScheme.primary
-                    Canvas(Modifier.fillMaxWidth().height(4.dp)) {
-                        drawRoundRect(Color.Gray.copy(alpha = 0.25f), cornerRadius = androidx.compose.ui.geometry.CornerRadius(size.height / 2))
-                        val left = (size.width + size.width * 0.32f) * progress - size.width * 0.32f
-                        drawRoundRect(progressColor,
-                            topLeft = Offset(left, 0f),
-                            size = androidx.compose.ui.geometry.Size(size.width * 0.32f, size.height),
-                            cornerRadius = androidx.compose.ui.geometry.CornerRadius(size.height / 2))
+                    if (visibleStage == 4) {
+                        LinearProgressIndicator(
+                            modifier = Modifier.fillMaxWidth(),
+                            progress = null,
+                        )
                     }
                 }
-                5 -> Text("提权完毕！！！请前往 KernelSU 继续。")
-                6 -> Text("提权失败。")
-                7 -> Text("未安装 KernelSU（me.weishu.kernelsu），请先安装。")
-                }
-                }
             }
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+            Row(
+                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.End),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                if (stage == 2 || stage == 3) {
+                    TextButton(
+                        "上一步",
+                        { stage = if (stage == 3) 2 else 0 },
+                        colors = ButtonDefaults.textButtonColors(
+                            color = MiuixTheme.colorScheme.onSurface.copy(alpha = 0.06f),
+                            textColor = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                        ),
+                    )
+                    Spacer(Modifier.weight(1f))
+                }
                 when (stage) {
                     0 -> TextButton(if (checking) "正在检查…" else "继续", {
                         if (checking) return@TextButton
@@ -670,7 +738,8 @@ private fun JailbreakPage(a: Main) = Page(a, "越狱") {
                                     ?: android.system.Os.uname().release
                                 val model = Build.MODEL ?: ""
                                 val androidRelease = Build.VERSION.RELEASE ?: ""
-                                val supported = kernel.startsWith("5.10.") && kernel.contains("android12")
+                                val supported = kernel.startsWith("5.10.") && android.os.Process.is64Bit()
+                                    && android.os.Process.myUid() / 100000 == 0
                                 val installed = try {
                                     a.packageManager.getPackageInfo("me.weishu.kernelsu", 0)
                                     true
@@ -696,25 +765,51 @@ private fun JailbreakPage(a: Main) = Page(a, "越狱") {
                             }
                         }
                     }, colors = ButtonDefaults.textButtonColorsPrimary())
-                    1 -> TextButton("重试", { stage = 0 })
-                    2 -> TextButton("继续", { stage = 3 }, colors = ButtonDefaults.textButtonColorsPrimary())
-                    3 -> TextButton("继续", { stage = 6 }, colors = ButtonDefaults.textButtonColorsPrimary())
-                    5 -> TextButton("KernelSU ↗", {
-                        a.packageManager.getLaunchIntentForPackage("me.weishu.kernelsu")?.let(a::startActivity)
-                    })
-                    6 -> TextButton(
-                        "返回",
-                        { stage = 0 },
-                        modifier = Modifier
-                            .clip(androidx.compose.foundation.shape.RoundedCornerShape(50))
-                            .background(Color(0xFFD32F2F)),
+                    1 -> TextButton("返回", { stage = 0 },
+                        colors = ButtonDefaults.textButtonColors(
+                            color = Color(0xFFB3261E),
+                            textColor = Color.White,
+                        ),
                     )
+                    2 -> TextButton("继续", { stage = 3 }, colors = ButtonDefaults.textButtonColorsPrimary())
+                    3 -> TextButton("继续", {
+                        stage = 4
+                        JailbreakController.start(a)
+                    }, colors = ButtonDefaults.textButtonColorsPrimary())
+                    5 -> TextButton("打开 KernelSU", {
+                        a.packageManager.getLaunchIntentForPackage("me.weishu.kernelsu")?.let(a::startActivity)
+                    }, colors = ButtonDefaults.textButtonColorsPrimary(
+                        textColor = Color.White,
+                    ))
+                    6 -> {
+                        TextButton("查看详情", {
+                            MiuixPages.showDetails(a, "提权详情",
+                                operation.detail.ifBlank { "提权进程已中断，请重启设备后重试" })
+                        }, colors = ButtonDefaults.textButtonColors(
+                            color = Color.Transparent,
+                            textColor = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                        ))
+                        TextButton("返回", { stage = 0 },
+                            colors = ButtonDefaults.textButtonColors(
+                                color = Color(0xFFB3261E),
+                                textColor = Color.White,
+                            ),
+                        )
+                    }
                     7 -> {
-                        TextButton("返回", { stage = 0 })
+                        TextButton("返回", { stage = 0 },
+                            colors = ButtonDefaults.textButtonColors(
+                                color = MiuixTheme.colorScheme.onSurface.copy(alpha = 0.06f),
+                                textColor = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                            ),
+                        )
                         TextButton("安装", {
                             a.startActivity(Intent(Intent.ACTION_VIEW,
                                 android.net.Uri.parse("https://github.com/tiann/KernelSU/releases")))
-                        })
+                        }, colors = ButtonDefaults.textButtonColors(
+                            color = Color(0xFFB3261E),
+                            textColor = Color.White,
+                        ))
                     }
                 }
             }

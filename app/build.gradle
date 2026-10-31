@@ -14,12 +14,14 @@ if (hasSigningConfig) {
 android {
     namespace = 'com.lijinmu.arashi'
     compileSdk = 37
+    ndkVersion = '29.0.13113456'
     defaultConfig {
         applicationId 'com.lijinmu.arashi'
         minSdk = 31
         targetSdk = 34
         versionCode = 47
         versionName = 'v1.2.0'
+        ndk { abiFilters 'arm64-v8a' }
     }
     if (hasSigningConfig) {
         signingConfigs {
@@ -31,6 +33,13 @@ android {
             }
         }
     }
+    externalNativeBuild {
+        cmake {
+            path file('src/main/jni/CMakeLists.txt')
+            version '3.22.1'
+        }
+    }
+    packaging { jniLibs { useLegacyPackaging = true } }
     buildTypes {
         release {
             minifyEnabled = true
