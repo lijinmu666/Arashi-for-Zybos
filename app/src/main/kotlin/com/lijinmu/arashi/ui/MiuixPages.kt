@@ -595,7 +595,7 @@ private fun JailbreakPage(a: Main) = Page(a, "越狱") {
         label = "jailbreakCardColor",
     )
     Card(
-        modifier = Modifier.fillMaxWidth().animateContentSize(animationSpec = tween(220, easing = FastOutSlowInEasing)),
+        modifier = Modifier.fillMaxWidth(),
         insideMargin = PaddingValues(20.dp),
         colors = CardDefaults.defaultColors(color = cardColor, contentColor = MiuixTheme.colorScheme.onSurface),
     ) {
@@ -608,7 +608,13 @@ private fun JailbreakPage(a: Main) = Page(a, "越狱") {
                         .togetherWith(
                             fadeOut(tween(110)) +
                                 slideOutHorizontally(tween(160)) { -it / 9 }
-                        ).using(SizeTransform(clip = false))
+                        ).using(
+                            // One size animation owns the card height; avoid the default spring
+                            // and an outer animateContentSize chasing its intermediate sizes.
+                            SizeTransform(clip = false) { _, _ ->
+                                tween(durationMillis = 190, easing = FastOutSlowInEasing)
+                            },
+                        )
                 },
                 label = "jailbreakStage",
             ) { visibleStage ->
