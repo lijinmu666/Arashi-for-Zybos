@@ -837,12 +837,14 @@ private fun JailbreakPage(a: Main) = Page(a, "越狱") {
                 checked = disableModules,
                 onCheckedChange = { disableModules = it },
                 title = "禁用所有模块",
+                summary = "在 KernelSU 接管前禁用所有已安装模块",
                 checkboxLocation = CheckboxLocation.End,
             )
             CheckboxPreference(
                 checked = softReboot,
                 onCheckedChange = { softReboot = it },
-                title = "提权后软重启",
+                title = "越狱后软重启",
+                summary = "越狱成功后重启系统进程而不重启内核",
                 checkboxLocation = CheckboxLocation.End,
             )
         }
