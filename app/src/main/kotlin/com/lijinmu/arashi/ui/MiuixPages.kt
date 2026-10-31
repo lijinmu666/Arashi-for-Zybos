@@ -236,7 +236,17 @@ object MiuixPages {
                     ThemeController(if (dark) ColorSchemeMode.MonetDark else ColorSchemeMode.MonetLight)
                 }
                 val colors = if (colorScheme == 2) {
-                    systemTheme.currentColors()
+                    val dynamic = systemTheme.currentColors()
+                    // Miuix maps these containers to Monet's accent2/accent3 palettes.
+                    // Arashi uses them as main-theme highlights, so keep their paired
+                    // backgrounds/text on accent1 in both light and dark appearances.
+                    dynamic.copy(
+                        secondaryContainer = dynamic.primaryContainer,
+                        onSecondaryContainer = dynamic.onPrimaryContainer,
+                        tertiaryContainer = dynamic.primaryContainer,
+                        onTertiaryContainer = dynamic.onPrimaryContainer,
+                        tertiaryContainerVariant = dynamic.onPrimaryContainer,
+                    )
                 } else if (!usePurple) {
                     if (dark) darkColorScheme() else lightColorScheme()
                 } else if (dark) {
