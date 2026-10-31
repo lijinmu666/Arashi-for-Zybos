@@ -593,7 +593,7 @@ private fun JailbreakPage(a: Main) = Page(a, "越狱") {
     var managerInstalled by remember { mutableStateOf(false) }
     var checking by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
-    val error = stage == 1 || stage == 6
+    val error = stage == 1 || stage == 6 || stage == 7
     val cardColor by animateColorAsState(
         targetValue = if (error) Color(0xFFB3261E).copy(alpha = 0.20f)
             else MiuixTheme.colorScheme.tertiaryContainer,
@@ -643,7 +643,7 @@ private fun JailbreakPage(a: Main) = Page(a, "越狱") {
                         7 -> Icons.Rounded.Download
                         else -> Icons.Rounded.Shield
                     }
-                    val statusColor = if (visibleStage == 1 || visibleStage == 6)
+                    val statusColor = if (visibleStage == 1 || visibleStage == 6 || visibleStage == 7)
                         Color(0xFFB3261E) else MiuixTheme.colorScheme.primary
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -810,7 +810,8 @@ private fun JailbreakPage(a: Main) = Page(a, "越狱") {
                         TextButton("安装", {
                             a.startActivity(Intent(Intent.ACTION_VIEW,
                                 android.net.Uri.parse("https://github.com/tiann/KernelSU/releases")))
-                        }, colors = ButtonDefaults.textButtonColorsPrimary(
+                        }, colors = ButtonDefaults.textButtonColors(
+                            color = Color(0xFFB3261E),
                             textColor = Color.White,
                         ))
                     }
