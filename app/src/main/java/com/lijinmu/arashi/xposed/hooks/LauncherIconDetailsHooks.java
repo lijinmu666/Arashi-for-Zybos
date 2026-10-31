@@ -14,7 +14,6 @@ import com.lijinmu.arashi.xposed.HookConfig;
 import com.lijinmu.arashi.xposed.Reflect;
 import io.github.libxposed.api.XposedModule;
 import java.lang.reflect.Method;
-import java.lang.ref.WeakReference;
 import java.util.Map;
 import java.util.WeakHashMap;
 
@@ -30,17 +29,6 @@ final class LauncherIconDetailsHooks {
             this.color = color;
         }
     }
-    private static final Map<View, RecentIcon> RECENT_ICONS = new WeakHashMap<>();
-    private static final class RecentIcon {
-        final WeakReference<Drawable> original;
-        final ComponentName component;
-        final IosIconDrawable styled;
-        RecentIcon(Drawable original, ComponentName component, Drawable source) {
-            this.original = new WeakReference<>(original);
-            this.component = component;
-            this.styled = new IosIconDrawable(source, component.getPackageName());
-        }
-    }
     private LauncherIconDetailsHooks() {}
 
     static void hookLauncher(XposedModule module, ClassLoader loader) {
@@ -48,22 +36,6 @@ final class LauncherIconDetailsHooks {
     }
 
     static void hookLauncher(XposedModule module, ClassLoader loader, boolean launcher3) {
-        try {
-            Class<?> previews = Class.forName(launcher3 ? "com.android.launcher3.folder.e0" : "com.android.launcher3.folder.d0", false, loader);
-            Class<?> params = Class.forName(launcher3 ? "com.android.launcher3.folder.d0" : "com.android.launcher3.folder.c0", false, loader);
-            Class<?> item = Class.forName(launcher3 ? "k8.j" : "n8.l", false, loader);
-            Method bind = Reflect.findMethodExact(previews, "h", params, item);
-            if (bind != null) module.hook(bind).intercept(chain -> {
-                Object result = chain.proceed();
-                try {
-                    Drawable icon = (Drawable) LauncherIconHooks.field(chain.getArg(0), "g");
-                    Context context = (Context) LauncherIconHooks.field(chain.getThisObject(), "a");
-                    // Each miniature needs its own app identity, not the folder's tag.
-                    LauncherIconHooks.registerSource(icon, context, chain.getArg(1));
-                } catch (Exception error) { Log.w(TAG, "Unable to identify folder preview icon", error); }
-                return result;
-            });
-        } catch (Throwable error) { Log.w(TAG, "Folder miniature hook unavailable", error); }
         try {
             Class<?> iconView = Class.forName("com.android.quickstep.views.IconView", false, loader);
             if (launcher3) {
@@ -95,26 +67,12 @@ final class LauncherIconDetailsHooks {
                         if (!launcher3 && (type.equals("g8.v") || type.equals("g8.p0"))) {
                             // Keep the drawable's own badges, tint and disabled-state
                             // effects; the base/themed renderer applies the new mask.
-                            LauncherIconHooks.registerComponent(original, view.getContext(), component);
                             nativeRenderer = true;
-                        } else {
-                            RecentIcon icon = RECENT_ICONS.get(view);
-                            if (icon == null || icon.original.get() != original || !component.equals(icon.component)) {
-                                Drawable source = view.getContext().getPackageManager().getActivityIcon(component);
-                                icon = new RecentIcon(original, component, source);
-                                RECENT_ICONS.put(view, icon);
-                            }
-                            icon.styled.setBounds(bounds);
-                            icon.styled.setAlpha(original.getAlpha());
-                            icon.styled.setColorFilter(original.getColorFilter());
-                            icon.styled.draw(canvas);
-                            return null;
                         }
                     }
                 } catch (Exception error) { Log.w(TAG, "Unable to resolve recent-task icon", error); }
                 if (nativeRenderer) return chain.proceed();
-                // Preserve the provided artwork if there is no task/component binding.
-                RECENT_ICONS.remove(view);
+                // Preserve the task's supplied artwork, including an app-selected icon.
                 int save = canvas.save();
                 try {
                     canvas.clipPath(IosIconDrawable.maskFor(new RectF(bounds)));

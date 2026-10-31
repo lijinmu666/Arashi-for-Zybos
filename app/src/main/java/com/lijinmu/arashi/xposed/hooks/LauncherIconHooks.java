@@ -1,12 +1,9 @@
 package com.lijinmu.arashi.xposed.hooks;
 
-import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Rect;
 import android.graphics.drawable.BitmapDrawable;
-import android.content.ComponentName;
-import android.content.Intent;
 import android.graphics.drawable.Drawable;
 import android.view.View;
 import android.view.ViewParent;
@@ -20,15 +17,13 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 
 public final class LauncherIconHooks {
-    private static final java.util.Map<Drawable, IosIconDrawable> DISPLAY_ICONS = new java.util.WeakHashMap<>();
-    private static final java.util.Map<Drawable, Source> SOURCES = new java.util.WeakHashMap<>();
-    private static final class Source {
-        final Context context;
-        final ComponentName component;
-        Source(Context context, ComponentName component) {
-            Context app = context.getApplicationContext();
-            this.context = app == null ? context : app;
-            this.component = component;
+    private static final java.util.Map<Drawable, StyledBitmap> DISPLAY_ICONS = new java.util.WeakHashMap<>();
+    private static final class StyledBitmap {
+        final Bitmap bitmap;
+        final IosIconDrawable drawable;
+        StyledBitmap(Bitmap bitmap) {
+            this.bitmap = bitmap;
+            this.drawable = new IosIconDrawable(new BitmapDrawable(null, bitmap), null);
         }
     }
     private static final java.util.Map<Object, Float> CARD_RADII = new java.util.WeakHashMap<>();
@@ -93,27 +88,19 @@ public final class LauncherIconHooks {
                 if (!ConfigManager.isEnabled(HookConfig.KEY_IOS_ICONS)) return chain.proceed();
                 Drawable target = (Drawable) chain.getThisObject();
                 try {
-                    String identity = null;
-                    Object callback = target.getCallback();
-                    if (callback instanceof View) identity = identityFromTag(((View) callback).getTag());
+                    // The renderer's bitmap is the launcher's current icon, including
+                    // app-selected alternatives. PackageManager lookups can instead
+                    // return the default application/activity icon.
+                    Bitmap bitmap = (Bitmap) field(target, "b");
+                    if (bitmap == null || bitmap.getConfig() == Bitmap.Config.HARDWARE) return chain.proceed();
                     IosIconDrawable styled;
                     synchronized (DISPLAY_ICONS) {
-                        styled = DISPLAY_ICONS.get(target);
-                        if (styled == null) {
-                            Drawable source = sourceFor(target);
-                            if (source == null && identity != null && callback instanceof View) {
-                                try {
-                                    source = ((View) callback).getContext().getPackageManager().getApplicationIcon(identity);
-                                } catch (android.content.pm.PackageManager.NameNotFoundException ignored) {}
-                            }
-                            if (source == null) {
-                                Bitmap bitmap = (Bitmap) field(target, "b");
-                                if (bitmap == null || bitmap.getConfig() == Bitmap.Config.HARDWARE) return chain.proceed();
-                                source = new BitmapDrawable(null, bitmap);
-                            }
-                            styled = new IosIconDrawable(source, identity);
-                            DISPLAY_ICONS.put(target, styled);
+                        StyledBitmap cached = DISPLAY_ICONS.get(target);
+                        if (cached == null || cached.bitmap != bitmap) {
+                            cached = new StyledBitmap(bitmap);
+                            DISPLAY_ICONS.put(target, cached);
                         }
+                        styled = cached.drawable;
                     }
                     styled.setBounds((Rect) chain.getArg(1));
                     Canvas canvas = (Canvas) chain.getArg(0);
@@ -130,53 +117,6 @@ public final class LauncherIconHooks {
         } catch (Throwable error) { Log.w("[Arashi-Icons]", "Launcher icon renderer unavailable: " + renderer, error); }
         LauncherIconDetailsHooks.hookLauncher(module, loader, launcher3);
         Log.i("[Arashi-Icons]", "Launcher icon hooks registered");
-    }
-
-    static void registerSource(Drawable icon, Context context, Object item) throws IllegalAccessException {
-        if (icon == null || context == null) return;
-        ComponentName component = componentFromTag(item);
-        registerComponent(icon, context, component);
-    }
-
-    static void registerComponent(Drawable icon, Context context, ComponentName component) {
-        if (icon == null || context == null) return;
-        synchronized (SOURCES) {
-            Source previous = SOURCES.get(icon);
-            if (previous != null && previous.component.equals(component)
-                    && previous.context == context.getApplicationContext()) return;
-            if (component == null) SOURCES.remove(icon);
-            else SOURCES.put(icon, new Source(context, component));
-        }
-        synchronized (DISPLAY_ICONS) { DISPLAY_ICONS.remove(icon); }
-    }
-
-    private static Drawable sourceFor(Drawable icon) {
-        Source source;
-        synchronized (SOURCES) { source = SOURCES.get(icon); }
-        if (source == null) return null;
-        try { return source.context.getPackageManager().getActivityIcon(source.component); }
-        catch (android.content.pm.PackageManager.NameNotFoundException ignored) { return null; }
-    }
-
-    private static String identityFromTag(Object tag) throws IllegalAccessException {
-        ComponentName component = componentFromTag(tag);
-        return component == null ? null : component.getPackageName();
-    }
-
-    static ComponentName componentFromTag(Object tag) throws IllegalAccessException {
-        if (tag == null) return null;
-        for (Class<?> type = tag.getClass(); type != null; type = type.getSuperclass()) {
-            for (Field field : type.getDeclaredFields()) {
-                if (java.lang.reflect.Modifier.isStatic(field.getModifiers())) continue;
-                if (field.getType() != ComponentName.class && field.getType() != Intent.class) continue;
-                field.setAccessible(true);
-                Object value = field.get(tag);
-                ComponentName component = value instanceof Intent ? ((Intent) value).getComponent()
-                        : value instanceof ComponentName ? (ComponentName) value : null;
-                if (component != null) return component;
-            }
-        }
-        return null;
     }
 
     private static void styleImage(ImageView image) throws Exception {
