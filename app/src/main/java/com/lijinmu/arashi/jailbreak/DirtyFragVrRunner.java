@@ -40,7 +40,8 @@ public final class DirtyFragVrRunner {
         return new File("/dev/df").exists();
     }
 
-    public static synchronized int run(Context context, DirtyFragVrReporter reporter)
+    public static synchronized int run(Context context, boolean disableModules,
+                                       boolean softReboot, DirtyFragVrReporter reporter)
             throws Exception {
         Context appContext = context.getApplicationContext();
         Context deContext = appContext.createDeviceProtectedStorageContext();
@@ -63,8 +64,8 @@ public final class DirtyFragVrRunner {
         SharedPreferences prefs = deContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
         if (!prefs.edit()
                 .putString(PREF_SU_MANAGER, managerPackage)
-                .putBoolean(PREF_SOFT_REBOOT, false)
-                .putBoolean(PREF_DISABLE_MODULES, false)
+                .putBoolean(PREF_SOFT_REBOOT, softReboot)
+                .putBoolean(PREF_DISABLE_MODULES, disableModules)
                 .commit()) {
             throw new IOException("unable to persist DirtyFrag preferences");
         }

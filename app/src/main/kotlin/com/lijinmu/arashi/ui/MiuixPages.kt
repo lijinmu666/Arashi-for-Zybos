@@ -586,6 +586,8 @@ private fun MainNavigationPage(a: Main) {
 @Composable
 private fun JailbreakPage(a: Main) = Page(a, "越狱") {
     var stage by rememberSaveable { mutableIntStateOf(0) }
+    var disableModules by rememberSaveable { mutableStateOf(false) }
+    var softReboot by rememberSaveable { mutableStateOf(false) }
     val operation by JailbreakController.state.collectAsState()
     LaunchedEffect(operation) {
         stage = when {
@@ -784,7 +786,11 @@ private fun JailbreakPage(a: Main) = Page(a, "越狱") {
                     2 -> TextButton("继续", { stage = 3 }, colors = ButtonDefaults.textButtonColorsPrimary())
                     3 -> TextButton("继续", {
                         stage = 4
-                        JailbreakController.start(a)
+                        JailbreakController.start(
+                            a,
+                            disableModules = disableModules,
+                            softReboot = softReboot,
+                        )
                     }, colors = ButtonDefaults.textButtonColorsPrimary())
                     5 -> TextButton("打开 KernelSU", {
                         a.packageManager.getLaunchIntentForPackage("me.weishu.kernelsu")?.let(a::startActivity)
@@ -823,6 +829,24 @@ private fun JailbreakPage(a: Main) = Page(a, "越狱") {
                     }
                 }
             }
+        }
+    }
+    if (stage == 3) {
+        Group("更多选项") {
+            CheckboxPreference(
+                checked = disableModules,
+                onCheckedChange = { disableModules = it },
+                title = "禁用所有模块",
+                summary = "在 KernelSU 接管前禁用已安装的模块，之后可在管理器中手动重新启用",
+                checkboxLocation = CheckboxLocation.End,
+            )
+            CheckboxPreference(
+                checked = softReboot,
+                onCheckedChange = { softReboot = it },
+                title = "提权后软重启",
+                summary = "KernelSU 接管后重启 Android 用户空间，当前应用会关闭",
+                checkboxLocation = CheckboxLocation.End,
+            )
         }
     }
 }

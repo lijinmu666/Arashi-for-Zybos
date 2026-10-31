@@ -24,7 +24,9 @@ Changes: Arashi package and payload resolution, scoped IPsec resources,
 process timeout/cleanup, and explicit KernelSU handoff verification.
 The ZYBOS entry currently permits arm64, primary user, 5.10.x kernels only.
 This is a preflight filter, not a guarantee of exploit compatibility.
-No auto-run, reboot, or module-disable option is enabled by this integration.
+No automatic boot-time activation is configured. The confirmation page exposes
+module disabling and post-handoff soft reboot as explicit, default-off checkboxes.
+Each run snapshots the selected values before invoking the native bootstrap.
 The optional upstream vivo VR probe removal is not enabled for ZYBOS.
 A successful handoff does not automatically grant Arashi a KernelSU su rule.
 The user continues in the explicitly selected official KernelSU manager.

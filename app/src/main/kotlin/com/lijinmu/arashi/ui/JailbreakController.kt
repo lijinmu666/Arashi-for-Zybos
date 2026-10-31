@@ -17,7 +17,7 @@ internal object JailbreakController {
     private val mutable = MutableStateFlow(Result())
     val state = mutable.asStateFlow()
 
-    fun start(context: Context) {
+    fun start(context: Context, disableModules: Boolean = false, softReboot: Boolean = false) {
         if (!busy.compareAndSet(false, true)) return
         val app = context.applicationContext
         mutable.value = Result(running = true)
@@ -30,7 +30,7 @@ internal object JailbreakController {
             }
             try {
                 check(android.os.Process.myUid() / 100000 == 0) { "请在设备主用户中运行越狱" }
-                val exit = DirtyFragVrRunner.run(app, ::append)
+                val exit = DirtyFragVrRunner.run(app, disableModules, softReboot, ::append)
                 check(exit == 0 && DirtyFragVrRunner.handoffComplete()) {
                     "提权未完成（退出码 $exit），请查看详情；再次尝试前请重启设备"
                 }
