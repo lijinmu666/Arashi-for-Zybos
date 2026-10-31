@@ -717,7 +717,7 @@ private fun JailbreakPage(a: Main) = Page(a, "越狱") {
                 horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.End),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                if (stage == 2 || stage == 3 || stage == 6 || stage == 7) {
+                if (stage == 2 || stage == 3) {
                     TextButton(
                         "上一步",
                         { stage = if (stage == 3) 2 else 0 },
@@ -765,7 +765,7 @@ private fun JailbreakPage(a: Main) = Page(a, "越狱") {
                             }
                         }
                     }, colors = ButtonDefaults.textButtonColorsPrimary())
-                    1 -> TextButton("重试", { stage = 0 },
+                    1 -> TextButton("返回", { stage = 0 },
                         colors = ButtonDefaults.textButtonColors(
                             color = Color(0xFFB3261E),
                             textColor = Color.White,
@@ -789,8 +789,20 @@ private fun JailbreakPage(a: Main) = Page(a, "越狱") {
                             color = Color.Transparent,
                             textColor = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                         ))
+                        TextButton("返回", { stage = 0 },
+                            colors = ButtonDefaults.textButtonColors(
+                                color = Color(0xFFB3261E),
+                                textColor = Color.White,
+                            ),
+                        )
                     }
                     7 -> {
+                        TextButton("返回", { stage = 0 },
+                            colors = ButtonDefaults.textButtonColors(
+                                color = MiuixTheme.colorScheme.onSurface.copy(alpha = 0.06f),
+                                textColor = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                            ),
+                        )
                         TextButton("安装", {
                             a.startActivity(Intent(Intent.ACTION_VIEW,
                                 android.net.Uri.parse("https://github.com/tiann/KernelSU/releases")))
