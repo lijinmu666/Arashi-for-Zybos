@@ -604,8 +604,9 @@ private fun JailbreakPage(a: Main) = Page(a, "越狱") {
     var problem by remember { mutableStateOf("") }
     var managerInstalled by remember { mutableStateOf(false) }
     var checking by remember { mutableStateOf(false) }
+    var rootWarning by rememberSaveable { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
-    val error = stage == 1 || stage == 6 || stage == 7
+    val error = stage == 1 || stage == 6 || stage == 7 || stage == 8 || stage == 9
     val cardColor by animateColorAsState(
         targetValue = if (error) Color(0xFFB3261E).copy(alpha = 0.20f)
             else MiuixTheme.colorScheme.tertiaryContainer,
@@ -645,17 +646,19 @@ private fun JailbreakPage(a: Main) = Page(a, "越狱") {
                         5 -> "越狱成功"
                         6 -> "提权失败"
                         7 -> "安装 KernelSU"
+                        8 -> "已获得超级用户权限"
+                        9 -> "无需提权"
                         else -> "准备越狱"
                     }
                     val statusIcon = when (visibleStage) {
-                        1, 6 -> Icons.Rounded.ErrorOutline
+                        1, 6, 8, 9 -> Icons.Rounded.ErrorOutline
                         2 -> Icons.Rounded.FactCheck
                         4 -> Icons.Rounded.HourglassTop
                         5 -> Icons.Rounded.CheckCircle
                         7 -> Icons.Rounded.Download
                         else -> Icons.Rounded.Shield
                     }
-                    val statusColor = if (visibleStage == 1 || visibleStage == 6 || visibleStage == 7)
+                    val statusColor = if (visibleStage == 1 || visibleStage == 6 || visibleStage == 7 || visibleStage == 8 || visibleStage == 9)
                         Color(0xFFB3261E) else MiuixTheme.colorScheme.primary
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -682,6 +685,8 @@ private fun JailbreakPage(a: Main) = Page(a, "越狱") {
                         5 -> "提权完毕，请前往 KernelSU 继续。"
                         6 -> "提权未完成，可查看详情了解原因。"
                         7 -> "未安装 KernelSU（me.weishu.kernelsu），请先安装。"
+                        8 -> "Arashi 已获得超级用户权限，不建议继续提权"
+                        9 -> "Arashi 已获得 KernelSU 的超级用户权限，无需提权"
                         else -> "在不修改系统的情况下使用 KernelSU 的越狱模式。Arashi 将会执行提权操作，以此越狱获得超级用户权限。"
                     }
                     Text(summary, color = MiuixTheme.colorScheme.onSurfaceVariantSummary)
@@ -732,7 +737,7 @@ private fun JailbreakPage(a: Main) = Page(a, "越狱") {
                 if (stage == 2 || stage == 3) {
                     TextButton(
                         "上一步",
-                        { stage = if (stage == 3) 2 else 0 },
+                        { stage = if (stage == 3) 2 else if (rootWarning) 8 else 0 },
                         colors = ButtonDefaults.textButtonColors(
                             color = MiuixTheme.colorScheme.onSurface.copy(alpha = 0.06f),
                             textColor = MiuixTheme.colorScheme.onSurfaceVariantSummary,
@@ -758,12 +763,15 @@ private fun JailbreakPage(a: Main) = Page(a, "越狱") {
                                 } catch (_: android.content.pm.PackageManager.NameNotFoundException) {
                                     false
                                 }
-                                arrayOf(kernel, model, androidRelease, supported.toString(), installed.toString())
+                                val rootAccess = com.lijinmu.arashi.jailbreak.RootAccessProbe.detect()
+                                arrayOf(kernel, model, androidRelease, supported.toString(),
+                                    installed.toString(), rootAccess.name)
                             }
                             kernelVersion = result[0]
                             deviceModel = result[1]
                             androidVersion = result[2]
                             managerInstalled = result[4].toBoolean()
+                            rootWarning = result[5] == "OTHER"
                             problem = when {
                                 deviceModel.isBlank() || kernelVersion.isBlank() -> "读取设备信息失败。"
                                 result[3] != "true" -> "内核版本不支持，在该设备上无法使用越狱模式。"
@@ -771,13 +779,15 @@ private fun JailbreakPage(a: Main) = Page(a, "越狱") {
                             }
                             checking = false
                             stage = when {
+                                result[5] == "KERNELSU" -> 9
                                 problem.isNotBlank() -> 1
+                                rootWarning -> 8
                                 !managerInstalled -> 7
                                 else -> 2
                             }
                         }
                     }, colors = ButtonDefaults.textButtonColorsPrimary())
-                    1 -> TextButton("返回", { stage = 0 },
+                    1, 9 -> TextButton("返回", { stage = 0 },
                         colors = ButtonDefaults.textButtonColors(
                             color = Color(0xFFB3261E),
                             textColor = Color.White,
@@ -806,6 +816,20 @@ private fun JailbreakPage(a: Main) = Page(a, "越狱") {
                             textColor = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                         ))
                         TextButton("返回", { stage = 0 },
+                            colors = ButtonDefaults.textButtonColors(
+                                color = Color(0xFFB3261E),
+                                textColor = Color.White,
+                            ),
+                        )
+                    }
+                    8 -> {
+                        TextButton("返回", { stage = 0 },
+                            colors = ButtonDefaults.textButtonColors(
+                                color = MiuixTheme.colorScheme.onSurface.copy(alpha = 0.06f),
+                                textColor = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                            ),
+                        )
+                        TextButton("继续", { stage = if (managerInstalled) 2 else 7 },
                             colors = ButtonDefaults.textButtonColors(
                                 color = Color(0xFFB3261E),
                                 textColor = Color.White,
