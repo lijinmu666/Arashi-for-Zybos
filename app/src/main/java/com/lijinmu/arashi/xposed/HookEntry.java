@@ -43,7 +43,6 @@ public final class HookEntry extends XposedModule {
         catch (Throwable ignored) {}
         log("=== libxposed102 BUILD " + BUILD_TAG + " ===");
         ConfigManager.attach(this, param.isSystemServer());
-        com.lijinmu.arashi.xposed.hooks.SystemIconMaskHooks.hook(this);
         try {
             log("module loaded, process=" + param.getProcessName()
                     + " systemServer=" + param.isSystemServer());
@@ -66,6 +65,7 @@ public final class HookEntry extends XposedModule {
         log("onSystemServerStarting");
         ClassLoader cl = param.getClassLoader();
         ConfigManager.init("android");
+        com.lijinmu.arashi.xposed.hooks.GlobalIconMaskHooks.hookSystemServer(this, cl);
         InstallHooks.hookSystemServer(this, cl);
         UninstallHooks.hookSystemServer(this, cl);
         RestrictionHooks.hookSystemServer(this, cl);

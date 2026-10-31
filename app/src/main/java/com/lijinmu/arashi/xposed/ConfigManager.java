@@ -110,6 +110,10 @@ public final class ConfigManager {
     }
 
 /** Hot UI paths only read snapshots; init/polling and the remote listener refresh them. */
+    public static boolean hasSettingsSnapshot() {
+        return remoteCache != null || cache != null;
+    }
+
     public static boolean isEnabledCached(String key) {
         Boolean value;
         Snapshot remote = remoteCache;

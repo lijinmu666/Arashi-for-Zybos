@@ -114,7 +114,6 @@ public final class HookScopes {
                 && !HookConfig.KEY_RECORD_INTERNAL_AUDIO.equals(key)
                 && !HookConfig.KEY_STATUS_BAR_DATE.equals(key)
                 && !HookConfig.KEY_IOS_ICONS.equals(key)
-                && !HookConfig.KEY_IOS_SYSTEM_ICON_MASK.equals(key)
                 && !HookConfig.KEY_EXTERNAL_INSTALL.equals(key)
                 && !HookConfig.KEY_CAPTIVE_PORTAL.equals(key)
                 && !HookConfig.KEY_DEV_OPTIONS.equals(key)
@@ -125,9 +124,6 @@ public final class HookScopes {
     }
 
     private static String[] applicationScopes(String key) {
-        if (HookConfig.KEY_IOS_SYSTEM_ICON_MASK.equals(key)) {
-            return new String[] { "com.android.settings", "com.android.systemui" };
-        }
         if (HookConfig.KEY_KEEP_NAVIGATION.equals(key)) {
             return new String[] { "com.android.systemui", "com.zuoyebang.iot.pad.launcher14", "com.android.launcher3" };
         }
@@ -198,6 +194,7 @@ public final class HookScopes {
         }
 
         public boolean isAvailable(String key) {
+            if (HookConfig.KEY_IOS_SYSTEM_ICON_MASK.equals(key) && android.os.Build.VERSION.SDK_INT < 34) return false;
             return hasSelectedScope(key) && (!usesSystemServer(key) || systemActive);
         }
 
@@ -206,6 +203,9 @@ public final class HookScopes {
         }
 
         public String unavailableReason(String key) {
+            if (HookConfig.KEY_IOS_SYSTEM_ICON_MASK.equals(key) && android.os.Build.VERSION.SDK_INT < 34) {
+                return "全局图标遮罩需要 Android 14 或更新版本";
+            }
             if (!scopeKnown) {
                 return "无法读取 LSPosed 作用域，请确认模块已启用并返回此页面";
             }

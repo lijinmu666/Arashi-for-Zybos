@@ -82,7 +82,7 @@ jobs:
         run: python3 tests/check_navigation_access.py
       - name: 验证 iOS 图标图层缩放与尺寸恢复
         run: python3 tests/check_ios_icon.py
-      - name: 验证系统 iOS 图标遮罩与关闭恢复
+      - name: 验证全局图标遮罩、多用户及停用恢复
         run: python3 tests/check_system_icon_mask.py
       - name: 安装 Android SDK
         shell: bash

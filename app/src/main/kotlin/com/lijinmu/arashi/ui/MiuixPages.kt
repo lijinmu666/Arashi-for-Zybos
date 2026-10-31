@@ -1053,7 +1053,7 @@ private fun HookPage(
             HookItem("原版状态栏图标", "将电池、WLAN、蓝牙图标恢复为 AOSP 原版样式", HookConfig.KEY_AOSP_STATUS_ICONS),
             HookItem("解除通知图标数量限制", "取消普通状态栏通知图标的固定数量上限，按可用宽度显示", HookConfig.KEY_UNLIMITED_NOTIFICATION_ICONS),
             HookItem("桌面图标圆角", "桌面应用图标与文件夹的改成 iOS 样式的圆角，文件夹使用半透明底色", HookConfig.KEY_IOS_ICONS),
-            HookItem("系统应用图标遮罩", "将已勾选作用域内的自适应应用图标遮罩改为与桌面相同的 iOS 连续圆角，重启对应应用后生效", HookConfig.KEY_IOS_SYSTEM_ICON_MASK),
+            HookItem("系统应用图标遮罩", "全局修改系统自适应图标形状为 iOS 连续圆角，只需勾选系统框架。需要 Android 14 或更新版本；开启或关闭后重启应用刷新，部分图标需重启系统", HookConfig.KEY_IOS_SYSTEM_ICON_MASK),
             HookItem("状态栏显示日期", "仿 iPadOS 在状态栏左侧时间后显示月日与星期，如 16:40  10月17日周六", HookConfig.KEY_STATUS_BAR_DATE),
         ),
         "TCP 服务" to listOf(
@@ -1118,7 +1118,7 @@ private fun HookPage(
                                 HookConfig.KEY_CLEAR_BLACKLIST -> "重启系统后生效"
                                 HookConfig.KEY_STATUS_BAR_DATE -> "下一次时钟刷新后生效"
                                 HookConfig.KEY_IOS_ICONS -> "重启桌面后生效"
-                                HookConfig.KEY_IOS_SYSTEM_ICON_MASK -> "重启对应应用后生效"
+                                HookConfig.KEY_IOS_SYSTEM_ICON_MASK -> "全局图标遮罩已请求更新，重启应用刷新，部分图标需重启系统"
                                 else -> null
                             }
                             if (effectMessage != null && scopes.isAvailable(entry.key)) {
