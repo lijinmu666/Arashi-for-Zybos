@@ -678,7 +678,7 @@ private fun JailbreakPage(a: Main) = Page(a, "越狱") {
                         3 -> "Arashi 即将开始提权操作。"
                         4 -> "正在处理，请稍候…"
                         5 -> "提权完毕，请前往 KernelSU 继续。"
-                        6 -> "本次提权未完成，可查看详情了解原因。"
+                        6 -> "提权未完成，可查看详情了解原因。"
                         7 -> "未安装 KernelSU（me.weishu.kernelsu），请先安装。"
                         else -> "在不修改系统的情况下使用 KernelSU 的越狱模式。Arashi 将会执行提权操作，以此越狱获得超级用户权限。"
                     }
@@ -2059,8 +2059,8 @@ private fun QuickPage(
                         "echo 'special_enable_adb_debug = $value'"
                 }
             }
-            QuickCommandItem("允许 Shell 安装应用", "控制 sys.allow.install.package 属性。重启后失效，其作用与 Hook 的“允许 Shell 安装应用”效果相同") {
-                selected = choose("允许 Shell 安装应用", successMessageOnly = true,
+            QuickCommandItem("允许安装应用", "控制 sys.allow.install.package 属性。重启后系统会将其恢复默认，其作用与 Hook 的 “允许 Shell 安装应用” 效果相同") {
+                selected = choose("允许安装应用", successMessageOnly = true,
                     enabledLabel = "true", disabledLabel = "默认") { enabled ->
                     val value = if (enabled) "true" else ""
                     "setprop sys.allow.install.package '$value' && " +
