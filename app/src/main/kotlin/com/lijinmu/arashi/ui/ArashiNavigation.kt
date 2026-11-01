@@ -133,6 +133,7 @@ internal fun ArashiNavigation(a: ComponentActivity, content: @Composable (Int) -
         }
         if (style == 1 && backdrop == null) LegacyGlassNavigationBar(
             selected = pager.targetPage, onSelected = select, backdrop = legacyLayer,
+            labels = labels, icons = icons,
             pageOrigin = pageOrigin,
             modifier = Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 12.dp),
         )
@@ -148,6 +149,8 @@ private fun LegacyGlassNavigationBar(
     onSelected: (Int) -> Unit,
     backdrop: androidx.compose.ui.graphics.layer.GraphicsLayer,
     pageOrigin: Offset,
+    labels: List<String>,
+    icons: List<androidx.compose.ui.graphics.vector.ImageVector>,
     modifier: Modifier = Modifier,
 ) {
     var origin by remember { mutableStateOf(Offset.Zero) }
@@ -183,7 +186,7 @@ private fun LegacyGlassNavigationBar(
                 .background(primary.copy(alpha = 0.16f))
                 .border(0.75.dp, Color.White.copy(alpha = 0.25f), CircleShape))
             Row(Modifier.fillMaxSize().padding(6.dp)) {
-                listOf("主页", "设置").forEachIndexed { index, label ->
+                labels.forEachIndexed { index, label ->
                     val tint by animateColorAsState(if (selected == index) primary else onSurface, label = "glassTabColor")
                     Column(
                         Modifier.weight(1f).fillMaxHeight().clip(CircleShape)
@@ -191,7 +194,7 @@ private fun LegacyGlassNavigationBar(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.Center,
                     ) {
-                        Icon(when (index) { 0 -> Icons.Rounded.Cottage; 1 -> Icons.Rounded.Security; else -> Icons.Rounded.Settings }, contentDescription = null,
+                        Icon(icons[index], contentDescription = null,
                             tint = tint, modifier = Modifier.size(24.dp))
                         Text(label, color = tint, style = MiuixTheme.textStyles.footnote1)
                     }
