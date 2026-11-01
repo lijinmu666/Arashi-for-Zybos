@@ -855,10 +855,32 @@ private fun JailbreakPage(a: Main) = Page(a, "越狱") {
             }
         }
     }
-    if (stage == 2 && !rootWarning) {
+    AnimatedVisibility(
+        visible = stage == 2 && !rootWarning,
+        enter = expandVertically(
+            animationSpec = tween(190, easing = FastOutSlowInEasing),
+            expandFrom = Alignment.Top,
+        ) + fadeIn(tween(150)),
+        exit = shrinkVertically(
+            animationSpec = tween(190, easing = FastOutSlowInEasing),
+            shrinkTowards = Alignment.Top,
+        ) + fadeOut(tween(110)),
+        label = "jailbreakRootNotice",
+    ) {
         InfoCard("如果设备已获得 Root 权限，不建议重复提权，以免提权失败或出现系统异常。")
     }
-    if (stage == 3) {
+    AnimatedVisibility(
+        visible = stage == 3,
+        enter = expandVertically(
+            animationSpec = tween(190, easing = FastOutSlowInEasing),
+            expandFrom = Alignment.Top,
+        ) + fadeIn(tween(150)),
+        exit = shrinkVertically(
+            animationSpec = tween(190, easing = FastOutSlowInEasing),
+            shrinkTowards = Alignment.Top,
+        ) + fadeOut(tween(110)),
+        label = "jailbreakMoreOptions",
+    ) {
         Group("更多选项") {
             CheckboxPreference(
                 checked = disableModules,
