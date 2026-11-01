@@ -746,7 +746,7 @@ private fun JailbreakPage(a: Main) = Page(a, "越狱") {
                     Spacer(Modifier.weight(1f))
                 }
                 when (stage) {
-                    0 -> TextButton(if (checking) "正在检查…" else "继续", {
+                    0 -> TextButton("继续", {
                         if (checking) return@TextButton
                         checking = true
                         scope.launch {
