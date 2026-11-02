@@ -70,6 +70,7 @@ public final class HookEntry extends XposedModule {
         UninstallHooks.hookSystemServer(this, cl);
         RestrictionHooks.hookSystemServer(this, cl);
         ControlHooks.hookSystemServer(this, cl);
+        com.lijinmu.arashi.xposed.hooks.BootAnimationHooks.hookSystemServer(this, cl);
         SystemUIHooks.hookSystemServer(this, cl);
         log("system_server hooks complete");
     }

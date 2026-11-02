@@ -1107,6 +1107,7 @@ private fun HookPage(
             HookItem("解除安装黑名单限制", "允许安装被硬编码在 mZybBlacklistApp 中的包名", HookConfig.KEY_CLEAR_BLACKLIST),
         ),
         "行为" to listOf(
+            HookItem("解除开机动画等待", "系统准备好显示桌面后立即结束开机动画，取消对原桌面的等待。适用于 Android 14，需要系统框架作用域，重启系统后生效", HookConfig.KEY_BOOT_ANIMATION_NO_WAIT),
             HookItem("允许打开开发者选项", "绕过系统设置检查，允许打开开发者选项的 Activity", HookConfig.KEY_DEV_OPTIONS),
             HookItem("保留后台进程", "拦截系统在划卡后杀死应用后台进程", HookConfig.KEY_KEEP_BACKGROUND),
             HookItem("允许 USB 文件传输", "允许挂载外部 USB 设备和使用数据传输", HookConfig.KEY_ALLOW_USB),
@@ -1188,6 +1189,7 @@ private fun HookPage(
                                 HookConfig.KEY_NOTIFICATION_LONG_PRESS,
                                 HookConfig.KEY_SYSTEMUI_MONET,
                                 HookConfig.KEY_AOSP_STATUS_ICONS -> "重启 SystemUI 后生效"
+                                HookConfig.KEY_BOOT_ANIMATION_NO_WAIT,
                                 HookConfig.KEY_CLEAR_BLACKLIST -> "重启系统后生效"
                                 HookConfig.KEY_STATUS_BAR_DATE -> "下一次时钟刷新后生效"
                                 HookConfig.KEY_IOS_ICONS -> "重启桌面后生效"
