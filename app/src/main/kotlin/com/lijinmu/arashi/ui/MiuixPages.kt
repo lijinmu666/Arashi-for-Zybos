@@ -1107,7 +1107,6 @@ private fun HookPage(
             HookItem("解除安装黑名单限制", "允许安装被硬编码在 mZybBlacklistApp 中的包名", HookConfig.KEY_CLEAR_BLACKLIST),
         ),
         "行为" to listOf(
-            HookItem("解除开机动画等待", "系统准备好显示桌面后立即结束开机动画，取消对原桌面的等待。适用于 Android 14，需要系统框架作用域，重启系统后生效", HookConfig.KEY_BOOT_ANIMATION_NO_WAIT),
             HookItem("允许打开开发者选项", "绕过系统设置检查，允许打开开发者选项的 Activity", HookConfig.KEY_DEV_OPTIONS),
             HookItem("保留后台进程", "拦截系统在划卡后杀死应用后台进程", HookConfig.KEY_KEEP_BACKGROUND),
             HookItem("允许 USB 文件传输", "允许挂载外部 USB 设备和使用数据传输", HookConfig.KEY_ALLOW_USB),
@@ -1122,12 +1121,13 @@ private fun HookPage(
             HookItem("阻止禁用系统导航与下拉面板", "拦截返回、主页、最近任务及下拉面板的禁用限制。需要系统框架、系统界面和桌面的作用域", HookConfig.KEY_KEEP_NAVIGATION),
 						HookItem("恢复通知长按操作", "允许使用通知卡片的长按菜单", HookConfig.KEY_NOTIFICATION_LONG_PRESS),
             HookItem("恢复 Monet 颜色", "修复基于壁纸的动态配色", HookConfig.KEY_SYSTEMUI_MONET),
+						HookItem("解除开机动画等待", "系统准备好显示桌面后立即结束开机动画，取消对原桌面的等待。适用于 Android 14", HookConfig.KEY_BOOT_ANIMATION_NO_WAIT),
         ),
         "美化" to listOf(
             HookItem("原版状态栏图标", "将电池、WLAN、蓝牙图标恢复为 AOSP 原版样式", HookConfig.KEY_AOSP_STATUS_ICONS),
             HookItem("解除通知图标数量限制", "取消普通状态栏通知图标的固定数量上限，按可用宽度显示", HookConfig.KEY_UNLIMITED_NOTIFICATION_ICONS),
             HookItem("桌面图标圆角", "桌面应用图标与文件夹的改成 iOS 样式的圆角，文件夹使用半透明底色", HookConfig.KEY_IOS_ICONS),
-            HookItem("系统应用图标遮罩", "全局修改系统自适应图标形状为 iOS 连续圆角，只需勾选系统框架。需要 Android 14 或更新版本；开启或关闭后重启应用刷新，部分图标需重启系统", HookConfig.KEY_IOS_SYSTEM_ICON_MASK),
+            HookItem("系统应用图标遮罩", "全局修改系统自适应图标形状为 iOS 连续圆角，只需勾选系统框架。需要 Android 14 或更新版本", HookConfig.KEY_IOS_SYSTEM_ICON_MASK),
             HookItem("状态栏显示日期", "仿 iPadOS 在状态栏左侧时间后显示月日与星期，如 16:40  10月17日周六", HookConfig.KEY_STATUS_BAR_DATE),
         ),
         "TCP 服务" to listOf(
