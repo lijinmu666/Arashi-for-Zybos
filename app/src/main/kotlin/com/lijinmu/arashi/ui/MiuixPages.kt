@@ -2156,15 +2156,15 @@ private fun QuickPage(
         Group("作业帮系统组件控制") {
             QuickCommandItem(
                 if (allFrozen) "解冻推荐的作业帮应用" else "冻结推荐的作业帮应用",
-                "将会冻结作业帮的 ZpReport、PadMs、SlardarOsClient、日志服务、桌面 ErrorActivity，冻结重启后仍生效",
+                "将会冻结作业帮的 ZpReport、PadMs、SlardarOsClient、日志服务、桌面 ErrorActivity",
             ) { if (!freezeRunning && !otaRunning) confirmFreeze = !allFrozen }
             QuickCommandItem(
                 if (otaFrozen) "解冻系统升级" else "冻结系统升级",
-                "将会冻结系统升级（OtaServer），冻结重启后仍生效",
+                "将会冻结OtaServer",
             ) { if (!freezeRunning && !otaRunning) confirmOtaFreeze = !otaFrozen }
             QuickCommandItem(
                 "PadMs 后台检查",
-                "限制 PadMs 后台运行以此禁止其偷偷卸载应用、摘除设备管理员权限等行为",
+                "限制 PadMs 后台运行以此禁止其偷偷卸载应用、摘除设备所有者权限等行为。系统将不再主动运行 PadMs 的进程",
             ) {
                 selected = choose(
                     "PadMs 后台检查",
@@ -2231,7 +2231,7 @@ private fun QuickPage(
                 }
             }
         }
-        InfoCard("Arashi 需要使用超级用户权限执行这些指令")
+        InfoCard("Arashi 需要使用超级用户权限执行这些指令。pm disable 的冻结在重启系统后仍然生效")
     }
 }
 
