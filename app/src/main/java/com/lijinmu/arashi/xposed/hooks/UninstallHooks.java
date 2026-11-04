@@ -449,7 +449,9 @@ public final class UninstallHooks {
         };
         Intent prompt = new Intent();
         prompt.setClassName("com.lijinmu.arashi", "com.lijinmu.arashi.UninstallPromptActivity");
-        prompt.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS);
+        // Keep the floating prompt separate from any existing Arashi task.
+        prompt.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_MULTIPLE_TASK
+                | Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS);
         prompt.putExtra("target", target);
         prompt.putExtra("caller_uid", uid);
         prompt.putExtra("caller_packages", packages == null ? new String[0] : packages);

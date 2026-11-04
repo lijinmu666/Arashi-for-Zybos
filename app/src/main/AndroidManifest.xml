@@ -26,6 +26,7 @@
         <activity android:name=".uninstall.UninstallHistoryActivity" android:exported="false" />
         <activity android:name=".uninstall.UninstallListActivity" android:exported="false" />
         <activity android:name=".UninstallPromptActivity"
+            android:taskAffinity=""
             android:theme="@style/Theme.Arashi.Prompt"
             android:exported="true"
             android:permission="android.permission.DELETE_PACKAGES"
