@@ -2134,6 +2134,30 @@ private fun QuickPage(
                         "echo 'special_enable_adb_debug = $value'"
                 }
             }
+            QuickCommandItem("截屏音效", "控制 zyb_screenshot_sounds_enabled 设置。截屏音效是否开启，在系统静音模式下该设置不生效") {
+                selected = choose("截屏音效", successMessageOnly = true) { enabled ->
+                    val value = if (enabled) "1" else "0"
+                    "settings put global zyb_screenshot_sounds_enabled $value && " +
+                        "[ \"\$(settings get global zyb_screenshot_sounds_enabled)\" = '$value' ] && " +
+                        "echo 'zyb_screenshot_sounds_enabled = $value'"
+                }
+            }
+            QuickCommandItem("三指下拉截屏", "控制 zyb_three_pointer_touch_screenshot 设置。是否开启三指下拉快捷截屏功能") {
+                selected = choose("三指下拉截屏", successMessageOnly = true) { enabled ->
+                    val value = if (enabled) "1" else "0"
+                    "settings put global zyb_three_pointer_touch_screenshot $value && " +
+                        "[ \"\$(settings get global zyb_three_pointer_touch_screenshot)\" = '$value' ] && " +
+                        "echo 'zyb_three_pointer_touch_screenshot = $value'"
+                }
+            }
+            QuickCommandItem("息屏关闭 WLAN", "控制 zyb_power_screen_off_wifi 设置。息屏后是否关闭 WLAN 以节省电量，仅在省电模式开启时生效") {
+                selected = choose("息屏关闭 WLAN", successMessageOnly = true) { enabled ->
+                    val value = if (enabled) "1" else "0"
+                    "settings put global zyb_power_screen_off_wifi $value && " +
+                        "[ \"\$(settings get global zyb_power_screen_off_wifi)\" = '$value' ] && " +
+                        "echo 'zyb_power_screen_off_wifi = $value'"
+                }
+            }
             QuickCommandItem("允许安装应用", "控制 sys.allow.install.package 属性。重启后系统会将其恢复默认，其作用与 Hook 的 “允许 Shell 安装应用” 效果相同") {
                 selected = choose("允许安装应用", successMessageOnly = true,
                     enabledLabel = "true", disabledLabel = "默认") { enabled ->
