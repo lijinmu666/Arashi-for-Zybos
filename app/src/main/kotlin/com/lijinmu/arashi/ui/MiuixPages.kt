@@ -2011,6 +2011,9 @@ private fun QuickPage(
     onZybosEnv: () -> Unit = { a.startActivity(Intent(a, com.lijinmu.arashi.tools.ZybosEnvController::class.java)) },
 ) {
     val commands = remember(a) { com.lijinmu.arashi.tools.QuickCommandController(a) }
+    var otaFrozen by remember { mutableStateOf(false) }
+    var confirmOtaFreeze by remember { mutableStateOf<Boolean?>(null) }
+    var otaRunning by remember { mutableStateOf(false) }
     var allFrozen by remember { mutableStateOf(false) }
     var confirmFreeze by remember { mutableStateOf<Boolean?>(null) }
     var freezeRunning by remember { mutableStateOf(false) }
@@ -2020,11 +2023,13 @@ private fun QuickPage(
     fun refreshFrozen() {
         val version = ++freezeQueryVersion
         allFrozen = false
+        otaFrozen = false
+        commands.queryOtaFrozen { frozen, _ -> if (version == freezeQueryVersion) otaFrozen = frozen }
         commands.queryRecommendedFrozen { frozen, _ -> if (version == freezeQueryVersion) allFrozen = frozen }
     }
     DisposableEffect(a) {
         val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_RESUME && !freezeRunning) refreshFrozen()
+            if (event == Lifecycle.Event.ON_RESUME && !freezeRunning && !otaRunning) refreshFrozen()
         }
         a.lifecycle.addObserver(observer)
         refreshFrozen()
@@ -2087,6 +2092,38 @@ private fun QuickPage(
                 }
             }
             OverlayDialog(
+                show = confirmOtaFreeze != null,
+                title = if (confirmOtaFreeze == false) "解冻系统升级" else "冻结系统升级",
+                summary = if (otaRunning) null else
+                    "将会立即${if (confirmOtaFreeze == false) "解冻 (pm enable)" else "冻结 (pm disable)"} 系统升级（OtaServer）",
+                onDismissRequest = { if (!otaRunning) confirmOtaFreeze = null },
+            ) {
+                if (otaRunning) Row(
+                    Modifier.fillMaxWidth().padding(vertical = 16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    top.yukonga.miuix.kmp.basic.CircularProgressIndicator()
+                    Text("正在处理…")
+                }
+                if (!otaRunning) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    TextButton("取消", { confirmOtaFreeze = null }, Modifier.weight(1f))
+                    TextButton("继续", {
+                        val freeze = confirmOtaFreeze
+                        if (freeze != null && !otaRunning) {
+                            otaRunning = true
+                            freezeQueryVersion++
+                            commands.setOtaFrozen(freeze) { _, result ->
+                                otaRunning = false
+                                confirmOtaFreeze = null
+                                refreshFrozen()
+                                componentScope.launch { componentSnackbar.showSnackbar(result, duration = SnackbarDuration.Long) }
+                            }
+                        }
+                    }, Modifier.weight(1f), colors = ButtonDefaults.textButtonColorsPrimary())
+                }
+            }
+            OverlayDialog(
                 show = selected != null,
                 title = selected?.title.orEmpty(),
                 onDismissRequest = { if (!running) selected = null },
@@ -2120,7 +2157,11 @@ private fun QuickPage(
             QuickCommandItem(
                 if (allFrozen) "解冻推荐的作业帮应用" else "冻结推荐的作业帮应用",
                 "将会冻结作业帮的 ZpReport、PadMs、SlardarOsClient、日志服务、桌面 ErrorActivity，冻结重启后仍生效",
-            ) { if (!freezeRunning) confirmFreeze = !allFrozen }
+            ) { if (!freezeRunning && !otaRunning) confirmFreeze = !allFrozen }
+            QuickCommandItem(
+                if (otaFrozen) "解冻系统升级" else "冻结系统升级",
+                "将会冻结系统升级（OtaServer），冻结重启后仍生效",
+            ) { if (!freezeRunning && !otaRunning) confirmOtaFreeze = !otaFrozen }
         }
         Group("设置") {
             Link("作业帮学习机系统环境控制", "读取和修改 persist.sys.env_config") {
