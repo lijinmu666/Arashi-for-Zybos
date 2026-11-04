@@ -25,6 +25,11 @@ public final class QuickCommandController {
         "ZpReport", "PadMs", "SlardarOsClient", "日志服务", "桌面 ErrorActivity"
     };
 
+    private static final String[][] OTA_PACKAGES = {
+        {"com.zuoyebang.iot.zp.lib.ota.server"}
+    };
+    private static final String[] OTA_NAMES = {"系统升级"};
+
     private static int currentUserId() {
         RootShell.Result result = RootShell.run("am get-current-user");
         if (result.ok) {
@@ -72,12 +77,20 @@ public final class QuickCommandController {
     }
 
     public void queryRecommendedFrozen(Completion completion) {
+        queryFrozen(RECOMMENDED_PACKAGES, completion);
+    }
+
+    public void queryOtaFrozen(Completion completion) {
+        queryFrozen(OTA_PACKAGES, completion);
+    }
+
+    private void queryFrozen(String[][] targets, Completion completion) {
         new Thread(() -> {
             int userId = currentUserId();
             RootShell.Result result = RootShell.run("pm list packages -d --user " + userId);
             java.util.List<String> disabled = java.util.Arrays.asList(result.output.split("\\r?\\n"));
             boolean allFrozen = result.ok;
-            for (String[] packages : RECOMMENDED_PACKAGES) {
+            for (String[] packages : targets) {
                 boolean groupFrozen = false;
                 for (String pkg : packages) {
                     if (pkg.contains("/") ? componentDisabled(pkg, userId) : disabled.contains("package:" + pkg)) groupFrozen = true;
@@ -92,14 +105,23 @@ public final class QuickCommandController {
     }
 
     public void setRecommendedFrozen(boolean freeze, Completion completion) {
-        com.lijinmu.arashi.logs.RuntimeLogger.info("QuickCommands", (freeze ? "冻结" : "解冻") + "推荐的作业帮应用");
+        setFrozen(RECOMMENDED_PACKAGES, RECOMMENDED_NAMES, "推荐的作业帮应用", freeze, completion);
+    }
+
+    public void setOtaFrozen(boolean freeze, Completion completion) {
+        setFrozen(OTA_PACKAGES, OTA_NAMES, "系统升级", freeze, completion);
+    }
+
+    private void setFrozen(String[][] targets, String[] names, String title,
+                           boolean freeze, Completion completion) {
+        com.lijinmu.arashi.logs.RuntimeLogger.info("QuickCommands", (freeze ? "冻结" : "解冻") + title);
         new Thread(() -> {
             int userId = currentUserId();
             java.util.List<String> failed = new java.util.ArrayList<>();
-            for (int i = 0; i < RECOMMENDED_PACKAGES.length; i++) {
+            for (int i = 0; i < targets.length; i++) {
                 boolean succeeded = false;
                 // Try every alias even after one succeeds; count aliases as one logical item.
-                for (String pkg : RECOMMENDED_PACKAGES[i]) {
+                for (String pkg : targets[i]) {
                     RootShell.Result result = RootShell.run("pm " + (freeze ? "disable " : "enable ") + "--user " + userId + " " + pkg);
                     if (pkg.contains("/")) {
                         // pm reports component state directly; package-list filters cannot query activities.
@@ -115,11 +137,11 @@ public final class QuickCommandController {
                         }
                     }
                 }
-                if (!succeeded) failed.add(RECOMMENDED_NAMES[i]);
+                if (!succeeded) failed.add(names[i]);
             }
             String action = freeze ? "冻结" : "解冻";
             String message = failed.isEmpty() ? action + "指令全部执行成功"
-                    : failed.size() == RECOMMENDED_PACKAGES.length ? action + "指令全部执行失败"
+                    : failed.size() == targets.length ? action + "指令全部执行失败"
                     : action + "指令部分执行失败：" + String.join("、", failed);
             com.lijinmu.arashi.logs.RuntimeLogger.record(failed.isEmpty() ? "INFO" : "WARN",
                     "QuickCommands", message, null);
