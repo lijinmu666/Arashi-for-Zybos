@@ -2162,6 +2162,20 @@ private fun QuickPage(
                 if (otaFrozen) "解冻系统升级" else "冻结系统升级",
                 "将会冻结系统升级（OtaServer），冻结重启后仍生效",
             ) { if (!freezeRunning && !otaRunning) confirmOtaFreeze = !otaFrozen }
+            QuickCommandItem(
+                "PadMs 后台检查",
+                "限制 PadMs 后台运行以此禁止其偷偷卸载应用、摘除设备管理员权限等行为",
+            ) {
+                selected = choose(
+                    "PadMs 后台检查",
+                    successMessageOnly = true,
+                    enabledLabel = "限制后台运行",
+                    disabledLabel = "默认",
+                ) { restricted ->
+                    val mode = if (restricted) "ignore" else "default"
+                    "cmd appops set com.zuoyebang.padms RUN_IN_BACKGROUND $mode"
+                }
+            }
         }
         Group("设置") {
             Link("作业帮学习机系统环境控制", "读取和修改 persist.sys.env_config") {
