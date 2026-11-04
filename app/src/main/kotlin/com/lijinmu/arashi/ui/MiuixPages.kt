@@ -2119,7 +2119,7 @@ private fun QuickPage(
         Group("作业帮系统组件控制") {
             QuickCommandItem(
                 if (allFrozen) "解冻推荐的作业帮应用" else "冻结推荐的作业帮应用",
-                "ZpReport、PadMs、SlardarOsClient、日志服务、桌面 ErrorActivity",
+                "将会冻结作业帮的 ZpReport、PadMs、SlardarOsClient、日志服务、桌面 ErrorActivity，冻结重启后仍生效",
             ) { if (!freezeRunning) confirmFreeze = !allFrozen }
         }
         Group("设置") {
