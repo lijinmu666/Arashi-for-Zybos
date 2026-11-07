@@ -24,8 +24,22 @@ public final class ControlHooks {
     public static void hookSystemServer(XposedModule mod, ClassLoader cl) {
         hookByName(mod, cl, "com.android.server.am.ActivityManagerService", "forceStopPackage");
         hookByName(mod, cl, "com.android.server.wm.ActivityTaskManagerService", "removeTask");
+        hookUsageQueries(mod, cl);
         hookKeepBackground(mod, cl);
         Log.i(TAG, "control hooks initialized");
+    }
+
+    private static void hookUsageQueries(XposedModule mod, ClassLoader cl) {
+        // Intercept the Binder entry points before they clear the caller identity.
+        // Null is the service's normal no-access result for these queries.
+        String service = "com.android.server.usage.UsageStatsService$BinderService";
+        for (String method : new String[] {
+                "queryUsageStats", "queryConfigurationStats", "queryEventStats",
+                "queryEvents", "queryEventsForPackage", "queryEventsForUser",
+                "queryEventsForPackageForUser"
+        }) {
+            hookByName(mod, cl, service, method);
+        }
     }
 
 private static String blockedCaller() {
