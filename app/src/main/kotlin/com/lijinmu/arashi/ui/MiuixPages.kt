@@ -94,6 +94,7 @@ import com.lijinmu.arashi.xposed.HookScopes
 import com.lijinmu.arashi.xposed.SettingsProvider
 import com.lijinmu.arashi.uninstall.UninstallHistoryStore
 import top.yukonga.miuix.kmp.basic.Card
+import top.yukonga.miuix.kmp.basic.Slider
 import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.basic.CardDefaults
 import top.yukonga.miuix.kmp.basic.DropdownDefaults
@@ -1531,15 +1532,44 @@ private fun UninstallPage(
                 else "未检测到 system_server 的 Hook，卸载验证暂时关闭。激活后会恢复此前的开启状态",
             enabled = moduleActive,
         )
-        OverlayDropdownPreference(
-            items = durations.map { "$it 秒" },
-            selectedIndex = duration,
-            title = "验证倒计时",
-            onSelectedIndexChange = {
-                duration = it
-                prefs.edit().putInt(UninstallConfig.TIMEOUT_SECONDS, durations[it]).apply()
-            },
-        )
+        Column {
+            BasicComponent(
+                title = "验证倒计时",
+                summary = "${durations[duration]} 秒",
+            )
+            Slider(
+                value = duration.toFloat(),
+                onValueChange = { value ->
+                    val index = kotlin.math.round(value).toInt().coerceIn(durations.indices)
+                    if (duration != index) {
+                        duration = index
+                        prefs.edit().putInt(UninstallConfig.TIMEOUT_SECONDS, durations[index]).apply()
+                    }
+                },
+                valueRange = 0f..durations.lastIndex.toFloat(),
+                steps = durations.size - 2,
+                modifier = Modifier.fillMaxWidth()
+                    .padding(horizontal = 24.dp)
+                    .padding(bottom = 16.dp)
+                    .semantics {
+                        contentDescription = "验证倒计时，${durations[duration]} 秒"
+                    },
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth()
+                    .padding(horizontal = 24.dp)
+                    .padding(bottom = 16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                durations.forEach { seconds ->
+                    Text(
+                        text = "$seconds 秒",
+                        style = MiuixTheme.textStyles.footnote1,
+                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                    )
+                }
+            }
+        }
         SwitchPreference(
             checked = spoofResult,
             onCheckedChange = {
