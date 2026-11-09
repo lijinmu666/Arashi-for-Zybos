@@ -2475,6 +2475,14 @@ private fun AboutPage(a: androidx.activity.ComponentActivity, back: () -> Unit) 
     AboutCard("作者", "李瑾沐", arrow = true, onClick = {
         MiuixPages.showDetails(a, "关于作者", "我的名字叫李瑾沐（€rustStore 或者是 H…Hey），一名独立开发者。可以在我的网站或者群聊上找到我")
     })
+    AboutCard("Arashi 官网", "arashi.lijinmu.com", externalLink = true, onClick = {
+        val url = "https://arashi.lijinmu.com"
+        try {
+            a.startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse(url)))
+        } catch (_: android.content.ActivityNotFoundException) {
+            MiuixPages.showMessage(a, "无法打开链接", "请先安装可打开网页的应用")
+        }
+    })
     AboutCard("GitHub 仓库", "lijinmu666/Arashi-for-Zybos", externalLink = true, onClick = {
         val url = "https://github.com/lijinmu666/Arashi-for-Zybos"
         try {
