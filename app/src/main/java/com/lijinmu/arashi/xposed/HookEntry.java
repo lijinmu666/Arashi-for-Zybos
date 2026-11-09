@@ -7,7 +7,6 @@ import io.github.libxposed.api.XposedModuleInterface.PackageReadyParam;
 import io.github.libxposed.api.XposedModuleInterface.SystemServerStartingParam;
 
 import com.lijinmu.arashi.xposed.hooks.CaptivePortalHooks;
-import com.lijinmu.arashi.xposed.hooks.JcCodeHooks;
 import com.lijinmu.arashi.xposed.hooks.ControlHooks;
 import com.lijinmu.arashi.xposed.hooks.DevOptionsHooks;
 import com.lijinmu.arashi.xposed.hooks.AppDetailsHooks;
@@ -92,9 +91,6 @@ public final class HookEntry extends XposedModule {
         log("onPackageReady: " + pkg);
         if (PKG_SELF.equals(pkg)) {
             hookSelfActivation(param.getClassLoader());
-        } else if ("JC.CODE.V4".equals(pkg)) {
-            ConfigManager.init(pkg);
-            JcCodeHooks.install(this, param.getClassLoader());
         } else if (PKG_INSTALLER.equals(pkg)) {
             ConfigManager.init(pkg);
             InstallHooks.hookPackageInstaller(this, param.getClassLoader());

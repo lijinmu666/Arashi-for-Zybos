@@ -6,8 +6,6 @@ public final class HookConfig {
     public static final String PREF_NAME = "hook_settings";
     public static final String KEY_BLOCK_TCP_LOGIN_FAIL = "hook_block_tcp_login_fail";
     public static final String KEY_BOOT_ANIMATION_NO_WAIT = "hook_boot_animation_no_wait";
-    public static final String KEY_JC_CHECKS = "hook_jc_checks";
-    public static final String KEY_JC_NETWORK = "hook_jc_network";
     public static final String KEY_REMOTE_READY = "remote_config_ready";
 
 public static final boolean DEFAULT_ENABLED = true;
@@ -45,9 +43,7 @@ public static final String KEY_BLOCK_SUPERVISE = "hook_block_supervise";
     public static final String KEY_KEEP_BACKGROUND_WHITELIST = "hook_keep_background_whitelist";
 
     public static boolean defaultEnabled(String key) {
-        return !KEY_JC_CHECKS.equals(key)
-                && !KEY_JC_NETWORK.equals(key)
-                && !KEY_BOOT_ANIMATION_NO_WAIT.equals(key)
+        return !KEY_BOOT_ANIMATION_NO_WAIT.equals(key)
                 && !KEY_AOSP_APP_DETAILS.equals(key)
                 && !KEY_UNLIMITED_NOTIFICATION_ICONS.equals(key)
                 && !KEY_AOSP_STATUS_ICONS.equals(key)
@@ -78,7 +74,7 @@ public static final String KEY_NEUTRALIZE_POLICY = "hook_neutralize_policy";
 
     public static String[] keys() {
         return new String[] {
-                KEY_JC_CHECKS, KEY_JC_NETWORK, KEY_BOOT_ANIMATION_NO_WAIT, KEY_AOSP_APP_DETAILS, KEY_BLOCK_TCP_LOGIN_FAIL, KEY_EXTERNAL_INSTALL, KEY_SHELL_INSTALL,
+                KEY_BOOT_ANIMATION_NO_WAIT, KEY_AOSP_APP_DETAILS, KEY_BLOCK_TCP_LOGIN_FAIL, KEY_EXTERNAL_INSTALL, KEY_SHELL_INSTALL,
                 KEY_CLEAR_BLACKLIST, KEY_CAPTIVE_PORTAL, KEY_IOS_SYSTEM_ICON_MASK,
                 KEY_ALLOW_USB, KEY_LEGACY_POWER_MENU, KEY_UNLIMITED_NOTIFICATION_ICONS,
                 KEY_RECORD_INTERNAL_AUDIO, KEY_NOTIFICATION_LONG_PRESS, KEY_NOTIFICATION_REPLY, KEY_KEEP_NAVIGATION, KEY_STATUS_BAR_DATE, KEY_AOSP_STATUS_ICONS, KEY_SYSTEMUI_MONET, KEY_IOS_ICONS, KEY_ALLOW_WALLPAPER, KEY_CLEAR_DETAIL_BLACK, KEY_BLOCK_SUPERVISE,

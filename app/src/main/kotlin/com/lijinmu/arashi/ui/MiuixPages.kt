@@ -1131,10 +1131,6 @@ private fun HookPage(
             HookItem("系统应用图标遮罩", "全局修改系统自适应图标形状为 iOS 连续圆角，只需勾选系统框架。需要 Android 14 或更新版本", HookConfig.KEY_IOS_SYSTEM_ICON_MASK),
             HookItem("状态栏显示日期", "仿 iPadOS 在状态栏左侧时间后显示月日与星期，如 16:40  10月17日周六", HookConfig.KEY_STATUS_BAR_DATE),
         ),
-        "JC Code V4" to listOf(
-            HookItem("尝试绕过检测与云控", "尝试拦截已定位的签名、环境及授权判断，原生检测可能仍然生效", HookConfig.KEY_JC_CHECKS),
-            HookItem("限制网络连接", "阻止 JC Code V4 的 Java 层网络连接，可能影响联网功能，原生连接不受此项保证", HookConfig.KEY_JC_NETWORK),
-        ),
         "TCP 服务" to listOf(
             HookItem("屏蔽锁机广播", "拦截 ZpTcpService 发出的所有 login.fail 广播，以此防止云控锁机", HookConfig.KEY_BLOCK_TCP_LOGIN_FAIL),
         ),
@@ -1197,7 +1193,6 @@ private fun HookPage(
                                 HookConfig.KEY_BOOT_ANIMATION_NO_WAIT,
                                 HookConfig.KEY_CLEAR_BLACKLIST -> "重启系统后生效"
                                 HookConfig.KEY_STATUS_BAR_DATE -> "下一次时钟刷新后生效"
-                                HookConfig.KEY_JC_CHECKS, HookConfig.KEY_JC_NETWORK -> "重启 JC Code V4 后生效"
                                 HookConfig.KEY_IOS_ICONS -> "重启桌面后生效"
                                 HookConfig.KEY_IOS_SYSTEM_ICON_MASK -> "全局图标遮罩已请求更新，重启应用刷新，部分图标需重启系统"
                                 else -> null
