@@ -155,6 +155,8 @@ Log.w(TAG, "reject untrusted caller uid=" + Binder.getCallingUid());
         SharedPreferences prefs = context.getSharedPreferences(HookConfig.PREF_NAME, Context.MODE_PRIVATE);
         
         Bundle result = new Bundle();
+        result.putBoolean(HookConfig.KEY_JC_CHECKS, prefs.getBoolean(HookConfig.KEY_JC_CHECKS, false));
+        result.putBoolean(HookConfig.KEY_JC_NETWORK, prefs.getBoolean(HookConfig.KEY_JC_NETWORK, false));
         result.putBoolean(HookConfig.KEY_BLOCK_TCP_LOGIN_FAIL,
                 prefs.getBoolean(HookConfig.KEY_BLOCK_TCP_LOGIN_FAIL, false));
         result.putBoolean(HookConfig.KEY_EXTERNAL_INSTALL, prefs.getBoolean(HookConfig.KEY_EXTERNAL_INSTALL, HookConfig.DEFAULT_ENABLED));
