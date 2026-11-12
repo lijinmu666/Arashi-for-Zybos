@@ -87,8 +87,6 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.lerp
-import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.semantics.contentDescription
@@ -1370,13 +1368,8 @@ private fun AppPickerCheckbox(
     title: String,
     summary: String?,
     icon: Drawable?,
-    cardColor: Color? = null,
 ) {
-    Card(
-        Modifier.fillMaxWidth(),
-        colors = if (cardColor == null) CardDefaults.defaultColors()
-        else CardDefaults.defaultColors(color = cardColor, contentColor = MiuixTheme.colorScheme.onSurface),
-    ) {
+    Card(Modifier.fillMaxWidth()) {
         // The icon is inside the preference's hit/press area, not a sibling.
         CheckboxPreference(
             checked = checked,
@@ -2224,11 +2217,6 @@ private fun DeviceControlPage(a: ComponentActivity, back: () -> Unit) {
                             title = title,
                             summary = null,
                             icon = null,
-                            cardColor = lerp(
-                                MiuixTheme.colorScheme.surface,
-                                MiuixTheme.colorScheme.onSurface,
-                                if (MiuixTheme.colorScheme.surface.luminance() > 0.5f) 0.045f else 0.16f,
-                            ),
                         )
                     }
                 }
