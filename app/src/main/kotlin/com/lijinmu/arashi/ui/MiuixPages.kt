@@ -2041,7 +2041,11 @@ private fun UninstallPrompt(
 private fun QuickCommandItem(title: String, summary: String, action: () -> Unit) =
     BasicComponent(title = title, summary = summary, onClick = action)
 
-private data class QuickOption(val label: String, val execute: (QuickCommands.Completion) -> Unit)
+private data class QuickOption(
+    val label: String,
+    val primary: Boolean = false,
+    val execute: (QuickCommands.Completion) -> Unit,
+)
 private data class QuickAction(val title: String, val options: List<QuickOption>, val successMessageOnly: Boolean = false)
 
 @Composable
@@ -2057,7 +2061,7 @@ private fun padMsBackgroundAction(commands: QuickCommandController): QuickAction
     return QuickAction(
         title,
         listOf("限制后台运行" to "ignore", "默认" to "default").map { (label, mode) ->
-            QuickOption(label) { done ->
+            QuickOption(label, primary = mode == "ignore") { done ->
                 commands.run(title, "cmd appops set com.zuoyebang.padms RUN_IN_BACKGROUND $mode", done)
             }
         },
@@ -2089,9 +2093,13 @@ private fun QuickActionDialog(
                 }
             } else {
                 selected?.options?.forEach { option ->
-                    TextButton(option.label, {
-                        execute(option)
-                    }, Modifier.fillMaxWidth())
+                    val onClick = { execute(option) }
+                    val modifier = Modifier.fillMaxWidth()
+                    if (option.primary) {
+                        TextButton(option.label, onClick, modifier, colors = ButtonDefaults.textButtonColorsPrimary())
+                    } else {
+                        TextButton(option.label, onClick, modifier)
+                    }
                 }
             }
         }
