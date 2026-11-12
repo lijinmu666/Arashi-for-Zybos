@@ -2305,6 +2305,15 @@ private fun QuickPage(
                 commands.run(title, command(enabled), done)
             }
         }, successMessageOnly)
+    fun globalToggle(title: String, key: String): QuickAction = QuickAction(
+        title,
+        listOf(true, false).map { enabled ->
+            QuickOption(if (enabled) "开启" else "关闭") { done ->
+                commands.writeGlobalToggle(title, key, enabled, done)
+            }
+        },
+        successMessageOnly = true,
+    )
     val completion = QuickCommands.Completion { success, output ->
         val message = if (success && selected?.successMessageOnly == true) "" else output
         running = false
@@ -2404,36 +2413,16 @@ private fun QuickPage(
                 onZybosEnv()
             }
             QuickCommandItem("special_enable_adb_debug", "这个厂商自定义设置并没有什么实际用处") {
-                selected = choose("special_enable_adb_debug", successMessageOnly = true) { enabled ->
-                    val value = if (enabled) "1" else "0"
-                    "settings put global special_enable_adb_debug $value && " +
-                        "[ \"\$(settings get global special_enable_adb_debug)\" = '$value' ] && " +
-                        "echo 'special_enable_adb_debug = $value'"
-                }
+                selected = globalToggle("special_enable_adb_debug", "special_enable_adb_debug")
             }
             QuickCommandItem("截屏音效", "控制 zyb_screenshot_sounds_enabled 设置。截屏音效是否开启，在系统静音模式下该设置不生效") {
-                selected = choose("截屏音效", successMessageOnly = true) { enabled ->
-                    val value = if (enabled) "1" else "0"
-                    "settings put global zyb_screenshot_sounds_enabled $value && " +
-                        "[ \"\$(settings get global zyb_screenshot_sounds_enabled)\" = '$value' ] && " +
-                        "echo 'zyb_screenshot_sounds_enabled = $value'"
-                }
+                selected = globalToggle("截屏音效", "zyb_screenshot_sounds_enabled")
             }
             QuickCommandItem("三指下拉截屏", "控制 zyb_three_pointer_touch_screenshot 设置。是否开启三指下拉快捷截屏功能") {
-                selected = choose("三指下拉截屏", successMessageOnly = true) { enabled ->
-                    val value = if (enabled) "1" else "0"
-                    "settings put global zyb_three_pointer_touch_screenshot $value && " +
-                        "[ \"\$(settings get global zyb_three_pointer_touch_screenshot)\" = '$value' ] && " +
-                        "echo 'zyb_three_pointer_touch_screenshot = $value'"
-                }
+                selected = globalToggle("三指下拉截屏", "zyb_three_pointer_touch_screenshot")
             }
             QuickCommandItem("息屏关闭 WLAN", "控制 zyb_power_screen_off_wifi 设置。息屏后是否关闭 WLAN 以节省电量，仅在省电模式开启时生效") {
-                selected = choose("息屏关闭 WLAN", successMessageOnly = true) { enabled ->
-                    val value = if (enabled) "1" else "0"
-                    "settings put global zyb_power_screen_off_wifi $value && " +
-                        "[ \"\$(settings get global zyb_power_screen_off_wifi)\" = '$value' ] && " +
-                        "echo 'zyb_power_screen_off_wifi = $value'"
-                }
+                selected = globalToggle("息屏关闭 WLAN", "zyb_power_screen_off_wifi")
             }
             QuickCommandItem("允许安装应用", "控制 sys.allow.install.package 属性。重启后系统会将其恢复默认，其作用与 Hook 的 “允许 Shell 安装应用” 效果相同") {
                 selected = choose("允许安装应用", successMessageOnly = true,
@@ -2462,12 +2451,16 @@ private fun QuickPage(
 private fun WorkModePage(a: ComponentActivity, back: () -> Unit) {
     var mode by remember(a) { mutableStateOf(WorkMode.get(a)) }
     var canWrite by remember(a) { mutableStateOf(Settings.System.canWrite(a)) }
+    var canWriteSecure by remember(a) { mutableStateOf(QuickCommandController.canWriteSecureSettings(a)) }
+    var showSecureGrant by rememberSaveable { mutableStateOf(false) }
+    val grantCommand = "pm grant ${a.packageName} android.permission.WRITE_SECURE_SETTINGS"
     var shellReady by remember { mutableStateOf(WorkMode.shellReady()) }
 
     DisposableEffect(a) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
                 canWrite = Settings.System.canWrite(a)
+                canWriteSecure = QuickCommandController.canWriteSecureSettings(a)
                 shellReady = WorkMode.shellReady()
             }
         }
@@ -2488,14 +2481,35 @@ private fun WorkModePage(a: ComponentActivity, back: () -> Unit) {
         }
     }
 
-    Page(a, "工作模式", back) {
+    Page(a, "工作模式", back, overlay = {
+        OverlayDialog(
+            show = showSecureGrant,
+            title = "写入安全设置",
+            summary = "请在已连接设备的 ADB Shell 中执行，完成后返回 Arashi 检查授权状态。",
+            onDismissRequest = { showSecureGrant = false },
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                InfoCard(grantCommand)
+                TextButton(
+                    "复制命令",
+                    {
+                        a.getSystemService(android.content.ClipboardManager::class.java)
+                            ?.setPrimaryClip(android.content.ClipData.newPlainText("ADB 授权命令", grantCommand))
+                        showSecureGrant = false
+                    },
+                    Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.textButtonColorsPrimary(),
+                )
+            }
+        }
+    }) {
         IntroCard("选择执行指令、冻结和解冻时使用的权限")
         Group("选择模式") {
             WorkMode.entries.forEach { option ->
                 CheckboxPreference(
                     title = option.label,
                     summary = when (option) {
-                        WorkMode.UNPRIVILEGED -> "通过「修改系统设置」权限写入 Settings.System"
+                        WorkMode.UNPRIVILEGED -> "通过 Android 授予的设置写入权限执行支持的操作"
                         WorkMode.SHELL -> "通过 Shizuku 或 Sui 执行指令"
                         WorkMode.ROOT -> "通过 su 执行指令"
                     },
@@ -2521,6 +2535,10 @@ private fun WorkModePage(a: ComponentActivity, back: () -> Unit) {
                     } catch (_: android.content.ActivityNotFoundException) {
                         MiuixPages.showMessage(a, "无法打开设置", "此系统未提供修改系统设置的授权页面")
                     }
+                }
+                Link("写入安全设置", if (canWriteSecure) "已授权" else "查看并复制 ADB 授权命令") {
+                    canWriteSecure = QuickCommandController.canWriteSecureSettings(a)
+                    showSecureGrant = true
                 }
             }
             WorkMode.SHELL -> Group("权限") {

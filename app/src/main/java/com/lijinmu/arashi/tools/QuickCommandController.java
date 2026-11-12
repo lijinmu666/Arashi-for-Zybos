@@ -3,6 +3,11 @@ package com.lijinmu.arashi.tools;
 import androidx.activity.ComponentActivity;
 import com.lijinmu.arashi.tools.QuickCommands.Completion;
 
+import android.content.Context;
+import android.content.pm.PackageManager;
+import android.provider.Settings;
+import java.util.function.Supplier;
+
 import android.os.Handler;
 import android.os.Looper;
 
@@ -162,17 +167,50 @@ public final class QuickCommandController {
         }, "Arashi-FreezeApps").start();
     }
 
-    public void run(String title, String command, Completion completion) {
-        com.lijinmu.arashi.logs.RuntimeLogger.info("QuickCommands", "执行：" + title);
+    public static boolean canWriteSecureSettings(Context context) {
+        return context.checkSelfPermission(android.Manifest.permission.WRITE_SECURE_SETTINGS)
+                == PackageManager.PERMISSION_GRANTED;
+    }
+
+    public void writeGlobalToggle(String title, String key, boolean enabled, Completion completion) {
+        if (!key.matches("[a-z0-9_]+")) throw new IllegalArgumentException("Invalid settings key");
         WorkMode mode = WorkMode.get(activity);
+        int value = enabled ? 1 : 0;
+        executeAsync(title, () -> {
+            if (canWriteSecureSettings(activity)) {
+                try {
+                    var resolver = activity.getContentResolver();
+                    if (Settings.Global.putInt(resolver, key, value)
+                            && Settings.Global.getInt(resolver, key, -1) == value) {
+                        return new RootShell.Result(true, "");
+                    }
+                } catch (RuntimeException ignored) {
+                    // A ROM or user policy can reject a direct write despite the grant.
+                }
+            }
+            if (mode == WorkMode.UNPRIVILEGED) {
+                return new RootShell.Result(false, "请在工作模式中授予写入安全设置权限，或选择 Shell / Root");
+            }
+            String command = "settings put global " + key + " " + value
+                    + " && [ \"$(settings get global " + key + ")\" = '" + value + "' ]";
+            return mode.execute(activity, command);
+        }, completion);
+    }
+
+    public void run(String title, String command, Completion completion) {
+        WorkMode mode = WorkMode.get(activity);
+        executeAsync(title, () -> mode.execute(activity, command), completion);
+    }
+
+    private void executeAsync(String title, Supplier<RootShell.Result> operation, Completion completion) {
+        com.lijinmu.arashi.logs.RuntimeLogger.info("QuickCommands", "执行：" + title);
         new Thread(() -> {
-            RootShell.Result result = mode.execute(activity, command);
+            RootShell.Result result = operation.get();
             com.lijinmu.arashi.logs.RuntimeLogger.info("QuickCommands", title + (result.ok ? "：成功" : "：失败"));
             ui.post(() -> {
                 if (activity.isFinishing() || activity.isDestroyed()) return;
                 completion.onComplete(result.ok, result.output);
             });
-        }, "Arashi-Root").start();
+        }, "Arashi-Command").start();
     }
 }
-
