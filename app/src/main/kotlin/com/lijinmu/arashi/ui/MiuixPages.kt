@@ -88,6 +88,7 @@ import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.semantics.contentDescription
@@ -2226,7 +2227,7 @@ private fun DeviceControlPage(a: ComponentActivity, back: () -> Unit) {
                             cardColor = lerp(
                                 MiuixTheme.colorScheme.surface,
                                 MiuixTheme.colorScheme.onSurface,
-                                0.16f,
+                                if (MiuixTheme.colorScheme.surface.luminance() > 0.5f) 0.045f else 0.16f,
                             ),
                         )
                     }
