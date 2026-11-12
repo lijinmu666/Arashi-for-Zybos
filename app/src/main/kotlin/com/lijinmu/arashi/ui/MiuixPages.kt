@@ -51,6 +51,7 @@ import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Block
 import androidx.compose.material.icons.rounded.ErrorOutline
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.CheckCircle
@@ -519,7 +520,7 @@ private fun rememberSystemServerActivation(a: androidx.activity.ComponentActivit
 // Enum names form a stable, Bundle-saveable route format without reflection/serialization.
 internal enum class ArashiRoute : NavKey {
     Main, HookSettings, BackgroundWhitelist, TcpHistory, UninstallSettings,
-    UninstallWhitelist, UninstallBlacklist, UninstallHistory, Notifications, About, Logs, QuickCommands, ZybosEnv,
+    UninstallWhitelist, UninstallBlacklist, UninstallHistory, Notifications, About, Logs, QuickCommands, ZybosEnv, DeviceControl,
 }
 
 private val ArashiBackStackSaver = Saver<NavBackStack, ArrayList<String>>(
@@ -561,6 +562,7 @@ private fun MainNavigationPage(a: Main) {
                 ArashiRoute.UninstallWhitelist -> UninstallListPage(a, false, back)
                 ArashiRoute.UninstallBlacklist -> UninstallListPage(a, true, back)
                 ArashiRoute.UninstallHistory -> UninstallHistoryPage(a, back)
+                ArashiRoute.DeviceControl -> Page(a, "管控和云控", back) {}
                 ArashiRoute.QuickCommands -> QuickPage(a, back, { open(ArashiRoute.ZybosEnv) })
                 ArashiRoute.ZybosEnv -> ZybosEnvPage(a, back)
                 ArashiRoute.Notifications -> NotificationSettingsPage(a, back)
@@ -569,6 +571,7 @@ private fun MainNavigationPage(a: Main) {
                 ArashiRoute.Main -> ArashiNavigation(a) { page ->
                     if (page == 0) HomePage(a, bottomBar = {},
                         onHookSettings = { open(ArashiRoute.HookSettings) },
+                        onDeviceControl = { open(ArashiRoute.DeviceControl) },
                         onQuickCommands = { open(ArashiRoute.QuickCommands) },
                         onUninstallSettings = { open(ArashiRoute.UninstallSettings) })
                     else if (page == 1) JailbreakPage(a)
@@ -906,6 +909,7 @@ private fun HomePage(
     a: Main,
     bottomBar: @Composable () -> Unit,
     onHookSettings: () -> Unit,
+    onDeviceControl: () -> Unit,
     onQuickCommands: () -> Unit,
     onUninstallSettings: () -> Unit,
 ) =
@@ -977,6 +981,7 @@ private fun HomePage(
     }
     Group("功能") {
         Link("Hook 设置", "控制 Hook 是否启用", Icons.Rounded.Extension) { onHookSettings() }
+        Link("管控和云控", icon = Icons.Rounded.Block) { onDeviceControl() }
         Link("快捷指令执行", "调整设置、冻结应用等快捷操作", Icons.Rounded.Terminal) { onQuickCommands() }
         Link("卸载验证设置", "验证发起的卸载请求", Icons.Rounded.Delete) { onUninstallSettings() }
     }
