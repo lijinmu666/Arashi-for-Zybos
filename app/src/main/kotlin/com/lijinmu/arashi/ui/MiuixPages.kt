@@ -572,8 +572,8 @@ private fun MainNavigationPage(a: Main) {
                 ArashiRoute.UninstallBlacklist -> UninstallListPage(a, true, back)
                 ArashiRoute.UninstallHistory -> UninstallHistoryPage(a, back)
                 ArashiRoute.DeviceControl -> DeviceControlPage(a, back)
-                ArashiRoute.SettingsEditor -> SettingsEditorPage(a, back)
-                ArashiRoute.QuickCommands -> QuickPage(a, back, { open(ArashiRoute.ZybosEnv) })
+                ArashiRoute.SettingsEditor -> SettingsEditorPage(a, back) { open(ArashiRoute.ZybosEnv) }
+                ArashiRoute.QuickCommands -> QuickPage(a, back)
                 ArashiRoute.ZybosEnv -> ZybosEnvPage(a, back)
                 ArashiRoute.WorkModeSettings -> WorkModePage(a, back)
                 ArashiRoute.Notifications -> NotificationSettingsPage(a, back)
@@ -2271,13 +2271,18 @@ private fun DeviceControlPage(a: ComponentActivity, back: () -> Unit) {
 private const val SETTINGS_EDITOR_DESCRIPTION = "系统设置和属性修改"
 
 @Composable
-private fun SettingsEditorPage(a: ComponentActivity, back: () -> Unit) {
+private fun SettingsEditorPage(
+    a: ComponentActivity,
+    back: () -> Unit,
+    onZybosEnv: () -> Unit,
+) {
     val commands = remember(a) { QuickCommandController(a) }
     var selected by remember { mutableStateOf<Pair<String, String>?>(null) }
     var checked by remember { mutableStateOf(false) }
     var ready by remember { mutableStateOf(false) }
     var running by remember { mutableStateOf(false) }
     val setting = selected
+    var propertyAction by remember { mutableStateOf<QuickAction?>(null) }
 
     LaunchedEffect(setting) {
         if (setting != null) {
@@ -2296,6 +2301,16 @@ private fun SettingsEditorPage(a: ComponentActivity, back: () -> Unit) {
     }
 
     Page(a, "设置编辑器", back, overlay = {
+        QuickActionDialog(propertyAction, running, { propertyAction = null }) { option ->
+            if (!running) {
+                running = true
+                option.execute(QuickCommands.Completion { success, output ->
+                    running = false
+                    propertyAction = null
+                    MiuixPages.showMessage(a, if (success) "执行完毕" else "执行失败", if (success) "" else output)
+                })
+            }
+        }
         OverlayDialog(
             show = setting != null,
             title = setting?.first.orEmpty(),
@@ -2359,6 +2374,26 @@ private fun SettingsEditorPage(a: ComponentActivity, back: () -> Unit) {
                 openToggle("息屏关闭 WLAN", "zyb_power_screen_off_wifi")
             }
         }
+        Group("系统属性") {
+            Link("作业帮学习机系统环境控制", "读取和修改 persist.sys.env_config") {
+                onZybosEnv()
+            }
+            QuickCommandItem("允许安装应用", "控制 sys.allow.install.package 属性。重启后系统会将其恢复默认，其作用与 Hook 的 “允许 Shell 安装应用” 效果相同") {
+                val title = "允许安装应用"
+                propertyAction = QuickAction(
+                    title,
+                    listOf("true" to "true", "默认" to "").map { (label, value) ->
+                        QuickOption(label) { done ->
+                            val command =
+                                "setprop sys.allow.install.package '$value' && " +
+                                    "[ \"\$(getprop sys.allow.install.package)\" = '$value' ] && " +
+                                    "echo 'sys.allow.install.package = $value'"
+                            commands.run(title, command, done)
+                        }
+                    },
+                )
+            }
+        }
     }
 }
 
@@ -2366,7 +2401,6 @@ private fun SettingsEditorPage(a: ComponentActivity, back: () -> Unit) {
 private fun QuickPage(
     a: ComponentActivity,
     back: () -> Unit = a::finish,
-    onZybosEnv: () -> Unit = { a.startActivity(Intent(a, com.lijinmu.arashi.tools.ZybosEnvController::class.java)) },
 ) {
     val commands = remember(a) { QuickCommandController(a) }
     var otaFrozen by remember { mutableStateOf(false) }
@@ -2500,21 +2534,6 @@ private fun QuickPage(
                 "将会冻结OtaServer",
             ) { if (!freezeRunning && !otaRunning) confirmOtaFreeze = !otaFrozen }
             PadMsBackgroundItem { selected = padMsBackgroundAction(commands) }
-        }
-        Group("设置") {
-            Link("作业帮学习机系统环境控制", "读取和修改 persist.sys.env_config") {
-                onZybosEnv()
-            }
-            QuickCommandItem("允许安装应用", "控制 sys.allow.install.package 属性。重启后系统会将其恢复默认，其作用与 Hook 的 “允许 Shell 安装应用” 效果相同") {
-                selected = choose("允许安装应用", successMessageOnly = true,
-                    enabledLabel = "true", disabledLabel = "默认") { enabled ->
-                    val value = if (enabled) "true" else ""
-                    "setprop sys.allow.install.package '$value' && " +
-                        "[ \"\$(getprop sys.allow.install.package)\" = '$value' ] && " +
-                        "echo 'sys.allow.install.package = $value'"
-                }
-            }
-
         }
         Group("投屏") {
             QuickCommandItem("投屏", "调整无线显示和 SystemUI 投屏磁贴") {
