@@ -2273,48 +2273,101 @@ private const val SETTINGS_EDITOR_DESCRIPTION = "系统设置和属性修改"
 @Composable
 private fun SettingsEditorPage(a: ComponentActivity, back: () -> Unit) {
     val commands = remember(a) { QuickCommandController(a) }
-    var selected by remember { mutableStateOf<QuickAction?>(null) }
+    var selected by remember { mutableStateOf<Pair<String, String>?>(null) }
+    var checked by remember { mutableStateOf(false) }
+    var readStatus by remember { mutableStateOf<String?>(null) }
+    var ready by remember { mutableStateOf(false) }
     var running by remember { mutableStateOf(false) }
-    fun globalToggle(title: String, key: String): QuickAction = QuickAction(
-        title,
-        listOf(true, false).map { enabled ->
-            QuickOption(if (enabled) "开启" else "关闭") { done ->
-                commands.writeGlobalToggle(title, key, enabled, done)
+    val setting = selected
+
+    LaunchedEffect(setting) {
+        if (setting != null) {
+            val result = withContext(Dispatchers.IO) {
+                runCatching { Settings.Global.getString(a.contentResolver, setting.second) }
             }
-        },
-        successMessageOnly = true,
-    )
-    val completion = QuickCommands.Completion { success, output ->
-        val message = if (success && selected?.successMessageOnly == true) "" else output
-        running = false
-        selected = null
-        MiuixPages.showMessage(a, if (success) "执行完毕" else "执行失败", message)
+            result.onSuccess { value ->
+                checked = value == "1"
+                ready = value == null || value == "0" || value == "1"
+                readStatus = when {
+                    value == null -> "尚未设置，开关暂显示为关闭"
+                    !ready -> "当前值为 $value，无法识别为开或关"
+                    else -> null
+                }
+            }.onFailure {
+                readStatus = "无法读取当前设置"
+            }
+        }
+    }
+
+    fun openToggle(title: String, key: String) {
+        ready = false
+        readStatus = "正在读取…"
+        selected = title to key
     }
 
     Page(a, "设置编辑器", back, overlay = {
-        QuickActionDialog(selected, running, { selected = null }) { option ->
-            if (!running) {
-                running = true
-                option.execute(completion)
+        OverlayDialog(
+            show = setting != null,
+            title = setting?.first.orEmpty(),
+            onDismissRequest = { if (!running) selected = null },
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                SwitchPreference(
+                    title = "是否开启",
+                    summary = readStatus,
+                    checked = checked,
+                    enabled = ready && !running,
+                    onCheckedChange = { checked = it },
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TextButton(
+                        "复制键名",
+                        {
+                            setting?.second?.let { key ->
+                                a.getSystemService(android.content.ClipboardManager::class.java)
+                                    ?.setPrimaryClip(android.content.ClipData.newPlainText("设置键名", key))
+                            }
+                        },
+                        Modifier.weight(1f),
+                        enabled = setting != null && !running,
+                    )
+                    TextButton(
+                        "写入",
+                        {
+                            if (setting != null && ready && !running) {
+                                running = true
+                                commands.writeGlobalToggle(setting.first, setting.second, checked) { success, output ->
+                                    running = false
+                                    selected = null
+                                    MiuixPages.showMessage(a, if (success) "执行完毕" else "执行失败", output)
+                                }
+                            }
+                        },
+                        Modifier.weight(1f),
+                        enabled = ready && !running,
+                        loading = running,
+                        colors = ButtonDefaults.textButtonColorsPrimary(),
+                    )
+                }
             }
         }
     }) {
         IntroCard(SETTINGS_EDITOR_DESCRIPTION)
         Group("全局设置") {
             QuickCommandItem("USB 调试", "控制 adb_enabled 设置。关闭后会断开 USB ADB 连接") {
-                selected = globalToggle("USB 调试", "adb_enabled")
+                openToggle("USB 调试", "adb_enabled")
             }
             QuickCommandItem("special_enable_adb_debug", "这个厂商自定义设置并没有什么实际用处") {
-                selected = globalToggle("special_enable_adb_debug", "special_enable_adb_debug")
+                openToggle("special_enable_adb_debug", "special_enable_adb_debug")
             }
             QuickCommandItem("截屏音效", "控制 zyb_screenshot_sounds_enabled 设置。截屏音效是否开启，在系统静音模式下该设置不生效") {
-                selected = globalToggle("截屏音效", "zyb_screenshot_sounds_enabled")
+                openToggle("截屏音效", "zyb_screenshot_sounds_enabled")
             }
             QuickCommandItem("三指下拉截屏", "控制 zyb_three_pointer_touch_screenshot 设置。是否开启三指下拉快捷截屏功能") {
-                selected = globalToggle("三指下拉截屏", "zyb_three_pointer_touch_screenshot")
+                openToggle("三指下拉截屏", "zyb_three_pointer_touch_screenshot")
             }
             QuickCommandItem("息屏关闭 WLAN", "控制 zyb_power_screen_off_wifi 设置。息屏后是否关闭 WLAN 以节省电量，仅在省电模式开启时生效") {
-                selected = globalToggle("息屏关闭 WLAN", "zyb_power_screen_off_wifi")
+                openToggle("息屏关闭 WLAN", "zyb_power_screen_off_wifi")
             }
         }
     }
