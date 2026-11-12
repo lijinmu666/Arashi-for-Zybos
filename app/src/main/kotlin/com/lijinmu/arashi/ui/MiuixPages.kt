@@ -2301,6 +2301,9 @@ private fun SettingsEditorPage(a: ComponentActivity, back: () -> Unit) {
     }) {
         IntroCard(SETTINGS_EDITOR_DESCRIPTION)
         Group("全局设置") {
+            QuickCommandItem("USB 调试", "控制 adb_enabled 设置。关闭后会断开 USB ADB 连接") {
+                selected = globalToggle("USB 调试", "adb_enabled")
+            }
             QuickCommandItem("special_enable_adb_debug", "这个厂商自定义设置并没有什么实际用处") {
                 selected = globalToggle("special_enable_adb_debug", "special_enable_adb_debug")
             }
