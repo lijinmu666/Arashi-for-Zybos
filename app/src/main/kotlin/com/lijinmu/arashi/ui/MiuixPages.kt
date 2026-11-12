@@ -66,6 +66,8 @@ import androidx.compose.material.icons.rounded.Terminal
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Path
@@ -1359,8 +1361,9 @@ private fun AppPickerCheckbox(
     title: String,
     summary: String?,
     icon: Drawable?,
+    modifier: Modifier = Modifier,
 ) {
-    Card(Modifier.fillMaxWidth()) {
+    Card(modifier.fillMaxWidth()) {
         // The icon is inside the preference's hit/press area, not a sibling.
         CheckboxPreference(
             checked = checked,
@@ -2208,6 +2211,11 @@ private fun DeviceControlPage(a: ComponentActivity, back: () -> Unit) {
                             title = title,
                             summary = null,
                             icon = null,
+                            modifier = Modifier.border(
+                                width = 1.dp,
+                                color = MiuixTheme.colorScheme.onSurface.copy(alpha = 0.22f),
+                                shape = RoundedCornerShape(16.dp),
+                            ),
                         )
                     }
                 }
