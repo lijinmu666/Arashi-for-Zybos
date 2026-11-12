@@ -68,8 +68,6 @@ import androidx.compose.material.icons.rounded.Terminal
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Path
@@ -88,6 +86,7 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.semantics.contentDescription
@@ -1365,9 +1364,13 @@ private fun AppPickerCheckbox(
     title: String,
     summary: String?,
     icon: Drawable?,
-    modifier: Modifier = Modifier,
+    cardColor: Color? = null,
 ) {
-    Card(modifier.fillMaxWidth()) {
+    Card(
+        Modifier.fillMaxWidth(),
+        colors = if (cardColor == null) CardDefaults.defaultColors()
+        else CardDefaults.defaultColors(color = cardColor, contentColor = MiuixTheme.colorScheme.onSurface),
+    ) {
         // The icon is inside the preference's hit/press area, not a sibling.
         CheckboxPreference(
             checked = checked,
@@ -2215,10 +2218,10 @@ private fun DeviceControlPage(a: ComponentActivity, back: () -> Unit) {
                             title = title,
                             summary = null,
                             icon = null,
-                            modifier = Modifier.border(
-                                width = 1.dp,
-                                color = MiuixTheme.colorScheme.onSurface.copy(alpha = 0.22f),
-                                shape = RoundedCornerShape(16.dp),
+                            cardColor = lerp(
+                                MiuixTheme.colorScheme.surface,
+                                MiuixTheme.colorScheme.onSurface,
+                                0.16f,
                             ),
                         )
                     }
