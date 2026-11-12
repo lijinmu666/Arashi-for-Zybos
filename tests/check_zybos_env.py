@@ -35,29 +35,41 @@ public class EnvCheck {
    Process process=shell.start();String output=new String(process.getInputStream().readAllBytes(),StandardCharsets.UTF_8);
    check(process.waitFor()==0&&output.equals(updated));
    RootShell.reply=updated;RootShell.ok=true;
-   ZybosEnvController controller=new ZybosEnvController();
-   check(controller.applyConfig(source.toString(),env,true,true).json.equals(updated));
+   android.content.Context context=new android.content.Context();
+   check(ZybosEnvController.applyConfig(context,source.toString(),env,true,true).json.equals(updated));
    check(RootShell.command.equals(ZybosEnvConfig.writeCommand(updated)));
   }
   try{ZybosEnvConfig.update(defaults.json,"UNKNOWN",false,false);throw new AssertionError();}
   catch(IllegalArgumentException expected){}
   try{ZybosEnvConfig.parse("broken");throw new AssertionError();}catch(JSONException expected){}
-  ZybosEnvController controller=new ZybosEnvController();
+  android.content.Context context=new android.content.Context();
   RootShell.reply=ZybosEnvConfig.DEFAULT_JSON;RootShell.ok=true;
-  check(controller.resetConfig().json.equals(ZybosEnvConfig.DEFAULT_JSON));
+  check(ZybosEnvController.resetConfig(context).json.equals(ZybosEnvConfig.DEFAULT_JSON));
   check(RootShell.command.equals("setprop persist.sys.env_config '"+ZybosEnvConfig.DEFAULT_JSON+"' && getprop persist.sys.env_config"));
-  controller.readConfig();check(RootShell.command.equals("getprop persist.sys.env_config"));
-  check(controller.readFormattedProperty().contains("\n"));
-  RootShell.reply="";check(controller.readFormattedProperty().equals("属性为空"));
-  RootShell.reply="broken";check(controller.readFormattedProperty().contains("broken"));
+  ZybosEnvController.readConfig(context);check(RootShell.command.equals("getprop persist.sys.env_config"));
+  check(ZybosEnvController.readFormattedProperty(context).contains("\n"));
+  RootShell.reply="";check(ZybosEnvController.readFormattedProperty(context).equals("属性为空"));
+  RootShell.reply="broken";check(ZybosEnvController.readFormattedProperty(context).contains("broken"));
   RootShell.ok=false;RootShell.reply="permission denied";
-  try{controller.resetConfig();throw new AssertionError();}catch(IllegalStateException expected){check(expected.getMessage().contains("permission denied"));}
+  try{ZybosEnvController.resetConfig(context);throw new AssertionError();}catch(IllegalStateException expected){check(expected.getMessage().contains("permission denied"));}
   RootShell.ok=true;RootShell.reply="different";
-  try{controller.resetConfig();throw new AssertionError();}catch(IllegalStateException expected){check(expected.getMessage().contains("不一致"));}
+  try{ZybosEnvController.resetConfig(context);throw new AssertionError();}catch(IllegalStateException expected){check(expected.getMessage().contains("不一致"));}
   System.out.println("Zybos environment merge, shell quoting, default reset and readback checks passed");
  }
 }'''
 STUBS = {
+ 'android/content/Context.java': 'package android.content; public class Context {}',
+ 'com/lijinmu/arashi/tools/WorkMode.java': '''package com.lijinmu.arashi.tools;
+ import android.content.Context;
+ final class WorkMode {
+  private final Context context;
+  private WorkMode(Context context) { this.context = context; }
+  static WorkMode get(Context context) { return new WorkMode(context); }
+  RootShell.Result execute(Context context, String command) {
+   if (this.context != context) throw new AssertionError("Context changed");
+   return RootShell.run(command);
+  }
+ }''',
  'com/lijinmu/arashi/ui/BasePage.java': 'package com.lijinmu.arashi.ui; public class BasePage {protected void populate(){}}',
  'com/lijinmu/arashi/ui/MiuixPages.java': 'package com.lijinmu.arashi.ui; public class MiuixPages {public static void renderZybosEnvController(com.lijinmu.arashi.tools.ZybosEnvController a){}}',
  'com/lijinmu/arashi/tools/RootShell.java': '''package com.lijinmu.arashi.tools; class RootShell {
