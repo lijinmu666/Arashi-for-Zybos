@@ -2275,7 +2275,6 @@ private fun SettingsEditorPage(a: ComponentActivity, back: () -> Unit) {
     val commands = remember(a) { QuickCommandController(a) }
     var selected by remember { mutableStateOf<Pair<String, String>?>(null) }
     var checked by remember { mutableStateOf(false) }
-    var readStatus by remember { mutableStateOf<String?>(null) }
     var ready by remember { mutableStateOf(false) }
     var running by remember { mutableStateOf(false) }
     val setting = selected
@@ -2285,23 +2284,14 @@ private fun SettingsEditorPage(a: ComponentActivity, back: () -> Unit) {
             val result = withContext(Dispatchers.IO) {
                 runCatching { Settings.Global.getString(a.contentResolver, setting.second) }
             }
-            result.onSuccess { value ->
-                checked = value == "1"
-                ready = value == null || value == "0" || value == "1"
-                readStatus = when {
-                    value == null -> "尚未设置，开关暂显示为关闭"
-                    !ready -> "当前值为 $value，无法识别为开或关"
-                    else -> null
-                }
-            }.onFailure {
-                readStatus = "无法读取当前设置"
-            }
+            checked = result.getOrNull() == "1"
+            ready = true
         }
     }
 
     fun openToggle(title: String, key: String) {
         ready = false
-        readStatus = "正在读取…"
+        checked = false
         selected = title to key
     }
 
@@ -2314,7 +2304,7 @@ private fun SettingsEditorPage(a: ComponentActivity, back: () -> Unit) {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 SwitchPreference(
                     title = "是否开启",
-                    summary = readStatus,
+                    summary = if (ready) null else "正在读取…",
                     checked = checked,
                     enabled = ready && !running,
                     onCheckedChange = { checked = it },
