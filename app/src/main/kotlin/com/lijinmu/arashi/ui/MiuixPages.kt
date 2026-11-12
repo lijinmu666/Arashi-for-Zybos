@@ -1357,7 +1357,7 @@ private fun AppPickerCheckbox(
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit,
     title: String,
-    summary: String,
+    summary: String?,
     icon: Drawable?,
 ) {
     Card(Modifier.fillMaxWidth()) {
@@ -2198,7 +2198,7 @@ private fun DeviceControlPage(a: ComponentActivity, back: () -> Unit) {
                                 }
                             },
                             title = title,
-                            summary = "",
+                            summary = null,
                             icon = null,
                         )
                     }
@@ -2206,8 +2206,14 @@ private fun DeviceControlPage(a: ComponentActivity, back: () -> Unit) {
                 if (availableComponents.isEmpty()) Text("未找到匹配的系统组件")
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     val canExecute = checkedComponents.isNotEmpty() && !running
-                    TextButton("冻结", { setComponentsFrozen(true) }, Modifier.weight(1f), enabled = canExecute)
                     TextButton("解冻", { setComponentsFrozen(false) }, Modifier.weight(1f), enabled = canExecute)
+                    TextButton(
+                        "冻结",
+                        { setComponentsFrozen(true) },
+                        Modifier.weight(1f),
+                        enabled = canExecute,
+                        colors = ButtonDefaults.textButtonColorsPrimary(),
+                    )
                 }
             }
         }
