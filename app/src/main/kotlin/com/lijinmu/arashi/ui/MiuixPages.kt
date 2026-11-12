@@ -2322,7 +2322,7 @@ private fun SettingsEditorPage(a: ComponentActivity, back: () -> Unit) {
                         enabled = setting != null && !running,
                     )
                     TextButton(
-                        "写入",
+                        if (running) "正在写入…" else "写入",
                         {
                             if (setting != null && ready && !running) {
                                 running = true
@@ -2335,7 +2335,6 @@ private fun SettingsEditorPage(a: ComponentActivity, back: () -> Unit) {
                         },
                         Modifier.weight(1f),
                         enabled = ready && !running,
-                        loading = running,
                         colors = ButtonDefaults.textButtonColorsPrimary(),
                     )
                 }
