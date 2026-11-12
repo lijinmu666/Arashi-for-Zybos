@@ -65,6 +65,7 @@ import androidx.compose.material.icons.rounded.FactCheck
 import androidx.compose.material.icons.rounded.Shield
 import androidx.compose.material.icons.rounded.Extension
 import androidx.compose.material.icons.rounded.Terminal
+import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -528,7 +529,7 @@ private const val DEVICE_CONTROL_DESCRIPTION = "控制系统管控和云控组�
 // Enum names form a stable, Bundle-saveable route format without reflection/serialization.
 internal enum class ArashiRoute : NavKey {
     Main, HookSettings, BackgroundWhitelist, TcpHistory, UninstallSettings,
-    UninstallWhitelist, UninstallBlacklist, UninstallHistory, Notifications, About, Logs, QuickCommands, ZybosEnv, DeviceControl, WorkModeSettings,
+    UninstallWhitelist, UninstallBlacklist, UninstallHistory, Notifications, About, Logs, QuickCommands, ZybosEnv, DeviceControl, SettingsEditor, WorkModeSettings,
 }
 
 private val ArashiBackStackSaver = Saver<NavBackStack, ArrayList<String>>(
@@ -571,6 +572,7 @@ private fun MainNavigationPage(a: Main) {
                 ArashiRoute.UninstallBlacklist -> UninstallListPage(a, true, back)
                 ArashiRoute.UninstallHistory -> UninstallHistoryPage(a, back)
                 ArashiRoute.DeviceControl -> DeviceControlPage(a, back)
+                ArashiRoute.SettingsEditor -> SettingsEditorPage(a, back)
                 ArashiRoute.QuickCommands -> QuickPage(a, back, { open(ArashiRoute.ZybosEnv) })
                 ArashiRoute.ZybosEnv -> ZybosEnvPage(a, back)
                 ArashiRoute.WorkModeSettings -> WorkModePage(a, back)
@@ -581,6 +583,7 @@ private fun MainNavigationPage(a: Main) {
                     if (page == 0) HomePage(a, bottomBar = {},
                         onHookSettings = { open(ArashiRoute.HookSettings) },
                         onDeviceControl = { open(ArashiRoute.DeviceControl) },
+                        onSettingsEditor = { open(ArashiRoute.SettingsEditor) },
                         onQuickCommands = { open(ArashiRoute.QuickCommands) },
                         onUninstallSettings = { open(ArashiRoute.UninstallSettings) })
                     else if (page == 1) JailbreakPage(a)
@@ -920,6 +923,7 @@ private fun HomePage(
     bottomBar: @Composable () -> Unit,
     onHookSettings: () -> Unit,
     onDeviceControl: () -> Unit,
+    onSettingsEditor: () -> Unit,
     onQuickCommands: () -> Unit,
     onUninstallSettings: () -> Unit,
 ) =
@@ -992,6 +996,7 @@ private fun HomePage(
     Group("功能") {
         Link("Hook 设置", "控制 Hook 是否启用", Icons.Rounded.Extension) { onHookSettings() }
         Link("管控和云控", DEVICE_CONTROL_DESCRIPTION, Icons.Rounded.Block) { onDeviceControl() }
+        Link("设置编辑器", SETTINGS_EDITOR_DESCRIPTION, Icons.Rounded.Tune) { onSettingsEditor() }
         Link("快捷指令执行", "调整设置、冻结应用等快捷操作", Icons.Rounded.Terminal) { onQuickCommands() }
         Link("卸载验证设置", "验证发起的卸载请求", Icons.Rounded.Delete) { onUninstallSettings() }
     }
@@ -2263,6 +2268,55 @@ private fun DeviceControlPage(a: ComponentActivity, back: () -> Unit) {
     }
 }
 
+private const val SETTINGS_EDITOR_DESCRIPTION = "系统设置和属性修改"
+
+@Composable
+private fun SettingsEditorPage(a: ComponentActivity, back: () -> Unit) {
+    val commands = remember(a) { QuickCommandController(a) }
+    var selected by remember { mutableStateOf<QuickAction?>(null) }
+    var running by remember { mutableStateOf(false) }
+    fun globalToggle(title: String, key: String): QuickAction = QuickAction(
+        title,
+        listOf(true, false).map { enabled ->
+            QuickOption(if (enabled) "开启" else "关闭") { done ->
+                commands.writeGlobalToggle(title, key, enabled, done)
+            }
+        },
+        successMessageOnly = true,
+    )
+    val completion = QuickCommands.Completion { success, output ->
+        val message = if (success && selected?.successMessageOnly == true) "" else output
+        running = false
+        selected = null
+        MiuixPages.showMessage(a, if (success) "执行完毕" else "执行失败", message)
+    }
+
+    Page(a, "设置编辑器", back, overlay = {
+        QuickActionDialog(selected, running, { selected = null }) { option ->
+            if (!running) {
+                running = true
+                option.execute(completion)
+            }
+        }
+    }) {
+        IntroCard(SETTINGS_EDITOR_DESCRIPTION)
+        Group("全局设置") {
+            QuickCommandItem("special_enable_adb_debug", "这个厂商自定义设置并没有什么实际用处") {
+                selected = globalToggle("special_enable_adb_debug", "special_enable_adb_debug")
+            }
+            QuickCommandItem("截屏音效", "控制 zyb_screenshot_sounds_enabled 设置。截屏音效是否开启，在系统静音模式下该设置不生效") {
+                selected = globalToggle("截屏音效", "zyb_screenshot_sounds_enabled")
+            }
+            QuickCommandItem("三指下拉截屏", "控制 zyb_three_pointer_touch_screenshot 设置。是否开启三指下拉快捷截屏功能") {
+                selected = globalToggle("三指下拉截屏", "zyb_three_pointer_touch_screenshot")
+            }
+            QuickCommandItem("息屏关闭 WLAN", "控制 zyb_power_screen_off_wifi 设置。息屏后是否关闭 WLAN 以节省电量，仅在省电模式开启时生效") {
+                selected = globalToggle("息屏关闭 WLAN", "zyb_power_screen_off_wifi")
+            }
+        }
+    }
+}
+
 @Composable
 private fun QuickPage(
     a: ComponentActivity,
@@ -2308,15 +2362,6 @@ private fun QuickPage(
                 commands.run(title, command(enabled), done)
             }
         }, successMessageOnly)
-    fun globalToggle(title: String, key: String): QuickAction = QuickAction(
-        title,
-        listOf(true, false).map { enabled ->
-            QuickOption(if (enabled) "开启" else "关闭") { done ->
-                commands.writeGlobalToggle(title, key, enabled, done)
-            }
-        },
-        successMessageOnly = true,
-    )
     val completion = QuickCommands.Completion { success, output ->
         val message = if (success && selected?.successMessageOnly == true) "" else output
         running = false
@@ -2414,18 +2459,6 @@ private fun QuickPage(
         Group("设置") {
             Link("作业帮学习机系统环境控制", "读取和修改 persist.sys.env_config") {
                 onZybosEnv()
-            }
-            QuickCommandItem("special_enable_adb_debug", "这个厂商自定义设置并没有什么实际用处") {
-                selected = globalToggle("special_enable_adb_debug", "special_enable_adb_debug")
-            }
-            QuickCommandItem("截屏音效", "控制 zyb_screenshot_sounds_enabled 设置。截屏音效是否开启，在系统静音模式下该设置不生效") {
-                selected = globalToggle("截屏音效", "zyb_screenshot_sounds_enabled")
-            }
-            QuickCommandItem("三指下拉截屏", "控制 zyb_three_pointer_touch_screenshot 设置。是否开启三指下拉快捷截屏功能") {
-                selected = globalToggle("三指下拉截屏", "zyb_three_pointer_touch_screenshot")
-            }
-            QuickCommandItem("息屏关闭 WLAN", "控制 zyb_power_screen_off_wifi 设置。息屏后是否关闭 WLAN 以节省电量，仅在省电模式开启时生效") {
-                selected = globalToggle("息屏关闭 WLAN", "zyb_power_screen_off_wifi")
             }
             QuickCommandItem("允许安装应用", "控制 sys.allow.install.package 属性。重启后系统会将其恢复默认，其作用与 Hook 的 “允许 Shell 安装应用” 效果相同") {
                 selected = choose("允许安装应用", successMessageOnly = true,
