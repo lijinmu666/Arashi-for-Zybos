@@ -2197,7 +2197,7 @@ private fun DeviceControlPage(a: ComponentActivity, back: () -> Unit) {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 LazyColumn(
                     modifier = Modifier.fillMaxWidth().heightIn(max = 240.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     items(availableComponents.keys.toList(), key = { it }) { title ->
                         AppPickerCheckbox(
