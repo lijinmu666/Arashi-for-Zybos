@@ -392,7 +392,7 @@ private fun Page(
     Scaffold(
         snackbarHost = snackbarHost,
         bottomBar = bottomBar,
-        modifier = Modifier.fillMaxSize().nestedScroll(scrollBehavior.nestedScrollConnection),
+        modifier = Modifier.fillMaxSize(),
         topBar = {
             TopAppBar(
                 title = title,
@@ -416,7 +416,7 @@ private fun Page(
                 .consumeWindowInsets(innerPadding),
         ) {
             LazyColumn(
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier.fillMaxSize().nestedScroll(scrollBehavior.nestedScrollConnection),
                 contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = LocalNavigationContentPadding.current),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
