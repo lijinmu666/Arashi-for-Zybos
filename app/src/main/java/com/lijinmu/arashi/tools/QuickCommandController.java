@@ -195,6 +195,8 @@ public final class QuickCommandController {
                         }
                         directFailure = key + " 写入返回成功，但回读不一致。预期 "
                                 + value + "，实际 " + (actual == null ? "未读取到值" : actual);
+                    } catch (SecurityException error) {
+                        return new RootShell.Result(true, key + " 已写入，系统限制回读，无法确认当前值");
                     } catch (RuntimeException error) {
                         directFailure = key + " 写入返回成功，但回读出错：" + error;
                     }
