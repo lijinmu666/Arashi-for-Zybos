@@ -1,15 +1,16 @@
 package com.lijinmu.arashi.tools;
 
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
+import java.io.ByteArrayOutputStream;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
+import java.util.concurrent.FutureTask;
 import java.util.concurrent.TimeUnit;
 
 final class RootShell {
+    private static final int TIMEOUT_SECONDS = 60;
+    private static final int OUTPUT_LIMIT = 64 * 1024;
 
-private static final int TIMEOUT_SECONDS = 60;
-
-    private RootShell() {
-    }
+    private RootShell() {}
 
     static final class Result {
         final boolean ok;
@@ -18,44 +19,43 @@ private static final int TIMEOUT_SECONDS = 60;
         Result(boolean ok, String output) {
             this.ok = ok;
             this.output = output;
-            if (!ok) com.lijinmu.arashi.logs.RuntimeLogger.warn("Root", "Root 命令执行失败：" + output);
         }
     }
 
-static Result run(String command) {
+    static Result run(String command) {
+        return runProcess("su", "-c", command);
+    }
+
+    static Result runProcess(String executable, String option, String command) {
         Process process = null;
         try {
-            process = new ProcessBuilder("su", "-c", command)
-                    .redirectErrorStream(true)
-                    .start();
+            process = new ProcessBuilder(executable, option, command).redirectErrorStream(true).start();
+            InputStream stream = process.getInputStream();
+            FutureTask<String> output = new FutureTask<>(() -> {
+                try (stream) {
+                    var prefix = new ByteArrayOutputStream();
+                    byte[] buffer = new byte[8192];
+                    int count;
+                    while ((count = stream.read(buffer)) != -1) {
+                        prefix.write(buffer, 0, Math.min(count, OUTPUT_LIMIT - prefix.size()));
+                    }
+                    return new String(prefix.toByteArray(), StandardCharsets.UTF_8);
+                }
+            });
+            Thread reader = new Thread(output, "Arashi-CommandOutput");
+            reader.setDaemon(true);
+            reader.start();
             if (!process.waitFor(TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
                 return new Result(false, "执行超时");
             }
-            StringBuilder output = new StringBuilder();
-            try (BufferedReader reader = new BufferedReader(
-                    new InputStreamReader(process.getInputStream()))) {
-                String line;
-                while ((line = reader.readLine()) != null) {
-                    if (output.length() > 0) {
-                        output.append('\n');
-                    }
-                    output.append(line);
-                }
-            }
+            String body = output.get(2, TimeUnit.SECONDS);
             int code = process.exitValue();
-            if (code != 0) {
-                return new Result(false, "退出码 " + code
-                        + (output.length() == 0 ? "" : "\n" + output));
-            }
-            return new Result(true, output.toString());
-        } catch (Throwable t) {
-            String message = t.getMessage() == null ? t.toString() : t.getMessage();
-            return new Result(false, "无法执行 su，请确认已授予 root 权限\n" + message);
+            return code == 0 ? new Result(true, body) : new Result(false, "退出码 " + code + "\n" + body);
+        } catch (Exception error) {
+            if (error instanceof InterruptedException) Thread.currentThread().interrupt();
+            return new Result(false, "无法执行 " + executable + "：" + error);
         } finally {
-            if (process != null) {
-                process.destroy();
-            }
+            if (process != null) process.destroyForcibly();
         }
     }
 }
-

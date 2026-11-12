@@ -6,7 +6,7 @@ import com.lijinmu.arashi.tools.QuickCommands.Completion;
 import android.os.Handler;
 import android.os.Looper;
 
-/** Root operations shared by the navigation page and legacy Activity entry point. */
+/** Command operations shared by the navigation page and legacy Activity entry point. */
 public final class QuickCommandController {
     private final ComponentActivity activity;
     private final Handler ui = new Handler(Looper.getMainLooper());
@@ -30,8 +30,8 @@ public final class QuickCommandController {
     };
     private static final String[] OTA_NAMES = {"系统升级"};
 
-    private static int currentUserId() {
-        RootShell.Result result = RootShell.run("am get-current-user");
+    private int currentUserId(WorkMode mode) {
+        RootShell.Result result = mode.execute(activity, "am get-current-user");
         if (result.ok) {
             try { return Integer.parseInt(result.output.trim()); }
             catch (NumberFormatException ignored) {}
@@ -39,7 +39,7 @@ public final class QuickCommandController {
         return android.os.Process.myUid() / 100000;
     }
 
-    private boolean componentDisabled(String component, int userId) {
+    private boolean componentDisabled(WorkMode mode, String component, int userId) {
         if (userId == android.os.Process.myUid() / 100000) {
             try {
                 int enabled = activity.getPackageManager().getComponentEnabledSetting(
@@ -52,7 +52,7 @@ public final class QuickCommandController {
             }
         }
         int slash = component.indexOf('/');
-        RootShell.Result state = RootShell.run("dumpsys package " + component.substring(0, slash));
+        RootShell.Result state = mode.execute(activity, "dumpsys package " + component.substring(0, slash));
         if (!state.ok) return false;
         String activity = component.substring(slash + 1);
         // Match the user queried by pm list packages and used for freeze commands.
@@ -85,15 +85,16 @@ public final class QuickCommandController {
     }
 
     private void queryFrozen(String[][] targets, Completion completion) {
+        WorkMode mode = WorkMode.get(activity);
         new Thread(() -> {
-            int userId = currentUserId();
-            RootShell.Result result = RootShell.run("pm list packages -d --user " + userId);
+            int userId = currentUserId(mode);
+            RootShell.Result result = mode.execute(activity, "pm list packages -d --user " + userId);
             java.util.List<String> disabled = java.util.Arrays.asList(result.output.split("\\r?\\n"));
             boolean allFrozen = result.ok;
             for (String[] packages : targets) {
                 boolean groupFrozen = false;
                 for (String pkg : packages) {
-                    if (pkg.contains("/") ? componentDisabled(pkg, userId) : disabled.contains("package:" + pkg)) groupFrozen = true;
+                    if (pkg.contains("/") ? componentDisabled(mode, pkg, userId) : disabled.contains("package:" + pkg)) groupFrozen = true;
                 }
                 if (!groupFrozen) allFrozen = false;
             }
@@ -115,21 +116,31 @@ public final class QuickCommandController {
     private void setFrozen(String[][] targets, String[] names, String title,
                            boolean freeze, Completion completion) {
         com.lijinmu.arashi.logs.RuntimeLogger.info("QuickCommands", (freeze ? "冻结" : "解冻") + title);
+        WorkMode mode = WorkMode.get(activity);
         new Thread(() -> {
-            int userId = currentUserId();
+            if (mode == WorkMode.UNPRIVILEGED || (mode == WorkMode.SHELL && !WorkMode.shellReady())) {
+                String message = mode == WorkMode.UNPRIVILEGED
+                        ? "冻结和解冻需要 Shell 或 Root 工作模式"
+                        : "请启动 Shizuku 或 Sui，并在工作模式中授权";
+                ui.post(() -> {
+                    if (!activity.isFinishing() && !activity.isDestroyed()) completion.onComplete(false, message);
+                });
+                return;
+            }
+            int userId = currentUserId(mode);
             java.util.List<String> failed = new java.util.ArrayList<>();
             for (int i = 0; i < targets.length; i++) {
                 boolean succeeded = false;
                 // Try every alias even after one succeeds; count aliases as one logical item.
                 for (String pkg : targets[i]) {
-                    RootShell.Result result = RootShell.run("pm " + (freeze ? "disable " : "enable ") + "--user " + userId + " " + pkg);
+                    RootShell.Result result = mode.execute(activity, "pm " + (freeze ? "disable " : "enable ") + "--user " + userId + " " + pkg);
                     if (pkg.contains("/")) {
                         // pm reports component state directly; package-list filters cannot query activities.
                         if (result.ok && result.output.contains("new state: " + (freeze ? "disabled" : "enabled"))) {
                             succeeded = true;
                         }
                     } else {
-                        RootShell.Result state = RootShell.run(
+                        RootShell.Result state = mode.execute(activity, 
                                 "pm list packages " + (freeze ? "-d" : "-e") + " --user " + userId + " " + pkg);
                         if (result.ok && state.ok
                                 && java.util.Arrays.asList(state.output.split("\\r?\\n")).contains("package:" + pkg)) {
@@ -153,8 +164,9 @@ public final class QuickCommandController {
 
     public void run(String title, String command, Completion completion) {
         com.lijinmu.arashi.logs.RuntimeLogger.info("QuickCommands", "执行：" + title);
+        WorkMode mode = WorkMode.get(activity);
         new Thread(() -> {
-            RootShell.Result result = RootShell.run(command);
+            RootShell.Result result = mode.execute(activity, command);
             com.lijinmu.arashi.logs.RuntimeLogger.info("QuickCommands", title + (result.ok ? "：成功" : "：失败"));
             ui.post(() -> {
                 if (activity.isFinishing() || activity.isDestroyed()) return;

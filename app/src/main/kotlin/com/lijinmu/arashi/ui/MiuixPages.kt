@@ -9,6 +9,8 @@ import com.lijinmu.arashi.xposed.BackgroundPolicy
 import com.lijinmu.arashi.tools.QuickCommandController
 import com.lijinmu.arashi.tools.QuickCommands
 import com.lijinmu.arashi.tools.ScopedAppStopper
+import com.lijinmu.arashi.tools.WorkMode
+import rikka.shizuku.Shizuku
 import com.lijinmu.arashi.tcp.TcpHistoryActivity
 import com.lijinmu.arashi.uninstall.UninstallHistoryActivity
 import com.lijinmu.arashi.uninstall.UninstallListActivity
@@ -527,7 +529,7 @@ private const val DEVICE_CONTROL_DESCRIPTION = "控制系统管控和云控组�
 // Enum names form a stable, Bundle-saveable route format without reflection/serialization.
 internal enum class ArashiRoute : NavKey {
     Main, HookSettings, BackgroundWhitelist, TcpHistory, UninstallSettings,
-    UninstallWhitelist, UninstallBlacklist, UninstallHistory, Notifications, About, Logs, QuickCommands, ZybosEnv, DeviceControl,
+    UninstallWhitelist, UninstallBlacklist, UninstallHistory, Notifications, About, Logs, QuickCommands, ZybosEnv, DeviceControl, WorkModeSettings,
 }
 
 private val ArashiBackStackSaver = Saver<NavBackStack, ArrayList<String>>(
@@ -572,6 +574,7 @@ private fun MainNavigationPage(a: Main) {
                 ArashiRoute.DeviceControl -> DeviceControlPage(a, back)
                 ArashiRoute.QuickCommands -> QuickPage(a, back, { open(ArashiRoute.ZybosEnv) })
                 ArashiRoute.ZybosEnv -> ZybosEnvPage(a, back)
+                ArashiRoute.WorkModeSettings -> WorkModePage(a, back)
                 ArashiRoute.Notifications -> NotificationSettingsPage(a, back)
                 ArashiRoute.About -> AboutPage(a, back)
                 ArashiRoute.Logs -> RuntimeLogPage(a, back)
@@ -583,6 +586,7 @@ private fun MainNavigationPage(a: Main) {
                         onUninstallSettings = { open(ArashiRoute.UninstallSettings) })
                     else if (page == 1) JailbreakPage(a)
                     else SettingsPage(a,
+                        onWorkMode = { open(ArashiRoute.WorkModeSettings) },
                         onNotifications = { open(ArashiRoute.Notifications) },
                         onAbout = { open(ArashiRoute.About) },
                         onLogs = { open(ArashiRoute.Logs) })
@@ -1058,7 +1062,7 @@ private fun HookPage(
                                 stoppingScopes = true
                                 coroutineScope.launch {
                                     try {
-                                        withContext(Dispatchers.IO) { ScopedAppStopper.stop() }
+                                        withContext(Dispatchers.IO) { ScopedAppStopper.stop(a) }
                                     } finally {
                                         stoppingScopes = false
                                     }
@@ -2449,14 +2453,101 @@ private fun QuickPage(
                 }
             }
         }
-        InfoCard("Arashi 需要使用超级用户权限执行这些指令。pm disable 的冻结在重启系统后仍然生效")
+        InfoCard("这些操作按当前工作模式执行。pm disable 的冻结在重启系统后仍然生效")
     }
 }
 
 
 @Composable
+private fun WorkModePage(a: ComponentActivity, back: () -> Unit) {
+    var mode by remember(a) { mutableStateOf(WorkMode.get(a)) }
+    var canWrite by remember(a) { mutableStateOf(Settings.System.canWrite(a)) }
+    var shellReady by remember { mutableStateOf(WorkMode.shellReady()) }
+
+    DisposableEffect(a) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                canWrite = Settings.System.canWrite(a)
+                shellReady = WorkMode.shellReady()
+            }
+        }
+        val received = Shizuku.OnBinderReceivedListener { shellReady = WorkMode.shellReady() }
+        val dead = Shizuku.OnBinderDeadListener { shellReady = false }
+        val permission = Shizuku.OnRequestPermissionResultListener { _, _ ->
+            shellReady = WorkMode.shellReady()
+        }
+        a.lifecycle.addObserver(observer)
+        Shizuku.addBinderReceivedListenerSticky(received)
+        Shizuku.addBinderDeadListener(dead)
+        Shizuku.addRequestPermissionResultListener(permission)
+        onDispose {
+            a.lifecycle.removeObserver(observer)
+            Shizuku.removeBinderReceivedListener(received)
+            Shizuku.removeBinderDeadListener(dead)
+            Shizuku.removeRequestPermissionResultListener(permission)
+        }
+    }
+
+    Page(a, "工作模式", back) {
+        IntroCard("选择执行指令、冻结和解冻时使用的权限")
+        Group("选择模式") {
+            WorkMode.entries.forEach { option ->
+                CheckboxPreference(
+                    title = option.label,
+                    summary = when (option) {
+                        WorkMode.UNPRIVILEGED -> "通过「修改系统设置」权限写入 Settings.System"
+                        WorkMode.SHELL -> "通过 Shizuku 或 Sui 执行指令"
+                        WorkMode.ROOT -> "通过 su 执行指令"
+                    },
+                    checked = mode == option,
+                    checkboxLocation = CheckboxLocation.End,
+                    onCheckedChange = { checked ->
+                        if (checked) {
+                            option.save(a)
+                            mode = option
+                        }
+                    },
+                )
+            }
+        }
+        when (mode) {
+            WorkMode.UNPRIVILEGED -> Group("权限") {
+                Link("修改系统设置", if (canWrite) "已授权" else "前往系统设置授权") {
+                    try {
+                        a.startActivity(Intent(
+                            Settings.ACTION_MANAGE_WRITE_SETTINGS,
+                            android.net.Uri.fromParts("package", a.packageName, null),
+                        ))
+                    } catch (_: android.content.ActivityNotFoundException) {
+                        MiuixPages.showMessage(a, "无法打开设置", "此系统未提供修改系统设置的授权页面")
+                    }
+                }
+            }
+            WorkMode.SHELL -> Group("权限") {
+                Link("Shizuku / Sui", if (shellReady) "已授权" else "检查服务并授权") {
+                    try {
+                        when {
+                            !Shizuku.pingBinder() || Shizuku.isPreV11() ->
+                                MiuixPages.showMessage(a, "服务不可用", "请启动受支持的 Shizuku 或 Sui")
+                            WorkMode.shellReady() -> shellReady = true
+                            Shizuku.shouldShowRequestPermissionRationale() ->
+                                MiuixPages.showMessage(a, "需要授权", "请在 Shizuku 或 Sui 的应用管理中授权 Arashi")
+                            else -> Shizuku.requestPermission(1302)
+                        }
+                    } catch (_: RuntimeException) {
+                        MiuixPages.showMessage(a, "无法请求授权", "请检查 Shizuku 或 Sui 是否正在运行")
+                    }
+                }
+            }
+            WorkMode.ROOT -> InfoCard("首次执行时，请在 Root 管理器中授权 Arashi")
+        }
+    }
+}
+
+@Composable
 private fun SettingsPage(
     a: androidx.activity.ComponentActivity,
+    onWorkMode: () -> Unit,
     onNotifications: () -> Unit,
     onAbout: () -> Unit,
     onLogs: () -> Unit,
@@ -2504,6 +2595,9 @@ private fun SettingsPage(
         }
         a.lifecycle.addObserver(observer)
         onDispose { a.lifecycle.removeObserver(observer) }
+    }
+    Group("工作模式") {
+        Link("工作模式", WorkMode.get(a).label) { onWorkMode() }
     }
     Group("外观") {
         OverlayDropdownPreference(
@@ -2759,7 +2853,7 @@ private fun ZybosEnvPage(a: ComponentActivity, back: () -> Unit = a::finish) = P
         if (original == null) {
             busy = true
             try {
-                accept(withContext(Dispatchers.IO) { com.lijinmu.arashi.tools.ZybosEnvController.readConfig() })
+                accept(withContext(Dispatchers.IO) { com.lijinmu.arashi.tools.ZybosEnvController.readConfig(a) })
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (failure: Exception) {
@@ -2804,7 +2898,7 @@ private fun ZybosEnvPage(a: ComponentActivity, back: () -> Unit = a::finish) = P
                 val selectedTips = tips
                 scope.launch {
                     try {
-                        accept(withContext(Dispatchers.IO) { com.lijinmu.arashi.tools.ZybosEnvController.applyConfig(base, selectedEnv, selectedTools, selectedTips) })
+                        accept(withContext(Dispatchers.IO) { com.lijinmu.arashi.tools.ZybosEnvController.applyConfig(a, base, selectedEnv, selectedTools, selectedTips) })
                         MiuixPages.showMessage(a, "", "写入完毕")
                     } catch (cancelled: CancellationException) {
                         throw cancelled
@@ -2828,7 +2922,7 @@ private fun ZybosEnvPage(a: ComponentActivity, back: () -> Unit = a::finish) = P
                 busy = true
                 scope.launch {
                     try {
-                        val json = withContext(Dispatchers.IO) { com.lijinmu.arashi.tools.ZybosEnvController.readFormattedProperty() }
+                        val json = withContext(Dispatchers.IO) { com.lijinmu.arashi.tools.ZybosEnvController.readFormattedProperty(a) }
                         MiuixPages.showDetails(a, "当前环境配置", json)
                     } catch (cancelled: CancellationException) {
                         throw cancelled
@@ -2850,7 +2944,7 @@ private fun ZybosEnvPage(a: ComponentActivity, back: () -> Unit = a::finish) = P
                 busy = true
                 scope.launch {
                     try {
-                        accept(withContext(Dispatchers.IO) { com.lijinmu.arashi.tools.ZybosEnvController.resetConfig() })
+                        accept(withContext(Dispatchers.IO) { com.lijinmu.arashi.tools.ZybosEnvController.resetConfig(a) })
                         showTools = false
                         tips = false
                         MiuixPages.showMessage(a, "", "已重置为默认")

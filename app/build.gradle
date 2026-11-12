@@ -64,9 +64,12 @@ lint {
     buildFeatures {
         buildConfig = true
         compose = true
+        aidl = true
     }
 }
 dependencies {
+    implementation 'dev.rikka.shizuku:api:13.1.5'
+    implementation 'dev.rikka.shizuku:provider:13.1.5'
     compileOnly 'io.github.libxposed:api:102.0.0'
     implementation 'io.github.libxposed:service:102.0.0'
 

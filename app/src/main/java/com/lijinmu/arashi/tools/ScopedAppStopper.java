@@ -10,8 +10,8 @@ public final class ScopedAppStopper {
     };
     private ScopedAppStopper() {}
 
-    public static RootResult stop() {
-        RootShell.Result result = RootShell.run(buildCommand());
+    public static RootResult stop(android.content.Context context) {
+        RootShell.Result result = WorkMode.get(context).execute(context, buildCommand());
         return new RootResult(result.ok, result.ok
                 ? "已终止目标应用进程" : result.output);
     }
