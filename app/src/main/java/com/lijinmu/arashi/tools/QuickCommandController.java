@@ -177,19 +177,31 @@ public final class QuickCommandController {
         WorkMode mode = WorkMode.get(activity);
         int value = enabled ? 1 : 0;
         executeAsync(title, () -> {
+            String directFailure = "请在工作模式中授予写入安全设置权限";
             if (canWriteSecureSettings(activity)) {
+                var resolver = activity.getContentResolver();
+                boolean written = false;
                 try {
-                    var resolver = activity.getContentResolver();
-                    if (Settings.Global.putInt(resolver, key, value)
-                            && Settings.Global.getInt(resolver, key, -1) == value) {
-                        return new RootShell.Result(true, "");
+                    written = Settings.Global.putInt(resolver, key, value);
+                    directFailure = "系统未接受写入 " + key;
+                } catch (RuntimeException error) {
+                    directFailure = "写入 " + key + " 时出错：" + error;
+                }
+                if (written) {
+                    try {
+                        String actual = Settings.Global.getString(resolver, key);
+                        if (Integer.toString(value).equals(actual)) {
+                            return new RootShell.Result(true, "");
+                        }
+                        directFailure = key + " 写入返回成功，但回读不一致。预期 "
+                                + value + "，实际 " + (actual == null ? "未读取到值" : actual);
+                    } catch (RuntimeException error) {
+                        directFailure = key + " 写入返回成功，但回读出错：" + error;
                     }
-                } catch (RuntimeException ignored) {
-                    // A ROM or user policy can reject a direct write despite the grant.
                 }
             }
             if (mode == WorkMode.UNPRIVILEGED) {
-                return new RootShell.Result(false, "请在工作模式中授予写入安全设置权限，或选择 Shell / Root");
+                return new RootShell.Result(false, directFailure);
             }
             String command = "settings put global " + key + " " + value
                     + " && [ \"$(settings get global " + key + ")\" = '" + value + "' ]";
