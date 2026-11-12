@@ -6,6 +6,7 @@ import com.lijinmu.arashi.UninstallPromptActivity
 import com.lijinmu.arashi.settings.HookSettings
 import com.lijinmu.arashi.settings.BackgroundWhitelistActivity
 import com.lijinmu.arashi.xposed.BackgroundPolicy
+import com.lijinmu.arashi.tools.QuickCommandController
 import com.lijinmu.arashi.tools.QuickCommands
 import com.lijinmu.arashi.tools.ScopedAppStopper
 import com.lijinmu.arashi.tcp.TcpHistoryActivity
@@ -564,9 +565,7 @@ private fun MainNavigationPage(a: Main) {
                 ArashiRoute.UninstallWhitelist -> UninstallListPage(a, false, back)
                 ArashiRoute.UninstallBlacklist -> UninstallListPage(a, true, back)
                 ArashiRoute.UninstallHistory -> UninstallHistoryPage(a, back)
-                ArashiRoute.DeviceControl -> Page(a, "管控和云控", back) {
-                    IntroCard(DEVICE_CONTROL_DESCRIPTION)
-                }
+                ArashiRoute.DeviceControl -> DeviceControlPage(a, back)
                 ArashiRoute.QuickCommands -> QuickPage(a, back, { open(ArashiRoute.ZybosEnv) })
                 ArashiRoute.ZybosEnv -> ZybosEnvPage(a, back)
                 ArashiRoute.Notifications -> NotificationSettingsPage(a, back)
@@ -2044,12 +2043,133 @@ private data class QuickOption(val label: String, val execute: (QuickCommands.Co
 private data class QuickAction(val title: String, val options: List<QuickOption>, val successMessageOnly: Boolean = false)
 
 @Composable
+private fun PadMsBackgroundItem(action: () -> Unit) =
+    QuickCommandItem(
+        "PadMs 后台检查",
+        "限制 PadMs 后台运行以此禁止其偷偷卸载应用、摘除设备所有者权限等行为。系统将不再主动运行 PadMs 的进程",
+        action,
+    )
+
+private fun padMsBackgroundAction(commands: QuickCommandController): QuickAction {
+    val title = "PadMs 后台检查"
+    return QuickAction(
+        title,
+        listOf("限制后台运行" to "ignore", "默认" to "default").map { (label, mode) ->
+            QuickOption(label) { done ->
+                commands.run(title, "cmd appops set com.zuoyebang.padms RUN_IN_BACKGROUND $mode", done)
+            }
+        },
+        successMessageOnly = true,
+    )
+}
+
+@Composable
+private fun QuickActionDialog(
+    selected: QuickAction?,
+    running: Boolean,
+    dismiss: () -> Unit,
+    execute: (QuickOption) -> Unit,
+) {
+    OverlayDialog(
+        show = selected != null,
+        title = selected?.title.orEmpty(),
+        onDismissRequest = { if (!running) dismiss() },
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            if (running) {
+                Row(
+                    Modifier.fillMaxWidth().padding(vertical = 16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    top.yukonga.miuix.kmp.basic.CircularProgressIndicator()
+                    Text("正在处理…")
+                }
+            } else {
+                selected?.options?.forEach { option ->
+                    TextButton(option.label, {
+                        execute(option)
+                    }, Modifier.fillMaxWidth())
+                }
+            }
+        }
+    }
+}
+
+private val deviceControlComponents = listOf(
+    "PadMs", "ZpReport", "桌面 ErrorActivity", "系统升级", "管控服务",
+    "护眼中心", "应用商店", "学习网站", "日志服务", "SlardarOsClient",
+)
+
+@Composable
+private fun DeviceControlPage(a: ComponentActivity, back: () -> Unit) {
+    val commands = remember(a) { QuickCommandController(a) }
+    var showComponents by remember { mutableStateOf(false) }
+    var checkedComponents by remember { mutableStateOf(emptySet<String>()) }
+    var selected by remember { mutableStateOf<QuickAction?>(null) }
+    var running by remember { mutableStateOf(false) }
+
+    Page(a, "管控和云控", back, overlay = {
+        OverlayDialog(
+            show = showComponents,
+            title = "冻结 / 解冻",
+            summary = "冻结或解冻作业帮的系统组件",
+            onDismissRequest = { showComponents = false },
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                LazyColumn(
+                    modifier = Modifier.fillMaxWidth().heightIn(max = 240.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    items(deviceControlComponents, key = { it }) { title ->
+                        AppPickerCheckbox(
+                            checked = title in checkedComponents,
+                            onCheckedChange = { checked ->
+                                checkedComponents = if (checked) checkedComponents + title
+                                else checkedComponents - title
+                            },
+                            title = title,
+                            summary = "",
+                            icon = null,
+                        )
+                    }
+                }
+                Text("待配置系统组件包名")
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TextButton("冻结", {}, Modifier.weight(1f), enabled = false)
+                    TextButton("解冻", {}, Modifier.weight(1f), enabled = false)
+                }
+            }
+        }
+        QuickActionDialog(selected, running, { selected = null }) { option ->
+            if (!running) {
+                running = true
+                option.execute(QuickCommands.Completion { success, output ->
+                    running = false
+                    selected = null
+                    MiuixPages.showMessage(a, if (success) "执行完毕" else "执行失败", if (success) "" else output)
+                })
+            }
+        }
+    }) {
+        IntroCard(DEVICE_CONTROL_DESCRIPTION)
+        Group("应用") {
+            QuickCommandItem("冻结 / 解冻", "冻结或解冻作业帮的系统组件") {
+                checkedComponents = emptySet()
+                showComponents = true
+            }
+            PadMsBackgroundItem { selected = padMsBackgroundAction(commands) }
+        }
+    }
+}
+
+@Composable
 private fun QuickPage(
     a: ComponentActivity,
     back: () -> Unit = a::finish,
     onZybosEnv: () -> Unit = { a.startActivity(Intent(a, com.lijinmu.arashi.tools.ZybosEnvController::class.java)) },
 ) {
-    val commands = remember(a) { com.lijinmu.arashi.tools.QuickCommandController(a) }
+    val commands = remember(a) { QuickCommandController(a) }
     var otaFrozen by remember { mutableStateOf(false) }
     var confirmOtaFreeze by remember { mutableStateOf<Boolean?>(null) }
     var otaRunning by remember { mutableStateOf(false) }
@@ -2162,31 +2282,10 @@ private fun QuickPage(
                     }, Modifier.weight(1f), colors = ButtonDefaults.textButtonColorsPrimary())
                 }
             }
-            OverlayDialog(
-                show = selected != null,
-                title = selected?.title.orEmpty(),
-                onDismissRequest = { if (!running) selected = null },
-            ) {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    if (running) {
-                        Row(
-                            Modifier.fillMaxWidth().padding(vertical = 16.dp),
-                            horizontalArrangement = Arrangement.spacedBy(16.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            top.yukonga.miuix.kmp.basic.CircularProgressIndicator()
-                            Text("正在处理…")
-                        }
-                    } else {
-                        selected?.options?.forEach { option ->
-                            TextButton(option.label, {
-                                if (!running) {
-                                    running = true
-                                    option.execute(completion)
-                                }
-                            }, Modifier.fillMaxWidth())
-                        }
-                    }
+            QuickActionDialog(selected, running, { selected = null }) { option ->
+                if (!running) {
+                    running = true
+                    option.execute(completion)
                 }
             }
         },
@@ -2201,20 +2300,7 @@ private fun QuickPage(
                 if (otaFrozen) "解冻系统升级" else "冻结系统升级",
                 "将会冻结OtaServer",
             ) { if (!freezeRunning && !otaRunning) confirmOtaFreeze = !otaFrozen }
-            QuickCommandItem(
-                "PadMs 后台检查",
-                "限制 PadMs 后台运行以此禁止其偷偷卸载应用、摘除设备所有者权限等行为。系统将不再主动运行 PadMs 的进程",
-            ) {
-                selected = choose(
-                    "PadMs 后台检查",
-                    successMessageOnly = true,
-                    enabledLabel = "限制后台运行",
-                    disabledLabel = "默认",
-                ) { restricted ->
-                    val mode = if (restricted) "ignore" else "default"
-                    "cmd appops set com.zuoyebang.padms RUN_IN_BACKGROUND $mode"
-                }
-            }
+            PadMsBackgroundItem { selected = padMsBackgroundAction(commands) }
         }
         Group("设置") {
             Link("作业帮学习机系统环境控制", "读取和修改 persist.sys.env_config") {
