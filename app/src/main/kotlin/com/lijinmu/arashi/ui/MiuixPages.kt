@@ -15,6 +15,8 @@ import com.lijinmu.arashi.uninstall.UninstallListActivity
 import com.lijinmu.arashi.uninstall.UninstallSettings
 
 import android.app.Activity
+import android.content.ComponentName
+import android.content.pm.PackageManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ApplicationInfo
@@ -2096,37 +2098,221 @@ private fun QuickActionDialog(
     }
 }
 
-private val deviceControlComponents = listOf(
-    "PadMs", "ZpReport", "桌面 ErrorActivity", "系统升级", "管控服务",
-    "护眼中心", "应用商店", "学习网站", "日志服务", "SlardarOsClient",
+private val deviceControlComponents = mapOf(
+    "PadMs" to listOf("com.zuoyebang.padms", "com.zuoyebang.iot.padms"),
+    "ZpReport" to listOf("com.zuoyebang.iot.pad.zpreport"),
+    "桌面 ErrorActivity" to listOf(
+        "com.zuoyebang.iot.pad.launcher14/com.zuoyebang.iot.pad.launcher.ErrorActivity",
+        "com.android.launcher3/com.zuoyebang.iot.pad.launcher.ErrorActivity",
+    ),
+    "系统升级" to listOf("com.zuoyebang.iot.zp.lib.ota.server"),
+    "管控服务" to listOf("com.zuoyebang.iot.pad.supervise"),
+    "护眼中心" to listOf("com.zuoyebang.iot.pad.zpeyecare"),
+    "应用商店" to listOf("com.zuoyebang.iot.pad.appstore"),
+    "学习网站" to listOf("com.zuoyebang.iot.pad.zplearningwebsite"),
+    "日志服务" to listOf("com.zuoyebang.iot.zlog"),
+    "SlardarOsClient" to listOf("com.bytedance.os.slardar"),
 )
+
+@Suppress("DEPRECATION")
+private fun installedDeviceControlComponents(pm: PackageManager): Map<String, List<String>> {
+    val systemPackages = pm.getInstalledApplications(
+        PackageManager.MATCH_SYSTEM_ONLY or PackageManager.MATCH_DISABLED_COMPONENTS,
+    ).map { it.packageName }.toSet()
+
+    return deviceControlComponents.mapValues { (title, candidates) ->
+        val installed = candidates.filter { target ->
+            target.substringBefore('/') in systemPackages &&
+                ('/' !in target || try {
+                    pm.getActivityInfo(
+                        requireNotNull(ComponentName.unflattenFromString(target)),
+                        PackageManager.MATCH_DISABLED_COMPONENTS,
+                    )
+                    true
+                } catch (_: PackageManager.NameNotFoundException) {
+                    false
+                })
+        }
+        if (title == "PadMs" && installed.isEmpty()) {
+            systemPackages.filter { it.contains("padms", ignoreCase = true) }.sorted()
+        } else {
+            installed
+        }
+    }.filterValues { it.isNotEmpty() }
+}
 
 @Composable
 private fun DeviceControlPage(a: ComponentActivity, back: () -> Unit) {
     val commands = remember(a) { QuickCommandController(a) }
     var showComponents by remember { mutableStateOf(false) }
+    var availableComponents by remember(a) {
+        mutableStateOf(installedDeviceControlComponents(a.packageManager))
+    }
     var checkedComponents by remember { mutableStateOf(emptySet<String>()) }
     var selected by remember { mutableStateOf<QuickAction?>(null) }
     var running by remember { mutableStateOf(false) }
+
+    fun setComponentsFrozen(freeze: Boolean) {
+        if (running || checkedComponents.isEmpty()) return
+        val freshComponents = installedDeviceControlComponents(a.packageManager)
+        val verb = if (freeze) "disable" else "enable"
+        val state = if (freeze) "disabled" else "enabled"
+        val action = if (freeze) "冻结" else "解冻"
+        val commandsByItem = checkedComponents.map { title ->
+            val attempts = freshComponents[title].orEmpty().joinToString("\n") { target ->
+                """if result=$(pm $verb '$target' 2>&1) && printf '%s\n' "${' | grep -q 'new state: $state$'; then item_ok=1; fi"""
+            }
+            "item_ok=0\n$attempts\n" +
+                """if [ "${' -eq 0 ]; then printf '%s\n' '$title'; failed=1; fi"""
+        }
+        val script = commandsByItem.joinToString("\n", prefix = "failed=0\n", postfix = "\nexit ${'")
+        running = true
+        commands.run(action, script, QuickCommands.Completion { success, output ->
+            running = false
+            showComponents = false
+            availableComponents = installedDeviceControlComponents(a.packageManager)
+            MiuixPages.showMessage(a, if (success) "执行完毕" else "执行失败", output)
+        })
+    }
+
+    Page(a, "管控和云控", back, overlay = {}result" | grep -q 'new state: $state$'; then item_ok=1; fi"""
+            }
+            "item_ok=0\n$attempts\n" +
+                """if [ "$item_ok" -eq 0 ]; then printf '%s\n' '$title'; failed=1; fi"""
+        }
+        val script = commandsByItem.joinToString("\n", prefix = "failed=0\n", postfix = "\nexit $failed")
+        running = true
+        commands.run(action, script, QuickCommands.Completion { success, output ->
+            running = false
+            showComponents = false
+            availableComponents = installedDeviceControlComponents(a.packageManager)
+            MiuixPages.showMessage(a, if (success) "执行完毕" else "执行失败", output)
+        })
+    }
+
+    Page(a, "管控和云控", back, overlay = {}item_ok" -eq 0 ]; then printf '%s\n' '$title'; failed=1; fi"""
+        }
+        val script = commandsByItem.joinToString("\n", prefix = "failed=0\n", postfix = "\nexit $failed")
+        running = true
+        commands.run(action, script, QuickCommands.Completion { success, output ->
+            running = false
+            showComponents = false
+            availableComponents = installedDeviceControlComponents(a.packageManager)
+            MiuixPages.showMessage(a, if (success) "执行完毕" else "执行失败", output)
+        })
+    }
+
+    Page(a, "管控和云控", back, overlay = {}result" | grep -q 'new state: $state$'; then item_ok=1; fi"""
+            }
+            "item_ok=0\n$attempts\n" +
+                """if [ "${' -eq 0 ]; then printf '%s\n' '$title'; failed=1; fi"""
+        }
+        val script = commandsByItem.joinToString("\n", prefix = "failed=0\n", postfix = "\nexit $failed")
+        running = true
+        commands.run(action, script, QuickCommands.Completion { success, output ->
+            running = false
+            showComponents = false
+            availableComponents = installedDeviceControlComponents(a.packageManager)
+            MiuixPages.showMessage(a, if (success) "执行完毕" else "执行失败", output)
+        })
+    }
+
+    Page(a, "管控和云控", back, overlay = {}item_ok" -eq 0 ]; then printf '%s\n' '$title'; failed=1; fi"""
+        }
+        val script = commandsByItem.joinToString("\n", prefix = "failed=0\n", postfix = "\nexit $failed")
+        running = true
+        commands.run(action, script, QuickCommands.Completion { success, output ->
+            running = false
+            showComponents = false
+            availableComponents = installedDeviceControlComponents(a.packageManager)
+            MiuixPages.showMessage(a, if (success) "执行完毕" else "执行失败", output)
+        })
+    }
+
+    Page(a, "管控和云控", back, overlay = {}failed")
+        running = true
+        commands.run(action, script, QuickCommands.Completion { success, output ->
+            running = false
+            showComponents = false
+            availableComponents = installedDeviceControlComponents(a.packageManager)
+            MiuixPages.showMessage(a, if (success) "执行完毕" else "执行失败", output)
+        })
+    }
+
+    Page(a, "管控和云控", back, overlay = {}result" | grep -q 'new state: $state$'; then item_ok=1; fi"""
+            }
+            "item_ok=0\n$attempts\n" +
+                """if [ "$item_ok" -eq 0 ]; then printf '%s\n' '$title'; failed=1; fi"""
+        }
+        val script = commandsByItem.joinToString("\n", prefix = "failed=0\n", postfix = "\nexit $failed")
+        running = true
+        commands.run(action, script, QuickCommands.Completion { success, output ->
+            running = false
+            showComponents = false
+            availableComponents = installedDeviceControlComponents(a.packageManager)
+            MiuixPages.showMessage(a, if (success) "执行完毕" else "执行失败", output)
+        })
+    }
+
+    Page(a, "管控和云控", back, overlay = {}item_ok" -eq 0 ]; then printf '%s\n' '$title'; failed=1; fi"""
+        }
+        val script = commandsByItem.joinToString("\n", prefix = "failed=0\n", postfix = "\nexit $failed")
+        running = true
+        commands.run(action, script, QuickCommands.Completion { success, output ->
+            running = false
+            showComponents = false
+            availableComponents = installedDeviceControlComponents(a.packageManager)
+            MiuixPages.showMessage(a, if (success) "执行完毕" else "执行失败", output)
+        })
+    }
+
+    Page(a, "管控和云控", back, overlay = {}result" | grep -q 'new state: $state$'; then item_ok=1; fi"""
+            }
+            "item_ok=0\n$attempts\n" +
+                """if [ "${' -eq 0 ]; then printf '%s\n' '$title'; failed=1; fi"""
+        }
+        val script = commandsByItem.joinToString("\n", prefix = "failed=0\n", postfix = "\nexit $failed")
+        running = true
+        commands.run(action, script, QuickCommands.Completion { success, output ->
+            running = false
+            showComponents = false
+            availableComponents = installedDeviceControlComponents(a.packageManager)
+            MiuixPages.showMessage(a, if (success) "执行完毕" else "执行失败", output)
+        })
+    }
+
+    Page(a, "管控和云控", back, overlay = {}item_ok" -eq 0 ]; then printf '%s\n' '$title'; failed=1; fi"""
+        }
+        val script = commandsByItem.joinToString("\n", prefix = "failed=0\n", postfix = "\nexit $failed")
+        running = true
+        commands.run(action, script, QuickCommands.Completion { success, output ->
+            running = false
+            showComponents = false
+            availableComponents = installedDeviceControlComponents(a.packageManager)
+            MiuixPages.showMessage(a, if (success) "执行完毕" else "执行失败", output)
+        })
+    }
 
     Page(a, "管控和云控", back, overlay = {
         OverlayDialog(
             show = showComponents,
             title = "冻结 / 解冻",
             summary = "冻结或解冻作业帮的系统组件",
-            onDismissRequest = { showComponents = false },
+            onDismissRequest = { if (!running) showComponents = false },
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 LazyColumn(
                     modifier = Modifier.fillMaxWidth().heightIn(max = 240.dp),
                     verticalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
-                    items(deviceControlComponents, key = { it }) { title ->
+                    items(availableComponents.keys.toList(), key = { it }) { title ->
                         AppPickerCheckbox(
                             checked = title in checkedComponents,
                             onCheckedChange = { checked ->
-                                checkedComponents = if (checked) checkedComponents + title
-                                else checkedComponents - title
+                                if (!running) {
+                                    checkedComponents = if (checked) checkedComponents + title
+                                    else checkedComponents - title
+                                }
                             },
                             title = title,
                             summary = "",
@@ -2134,10 +2320,12 @@ private fun DeviceControlPage(a: ComponentActivity, back: () -> Unit) {
                         )
                     }
                 }
-                Text("待配置系统组件包名")
+                if (availableComponents.isEmpty()) Text("未找到匹配的系统组件")
+                if (running) Text("正在处理…")
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    TextButton("冻结", {}, Modifier.weight(1f), enabled = false)
-                    TextButton("解冻", {}, Modifier.weight(1f), enabled = false)
+                    val canExecute = checkedComponents.isNotEmpty() && !running
+                    TextButton("冻结", { setComponentsFrozen(true) }, Modifier.weight(1f), enabled = canExecute)
+                    TextButton("解冻", { setComponentsFrozen(false) }, Modifier.weight(1f), enabled = canExecute)
                 }
             }
         }
@@ -2155,6 +2343,7 @@ private fun DeviceControlPage(a: ComponentActivity, back: () -> Unit) {
         IntroCard(DEVICE_CONTROL_DESCRIPTION)
         Group("应用") {
             QuickCommandItem("冻结 / 解冻", "冻结或解冻作业帮的系统组件") {
+                availableComponents = installedDeviceControlComponents(a.packageManager)
                 checkedComponents = emptySet()
                 showComponents = true
             }
