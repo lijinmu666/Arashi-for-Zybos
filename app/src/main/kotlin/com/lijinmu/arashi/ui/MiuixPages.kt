@@ -2151,9 +2151,10 @@ private fun DeviceControlPage(a: ComponentActivity, back: () -> Unit) {
     var checkedComponents by remember { mutableStateOf(emptySet<String>()) }
     var selected by remember { mutableStateOf<QuickAction?>(null) }
     var running by remember { mutableStateOf(false) }
+    var componentAction by remember { mutableStateOf<QuickAction?>(null) }
 
     fun setComponentsFrozen(freeze: Boolean) {
-        if (running || checkedComponents.isEmpty()) return
+        if (componentAction != null || checkedComponents.isEmpty()) return
         val freshComponents = installedDeviceControlComponents(a.packageManager)
         val verb = if (freeze) "disable" else "enable"
         val state = if (freeze) "disabled" else "enabled"
@@ -2166,10 +2167,10 @@ private fun DeviceControlPage(a: ComponentActivity, back: () -> Unit) {
                 """if [ "${'$'}item_ok" -eq 0 ]; then printf '%s\n' '$title：${action}失败'; failed=1; fi"""
         }
         val script = commandsByItem.joinToString("\n", prefix = "failed=0\n", postfix = "\nexit \$failed")
-        running = true
+        showComponents = false
+        componentAction = QuickAction(action, emptyList())
         commands.run(action, script, QuickCommands.Completion { success, output ->
-            running = false
-            showComponents = false
+            componentAction = null
             availableComponents = installedDeviceControlComponents(a.packageManager)
             MiuixPages.showMessage(a, if (success) "执行完毕" else "执行失败", output)
         })
@@ -2203,7 +2204,6 @@ private fun DeviceControlPage(a: ComponentActivity, back: () -> Unit) {
                     }
                 }
                 if (availableComponents.isEmpty()) Text("未找到匹配的系统组件")
-                if (running) Text("正在处理…")
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     val canExecute = checkedComponents.isNotEmpty() && !running
                     TextButton("冻结", { setComponentsFrozen(true) }, Modifier.weight(1f), enabled = canExecute)
@@ -2211,7 +2211,7 @@ private fun DeviceControlPage(a: ComponentActivity, back: () -> Unit) {
                 }
             }
         }
-        QuickActionDialog(selected, running, { selected = null }) { option ->
+        QuickActionDialog(componentAction ?: selected, componentAction != null || running, { selected = null }) { option ->
             if (!running) {
                 running = true
                 option.execute(QuickCommands.Completion { success, output ->
