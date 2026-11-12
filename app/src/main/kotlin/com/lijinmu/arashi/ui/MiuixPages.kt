@@ -517,7 +517,7 @@ private fun rememberSystemServerActivation(a: androidx.activity.ComponentActivit
     return active
 }
 
-private const val DEVICE_CONTROL_DESCRIPTION = "控制作业帮学习机系统管控和云控组件。"
+private const val DEVICE_CONTROL_DESCRIPTION = "控制系统管控和云控组件"
 
 // Enum names form a stable, Bundle-saveable route format without reflection/serialization.
 internal enum class ArashiRoute : NavKey {
