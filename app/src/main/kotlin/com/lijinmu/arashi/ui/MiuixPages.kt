@@ -517,6 +517,8 @@ private fun rememberSystemServerActivation(a: androidx.activity.ComponentActivit
     return active
 }
 
+private const val DEVICE_CONTROL_DESCRIPTION = "控制作业帮学习机系统管控和云控组件。"
+
 // Enum names form a stable, Bundle-saveable route format without reflection/serialization.
 internal enum class ArashiRoute : NavKey {
     Main, HookSettings, BackgroundWhitelist, TcpHistory, UninstallSettings,
@@ -562,7 +564,9 @@ private fun MainNavigationPage(a: Main) {
                 ArashiRoute.UninstallWhitelist -> UninstallListPage(a, false, back)
                 ArashiRoute.UninstallBlacklist -> UninstallListPage(a, true, back)
                 ArashiRoute.UninstallHistory -> UninstallHistoryPage(a, back)
-                ArashiRoute.DeviceControl -> Page(a, "管控和云控", back) {}
+                ArashiRoute.DeviceControl -> Page(a, "管控和云控", back) {
+                    IntroCard(DEVICE_CONTROL_DESCRIPTION)
+                }
                 ArashiRoute.QuickCommands -> QuickPage(a, back, { open(ArashiRoute.ZybosEnv) })
                 ArashiRoute.ZybosEnv -> ZybosEnvPage(a, back)
                 ArashiRoute.Notifications -> NotificationSettingsPage(a, back)
@@ -981,7 +985,7 @@ private fun HomePage(
     }
     Group("功能") {
         Link("Hook 设置", "控制 Hook 是否启用", Icons.Rounded.Extension) { onHookSettings() }
-        Link("管控和云控", icon = Icons.Rounded.Block) { onDeviceControl() }
+        Link("管控和云控", DEVICE_CONTROL_DESCRIPTION, Icons.Rounded.Block) { onDeviceControl() }
         Link("快捷指令执行", "调整设置、冻结应用等快捷操作", Icons.Rounded.Terminal) { onQuickCommands() }
         Link("卸载验证设置", "验证发起的卸载请求", Icons.Rounded.Delete) { onUninstallSettings() }
     }
