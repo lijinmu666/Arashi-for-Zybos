@@ -4,7 +4,6 @@ import androidx.activity.ComponentActivity;
 
 import android.content.Context;
 import android.content.pm.PackageManager;
-import android.provider.Settings;
 import java.util.function.Supplier;
 
 import android.os.Handler;
@@ -127,10 +126,8 @@ public final class QuickCommandController {
         com.lijinmu.arashi.logs.RuntimeLogger.info("QuickCommands", (freeze ? "冻结" : "解冻") + title);
         WorkMode mode = WorkMode.get(activity);
         new Thread(() -> {
-            if (mode == WorkMode.UNPRIVILEGED || (mode == WorkMode.SHELL && !WorkMode.shellReady())) {
-                String message = mode == WorkMode.UNPRIVILEGED
-                        ? "冻结和解冻需要 Shell 或 Root 工作模式"
-                        : "请启动 Shizuku 或 Sui，并在工作模式中授权";
+            if (mode == WorkMode.SHELL && !WorkMode.shellReady()) {
+                String message = "请启动 Shizuku 或 Sui，并在工作模式中授权";
                 ui.post(() -> {
                     if (!activity.isFinishing() && !activity.isDestroyed()) completion.onComplete(false, message);
                 });
@@ -180,43 +177,10 @@ public final class QuickCommandController {
         if (!key.matches("[a-z0-9_]+")) throw new IllegalArgumentException("Invalid settings key");
         WorkMode mode = WorkMode.get(activity);
         int value = enabled ? 1 : 0;
-        executeAsync(title, () -> {
-            String directFailure = system ? "请在工作模式中授予修改系统设置权限"
-                    : "请在工作模式中授予写入安全设置权限";
-            if (canWriteSecureSettings(activity) || (system && Settings.System.canWrite(activity))) {
-                var resolver = activity.getContentResolver();
-                boolean written = false;
-                try {
-                    written = system ? Settings.System.putInt(resolver, key, value)
-                            : Settings.Global.putInt(resolver, key, value);
-                    directFailure = "系统未接受写入 " + key;
-                } catch (RuntimeException error) {
-                    directFailure = "写入 " + key + " 时出错：" + error;
-                }
-                if (written) {
-                    try {
-                        String actual = system ? Settings.System.getString(resolver, key)
-                                : Settings.Global.getString(resolver, key);
-                        if (Integer.toString(value).equals(actual)) {
-                            return new RootShell.Result(true, "");
-                        }
-                        directFailure = key + " 写入返回成功，但回读不一致。预期 "
-                                + value + "，实际 " + (actual == null ? "未读取到值" : actual);
-                    } catch (SecurityException error) {
-                        return new RootShell.Result(true, key + " 已写入，系统限制回读，无法确认当前值");
-                    } catch (RuntimeException error) {
-                        directFailure = key + " 写入返回成功，但回读出错：" + error;
-                    }
-                }
-            }
-            if (mode == WorkMode.UNPRIVILEGED) {
-                return new RootShell.Result(false, directFailure);
-            }
-            String table = system ? "system" : "global";
-            String command = "settings put " + table + " " + key + " " + value
-                    + " && [ \"$(settings get " + table + " " + key + ")\" = '" + value + "' ]";
-            return mode.execute(activity, command);
-        }, completion);
+        String table = system ? "system" : "global";
+        String command = "settings put " + table + " " + key + " " + value
+                + " && [ \"$(settings get " + table + " " + key + ")\" = '" + value + "' ]";
+        executeAsync(title, () -> mode.execute(activity, command), completion);
     }
 
     public void run(String title, String command, Completion completion) {

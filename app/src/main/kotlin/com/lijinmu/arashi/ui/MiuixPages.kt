@@ -2511,7 +2511,6 @@ private fun WorkModePage(a: ComponentActivity, back: () -> Unit) {
                 CheckboxPreference(
                     title = option.label,
                     summary = when (option) {
-                        WorkMode.UNPRIVILEGED -> "通过 Android 授予的设置写入权限执行支持的操作"
                         WorkMode.SHELL -> "通过 Shizuku 或 Sui 执行指令"
                         WorkMode.ROOT -> "通过 su 执行指令"
                     },
@@ -2527,22 +2526,6 @@ private fun WorkModePage(a: ComponentActivity, back: () -> Unit) {
             }
         }
         when (mode) {
-            WorkMode.UNPRIVILEGED -> Group("权限") {
-                Link("修改系统设置", if (canWrite) "已授权" else "前往系统设置授权") {
-                    try {
-                        a.startActivity(Intent(
-                            Settings.ACTION_MANAGE_WRITE_SETTINGS,
-                            android.net.Uri.fromParts("package", a.packageName, null),
-                        ))
-                    } catch (_: android.content.ActivityNotFoundException) {
-                        MiuixPages.showMessage(a, "无法打开设置", "此系统未提供修改系统设置的授权页面")
-                    }
-                }
-                Link("写入安全设置", if (canWriteSecure) "已授权" else "查看并复制 ADB 授权命令") {
-                    canWriteSecure = QuickCommandController.canWriteSecureSettings(a)
-                    showSecureGrant = true
-                }
-            }
             WorkMode.SHELL -> Group("权限") {
                 Link("Shizuku / Sui", if (shellReady) "已授权" else "检查服务并授权") {
                     try {
@@ -2560,6 +2543,22 @@ private fun WorkModePage(a: ComponentActivity, back: () -> Unit) {
                 }
             }
             WorkMode.ROOT -> InfoCard("首次执行时，请在 Root 管理器中授权 Arashi")
+        }
+        Group("备用权限") {
+            Link("修改系统设置", if (canWrite) "已授权" else "前往系统设置授权") {
+                try {
+                    a.startActivity(Intent(
+                        Settings.ACTION_MANAGE_WRITE_SETTINGS,
+                        android.net.Uri.fromParts("package", a.packageName, null),
+                    ))
+                } catch (_: android.content.ActivityNotFoundException) {
+                    MiuixPages.showMessage(a, "无法打开设置", "此系统未提供修改系统设置的授权页面")
+                }
+            }
+            Link("写入安全设置", if (canWriteSecure) "已授权" else "查看并复制 ADB 授权命令") {
+                canWriteSecure = QuickCommandController.canWriteSecureSettings(a)
+                showSecureGrant = true
+            }
         }
     }
 }
