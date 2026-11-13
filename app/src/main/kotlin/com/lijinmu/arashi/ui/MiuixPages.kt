@@ -2160,6 +2160,23 @@ private fun installedDeviceControlComponents(pm: PackageManager): Map<String, Li
     }.filterValues { it.isNotEmpty() }
 }
 
+private fun isDeviceControlTargetFrozen(pm: PackageManager, target: String): Boolean {
+    val state = try {
+        if ('/' in target) {
+            pm.getComponentEnabledSetting(requireNotNull(ComponentName.unflattenFromString(target)))
+        } else {
+            pm.getApplicationEnabledSetting(target)
+        }
+    } catch (_: IllegalArgumentException) {
+        return false
+    } catch (_: SecurityException) {
+        return false
+    }
+    return state == PackageManager.COMPONENT_ENABLED_STATE_DISABLED ||
+        state == PackageManager.COMPONENT_ENABLED_STATE_DISABLED_USER ||
+        state == PackageManager.COMPONENT_ENABLED_STATE_DISABLED_UNTIL_USED
+}
+
 @Composable
 private fun DeviceControlPage(a: ComponentActivity, back: () -> Unit) {
     val commands = remember(a) { QuickCommandController(a) }
@@ -2257,8 +2274,12 @@ private fun DeviceControlPage(a: ComponentActivity, back: () -> Unit) {
         IntroCard(DEVICE_CONTROL_DESCRIPTION)
         Group("应用") {
             QuickCommandItem("冻结 / 解冻", "冻结或解冻作业帮的系统组件") {
-                availableComponents = installedDeviceControlComponents(a.packageManager)
-                checkedComponents = emptySet()
+                val pm = a.packageManager
+                val components = installedDeviceControlComponents(pm)
+                availableComponents = components
+                checkedComponents = components.filterValues { targets ->
+                    targets.any { isDeviceControlTargetFrozen(pm, it) }
+                }.keys
                 showComponents = true
             }
             PadMsBackgroundItem { selected = padMsBackgroundAction(commands) }
