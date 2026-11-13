@@ -2376,7 +2376,7 @@ private fun SettingsEditorPage(
         }
     }) {
         IntroCard(SETTINGS_EDITOR_DESCRIPTION)
-        Group("全局设置") {
+        Group("Settings") {
             QuickCommandItem("USB 调试", "是否打开系统的有线 ADB") {
                 openToggle("USB 调试", "adb_enabled")
             }
@@ -2395,8 +2395,6 @@ private fun SettingsEditorPage(
             QuickCommandItem("禁用下拉面板", "开启后下拉面板不可用，关闭后恢复默认。启用「阻止禁用系统导航与下拉面板」时，此设置不生效") {
                 openToggle("禁用下拉面板", "control_panelbar")
             }
-        }
-        Group("系统设置") {
             QuickCommandItem("认证型 WLAN", "连接认证型 WLAN 是否允许跳转网页") {
                 openToggle("网页认证 Wi-Fi", "zyb_captiveportal_enabled", system = true)
             }
@@ -2407,7 +2405,7 @@ private fun SettingsEditorPage(
                 openToggle("素养", "zyb_suyang_enabled", system = true)
             }
         }
-        Group("系统属性") {
+        Group("Properties") {
             Link("作业帮学习机系统环境控制", "读取和修改 persist.sys.env_config") {
                 onZybosEnv()
             }
