@@ -2329,7 +2329,7 @@ private fun SettingsEditorPage(
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Column(Modifier.weight(1f)) {
+                        Column(Modifier.weight(1f).padding(start = 8.dp)) {
                             Text(
                                 if (setting.system) "SYSTEM" else "GLOBAL",
                                 style = MiuixTheme.textStyles.footnote1,
