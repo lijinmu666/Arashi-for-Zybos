@@ -2053,26 +2053,16 @@ private data class QuickOption(
 )
 private data class QuickAction(val title: String, val options: List<QuickOption>, val successMessageOnly: Boolean = false)
 
+private const val PAD_MS_BACKGROUND_TITLE = "强制限制 PadMs 后台进程"
+private const val PAD_MS_BACKGROUND_OP = "com.zuoyebang.padms RUN_IN_BACKGROUND"
+
 @Composable
 private fun PadMsBackgroundItem(action: () -> Unit) =
     QuickCommandItem(
-        "PadMs 后台检查",
+        PAD_MS_BACKGROUND_TITLE,
         "限制 PadMs 后台运行以此禁止其偷偷卸载应用、摘除设备所有者权限等行为。系统将不再主动运行 PadMs 的进程",
         action,
     )
-
-private fun padMsBackgroundAction(commands: QuickCommandController): QuickAction {
-    val title = "PadMs 后台检查"
-    return QuickAction(
-        title,
-        listOf("限制后台运行" to "ignore", "默认" to "default").map { (label, mode) ->
-            QuickOption(label, primary = mode == "ignore") { done ->
-                commands.run(title, "cmd appops set com.zuoyebang.padms RUN_IN_BACKGROUND $mode", done)
-            }
-        },
-        successMessageOnly = true,
-    )
-}
 
 @Composable
 private fun QuickActionDialog(
@@ -2187,8 +2177,8 @@ private fun DeviceControlPage(a: ComponentActivity, back: () -> Unit) {
         mutableStateOf(installedDeviceControlComponents(a.packageManager))
     }
     var checkedComponents by remember { mutableStateOf(emptySet<String>()) }
-    var selected by remember { mutableStateOf<QuickAction?>(null) }
-    var running by remember { mutableStateOf(false) }
+    var showPadMsBackground by remember { mutableStateOf(false) }
+    var restrictPadMsBackground by remember { mutableStateOf(false) }
     var componentAction by remember { mutableStateOf<QuickAction?>(null) }
 
     fun setComponentsFrozen(freeze: Boolean) {
@@ -2232,7 +2222,7 @@ private fun DeviceControlPage(a: ComponentActivity, back: () -> Unit) {
             show = showComponents,
             title = "冻结 / 解冻",
             summary = "冻结或解冻作业帮的系统组件",
-            onDismissRequest = { if (!running) showComponents = false },
+            onDismissRequest = { if (componentAction == null) showComponents = false },
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 LazyColumn(
@@ -2243,7 +2233,7 @@ private fun DeviceControlPage(a: ComponentActivity, back: () -> Unit) {
                         AppPickerCheckbox(
                             checked = title in checkedComponents,
                             onCheckedChange = { checked ->
-                                if (!running) {
+                                if (componentAction == null) {
                                     checkedComponents = if (checked) checkedComponents + title
                                     else checkedComponents - title
                                 }
@@ -2256,7 +2246,7 @@ private fun DeviceControlPage(a: ComponentActivity, back: () -> Unit) {
                 }
                 if (pickerComponents.isEmpty()) Text("未找到匹配的系统组件")
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    val canExecute = checkedComponents.isNotEmpty() && !running
+                    val canExecute = checkedComponents.isNotEmpty() && componentAction == null
                     TextButton("解冻", { setComponentsFrozen(false) }, Modifier.weight(1f), enabled = canExecute)
                     TextButton(
                         "冻结",
@@ -2268,16 +2258,47 @@ private fun DeviceControlPage(a: ComponentActivity, back: () -> Unit) {
                 }
             }
         }
-        QuickActionDialog(componentAction ?: selected, componentAction != null || running, { selected = null }) { option ->
-            if (!running) {
-                running = true
-                option.execute(QuickCommandController.Completion { success, output ->
-                    running = false
-                    selected = null
-                    MiuixPages.showMessage(a, if (success) "执行完毕" else "执行失败", if (success) "" else output)
-                })
+        OverlayDialog(
+            show = showPadMsBackground,
+            title = PAD_MS_BACKGROUND_TITLE,
+            onDismissRequest = { showPadMsBackground = false },
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text("是否限制")
+                    Switch(
+                        checked = restrictPadMsBackground,
+                        enabled = showPadMsBackground,
+                        onCheckedChange = { restrictPadMsBackground = it },
+                        modifier = Modifier.semantics { contentDescription = "是否限制" },
+                    )
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TextButton("取消", { showPadMsBackground = false }, Modifier.weight(1f))
+                    TextButton(
+                        "确定",
+                        {
+                            if (showPadMsBackground && componentAction == null) {
+                                val mode = if (restrictPadMsBackground) "ignore" else "default"
+                                showPadMsBackground = false
+                                componentAction = QuickAction(PAD_MS_BACKGROUND_TITLE, emptyList())
+                                commands.run(PAD_MS_BACKGROUND_TITLE, "cmd appops set $PAD_MS_BACKGROUND_OP $mode") { success, output ->
+                                    componentAction = null
+                                    MiuixPages.showMessage(a, if (success) "执行完毕" else "执行失败", if (success) "" else output)
+                                }
+                            }
+                        },
+                        Modifier.weight(1f),
+                        colors = ButtonDefaults.textButtonColorsPrimary(),
+                    )
+                }
             }
         }
+        QuickActionDialog(componentAction, componentAction != null, {}) {}
     }) {
         IntroCard(DEVICE_CONTROL_DESCRIPTION)
         Group("应用") {
@@ -2290,7 +2311,16 @@ private fun DeviceControlPage(a: ComponentActivity, back: () -> Unit) {
                 }.keys
                 showComponents = true
             }
-            PadMsBackgroundItem { selected = padMsBackgroundAction(commands) }
+            PadMsBackgroundItem {
+                if (componentAction == null) {
+                    componentAction = QuickAction(PAD_MS_BACKGROUND_TITLE, emptyList())
+                    commands.run(PAD_MS_BACKGROUND_TITLE, "cmd appops get $PAD_MS_BACKGROUND_OP") { success, output ->
+                        restrictPadMsBackground = success && output.lineSequence().any { it.trim() == "RUN_IN_BACKGROUND: ignore" }
+                        componentAction = null
+                        showPadMsBackground = true
+                    }
+                }
+            }
         }
     }
 }
