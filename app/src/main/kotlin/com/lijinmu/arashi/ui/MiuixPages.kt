@@ -2372,13 +2372,13 @@ private fun SettingsEditorPage(
             }
         }
         Group("系统设置") {
-            QuickCommandItem("网页认证 Wi-Fi", "控制 zyb_captiveportal_enabled，关联需网页认证的 Wi-Fi。具体行为待实机确认") {
+            QuickCommandItem("认证型 WLAN", "连接认证型 WLAN 是否允许跳转网页") {
                 openToggle("网页认证 Wi-Fi", "zyb_captiveportal_enabled", system = true)
             }
-            QuickCommandItem("精选应用", "允许桌面显示「精选应用」标签页，实际显示也受云端配置影响") {
+            QuickCommandItem("精选应用", "桌面是否显示精选应用标签页，实际显示受作业帮控制") {
                 openToggle("精选应用", "zyb_selected_app_enabled", system = true)
             }
-            QuickCommandItem("素养", "允许桌面显示「素养」标签页") {
+            QuickCommandItem("素养", "桌面是否显示素养标签页") {
                 openToggle("素养", "zyb_suyang_enabled", system = true)
             }
         }
