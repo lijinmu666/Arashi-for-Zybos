@@ -2311,6 +2311,27 @@ private fun SettingsEditorPage(
             onDismissRequest = { if (!running) selected = null },
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                if (setting != null) {
+                    Card(Modifier.fillMaxWidth(), insideMargin = PaddingValues(12.dp)) {
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text(
+                                "设置键",
+                                style = MiuixTheme.textStyles.footnote1,
+                                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                            )
+                            Text(setting.key, fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace)
+                        }
+                    }
+                    TextButton(
+                        "复制键名",
+                        {
+                            a.getSystemService(android.content.ClipboardManager::class.java)
+                                ?.setPrimaryClip(android.content.ClipData.newPlainText("设置键名", setting.key))
+                        },
+                        Modifier.align(Alignment.End),
+                        enabled = !running,
+                    )
+                }
                 SwitchPreference(
                     title = if (setting?.key == "control_panelbar") "禁用下拉面板" else "是否开启",
                     summary = if (ready) null else "正在读取…",
@@ -2320,15 +2341,10 @@ private fun SettingsEditorPage(
                 )
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     TextButton(
-                        "复制键名",
-                        {
-                            setting?.key?.let { key ->
-                                a.getSystemService(android.content.ClipboardManager::class.java)
-                                    ?.setPrimaryClip(android.content.ClipData.newPlainText("设置键名", key))
-                            }
-                        },
+                        "取消",
+                        { if (!running) selected = null },
                         Modifier.weight(1f),
-                        enabled = setting != null && !running,
+                        enabled = !running,
                     )
                     TextButton(
                         if (running) "正在写入…" else "写入",
