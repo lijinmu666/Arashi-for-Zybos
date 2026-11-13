@@ -2445,7 +2445,7 @@ private fun SettingsEditorPage(
             }
         }
     }) {
-        IntroCard(SETTINGS_EDITOR_DESCRIPTION)
+        IntroCard("集成了作业帮系统的自定义设置和属性")
         Group("Settings") {
             QuickCommandItem("USB 调试", "是否打开系统的有线 ADB") {
                 openToggle("USB 调试", "adb_enabled")
@@ -2466,7 +2466,7 @@ private fun SettingsEditorPage(
             QuickCommandItem("禁用下拉面板", "开启后下拉面板不可用，关闭后恢复默认。启用「阻止禁用系统导航与下拉面板」时，此设置不生效") {
                 openToggle("禁用下拉面板", "control_panelbar")
             }
-            QuickCommandItem("截屏音效", "控制 zyb_screenshot_sounds_enabled 设置。截屏音效是否开启，在系统静音模式下该设置不生效") {
+            QuickCommandItem("截屏音效", "截屏音效是否开启，在系统静音模式下该设置不生效") {
                 openToggle("截屏音效", "zyb_screenshot_sounds_enabled")
             }
             QuickCommandItem("special_enable_adb_debug", "不直接控制一个功能开关，作用基本为棍母") {
@@ -2481,10 +2481,10 @@ private fun SettingsEditorPage(
         }
         // Keep these settings available in source while their entries are hidden.
         if (SHOW_EXTRA_SETTINGS_EDITOR_ITEMS) {
-            QuickCommandItem("息屏关闭 WLAN", "控制 zyb_power_screen_off_wifi 设置。息屏后是否关闭 WLAN 以节省电量，仅在省电模式开启时生效") {
+            QuickCommandItem("息屏关闭 WLAN", "息屏后是否关闭 WLAN 以节省电量，仅在省电模式开启时生效") {
                 openToggle("息屏关闭 WLAN", "zyb_power_screen_off_wifi")
             }
-            QuickCommandItem("三指下拉截屏", "控制 zyb_three_pointer_touch_screenshot 设置。是否开启三指下拉快捷截屏功能") {
+            QuickCommandItem("三指下拉截屏", "是否开启三指下拉快捷截屏功能") {
                 openToggle("三指下拉截屏", "zyb_three_pointer_touch_screenshot")
             }
         }
