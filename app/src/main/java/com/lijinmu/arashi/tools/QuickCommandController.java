@@ -218,7 +218,7 @@ public final class QuickCommandController {
                 actual = system ? Settings.System.getString(resolver, key)
                         : Settings.Global.getString(resolver, key);
             } catch (SecurityException error) {
-                return new RootShell.Result(true, key + " 已写入，系统限制回读，无法确认当前值");
+                return new RootShell.Result(true, "");
             } catch (RuntimeException error) {
                 return new RootShell.Result(false, key + " 已写入，回读出错：" + error);
             }
