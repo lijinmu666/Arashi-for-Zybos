@@ -131,6 +131,7 @@ import top.yukonga.miuix.kmp.preference.ArrowPreference
 import top.yukonga.miuix.kmp.preference.CheckboxLocation
 import top.yukonga.miuix.kmp.preference.CheckboxPreference
 import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
+import top.yukonga.miuix.kmp.basic.Switch
 import top.yukonga.miuix.kmp.preference.SwitchPreference
 import top.yukonga.miuix.kmp.popup.OverlayDropdownPopup
 import top.yukonga.miuix.kmp.theme.ColorSchemeMode
@@ -2314,40 +2315,38 @@ private fun SettingsEditorPage(
                 if (setting != null) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Column(
-                            modifier = Modifier.weight(1f),
-                            verticalArrangement = Arrangement.spacedBy(4.dp),
-                        ) {
+                        Column(Modifier.weight(1f)) {
                             Text(
-                                if (setting.system) "设置键 · SYSTEM" else "设置键 · GLOBAL",
+                                if (setting.system) "SYSTEM" else "GLOBAL",
                                 style = MiuixTheme.textStyles.footnote1,
                                 color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                             )
-                            Text(setting.key, fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace)
+                            Text(
+                                setting.key,
+                                modifier = Modifier.clickable(enabled = !running, onClickLabel = "复制键名") {
+                                    val namespace = if (setting.system) "system" else "global"
+                                    a.getSystemService(android.content.ClipboardManager::class.java)
+                                        ?.setPrimaryClip(android.content.ClipData.newPlainText(
+                                            "设置键名", "$namespace ${setting.key}",
+                                        ))
+                                }.padding(vertical = 6.dp),
+                                fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                            )
+                            if (!ready) Text("正在读取…", style = MiuixTheme.textStyles.footnote1)
                         }
-                        TextButton(
-                            "复制键名",
-                            {
-                                a.getSystemService(android.content.ClipboardManager::class.java)
-                                    ?.setPrimaryClip(android.content.ClipData.newPlainText(
-                                        "设置键名",
-                                        "${if (setting.system) "system" else "global"} ${setting.key}",
-                                    ))
+                        Switch(
+                            checked = checked,
+                            enabled = ready && !running,
+                            onCheckedChange = { checked = it },
+                            modifier = Modifier.semantics {
+                                contentDescription = if (setting.key == "control_panelbar") "禁用下拉面板" else setting.title
                             },
-                            enabled = !running,
                         )
                     }
                 }
-                SwitchPreference(
-                    title = if (setting?.key == "control_panelbar") "禁用下拉面板" else "是否开启",
-                    summary = if (ready) null else "正在读取…",
-                    checked = checked,
-                    enabled = ready && !running,
-                    onCheckedChange = { checked = it },
-                )
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     TextButton(
                         "取消",
@@ -2356,7 +2355,7 @@ private fun SettingsEditorPage(
                         enabled = !running,
                     )
                     TextButton(
-                        if (running) "正在写入…" else "写入",
+                        if (running) "正在写入…" else "确定",
                         {
                             if (setting != null && ready && !running) {
                                 running = true
