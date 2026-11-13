@@ -2325,6 +2325,7 @@ private fun DeviceControlPage(a: ComponentActivity, back: () -> Unit) {
     }
 }
 
+private const val SHOW_EXTRA_SETTINGS_EDITOR_ITEMS = false
 private const val SETTINGS_EDITOR_DESCRIPTION = "系统设置和属性修改"
 
 private data class EditorToggle(val title: String, val key: String, val system: Boolean)
@@ -2446,8 +2447,11 @@ private fun SettingsEditorPage(
     }) {
         IntroCard(SETTINGS_EDITOR_DESCRIPTION)
         Group("Settings") {
-            QuickCommandItem("投屏", "调整无线显示和 SystemUI 投屏磁贴") {
-                val title = "投屏"
+            QuickCommandItem("USB 调试", "是否打开系统的有线 ADB") {
+                openToggle("USB 调试", "adb_enabled")
+            }
+            QuickCommandItem("启用投屏功能", "调整无线显示和 SystemUI 投屏磁贴") {
+                val title = "启用投屏功能"
                 commandAction = QuickAction(title, listOf(true, false).map { enabled ->
                     QuickOption(if (enabled) "开启" else "关闭") { done ->
                         val command =
@@ -2456,32 +2460,32 @@ private fun SettingsEditorPage(
                     }
                 })
             }
-            QuickCommandItem("USB 调试", "是否打开系统的有线 ADB") {
-                openToggle("USB 调试", "adb_enabled")
-            }
-            QuickCommandItem("special_enable_adb_debug", "不直接控制一个功能开关，作用基本为棍母") {
-                openToggle("special_enable_adb_debug", "special_enable_adb_debug")
-            }
-            QuickCommandItem("截屏音效", "控制 zyb_screenshot_sounds_enabled 设置。截屏音效是否开启，在系统静音模式下该设置不生效") {
-                openToggle("截屏音效", "zyb_screenshot_sounds_enabled")
-            }
-            QuickCommandItem("三指下拉截屏", "控制 zyb_three_pointer_touch_screenshot 设置。是否开启三指下拉快捷截屏功能") {
-                openToggle("三指下拉截屏", "zyb_three_pointer_touch_screenshot")
-            }
-            QuickCommandItem("息屏关闭 WLAN", "控制 zyb_power_screen_off_wifi 设置。息屏后是否关闭 WLAN 以节省电量，仅在省电模式开启时生效") {
-                openToggle("息屏关闭 WLAN", "zyb_power_screen_off_wifi")
+            QuickCommandItem("认证型 WLAN", "连接认证型 WLAN 是否允许跳转网页") {
+                openToggle("认证型 WLAN", "zyb_captiveportal_enabled", system = true)
             }
             QuickCommandItem("禁用下拉面板", "开启后下拉面板不可用，关闭后恢复默认。启用「阻止禁用系统导航与下拉面板」时，此设置不生效") {
                 openToggle("禁用下拉面板", "control_panelbar")
             }
-            QuickCommandItem("认证型 WLAN", "连接认证型 WLAN 是否允许跳转网页") {
-                openToggle("网页认证 Wi-Fi", "zyb_captiveportal_enabled", system = true)
+            QuickCommandItem("截屏音效", "控制 zyb_screenshot_sounds_enabled 设置。截屏音效是否开启，在系统静音模式下该设置不生效") {
+                openToggle("截屏音效", "zyb_screenshot_sounds_enabled")
             }
-            QuickCommandItem("精选应用", "桌面是否显示精选应用标签页，实际显示受作业帮控制") {
-                openToggle("精选应用", "zyb_selected_app_enabled", system = true)
+            QuickCommandItem("special_enable_adb_debug", "不直接控制一个功能开关，作用基本为棍母") {
+                openToggle("special_enable_adb_debug", "special_enable_adb_debug")
             }
-            QuickCommandItem("素养", "桌面是否显示素养标签页") {
-                openToggle("素养", "zyb_suyang_enabled", system = true)
+            QuickCommandItem("启用素养", "桌面是否显示素养标签页") {
+                openToggle("启用素养", "zyb_suyang_enabled", system = true)
+            }
+            QuickCommandItem("启用精选应用", "桌面是否显示精选应用标签页，实际显示受作业帮控制") {
+                openToggle("启用精选应用", "zyb_selected_app_enabled", system = true)
+            }
+        }
+        // Keep these settings available in source while their entries are hidden.
+        if (SHOW_EXTRA_SETTINGS_EDITOR_ITEMS) {
+            QuickCommandItem("息屏关闭 WLAN", "控制 zyb_power_screen_off_wifi 设置。息屏后是否关闭 WLAN 以节省电量，仅在省电模式开启时生效") {
+                openToggle("息屏关闭 WLAN", "zyb_power_screen_off_wifi")
+            }
+            QuickCommandItem("三指下拉截屏", "控制 zyb_three_pointer_touch_screenshot 设置。是否开启三指下拉快捷截屏功能") {
+                openToggle("三指下拉截屏", "zyb_three_pointer_touch_screenshot")
             }
         }
         Group("Properties") {
