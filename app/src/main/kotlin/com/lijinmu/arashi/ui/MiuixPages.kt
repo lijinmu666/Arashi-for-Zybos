@@ -2263,14 +2263,15 @@ private fun SettingsEditorPage(
 ) {
     val commands = remember(a) { QuickCommandController(a) }
     var selected by remember { mutableStateOf<EditorToggle?>(null) }
+    var showToggle by remember { mutableStateOf(false) }
     var checked by remember { mutableStateOf(false) }
     var ready by remember { mutableStateOf(false) }
     var running by remember { mutableStateOf(false) }
     val setting = selected
     var commandAction by remember { mutableStateOf<QuickAction?>(null) }
 
-    LaunchedEffect(setting) {
-        if (setting != null) {
+    LaunchedEffect(showToggle, setting) {
+        if (showToggle && setting != null) {
             val result = withContext(Dispatchers.IO) {
                 runCatching {
                     if (setting.system) Settings.System.getString(a.contentResolver, setting.key)
@@ -2286,6 +2287,7 @@ private fun SettingsEditorPage(
         ready = false
         checked = false
         selected = EditorToggle(title, key, system)
+        showToggle = true
     }
 
     Page(a, "设置编辑器", back, overlay = {
@@ -2301,9 +2303,9 @@ private fun SettingsEditorPage(
             }
         }
         OverlayDialog(
-            show = setting != null,
+            show = showToggle,
             title = setting?.title.orEmpty(),
-            onDismissRequest = { if (!running) selected = null },
+            onDismissRequest = { if (!running) showToggle = false },
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 if (setting != null) {
@@ -2320,7 +2322,7 @@ private fun SettingsEditorPage(
                             )
                             Text(
                                 setting.key,
-                                modifier = Modifier.clickable(enabled = !running, onClickLabel = "复制键名") {
+                                modifier = Modifier.clickable(enabled = showToggle && !running, onClickLabel = "复制键名") {
                                     val namespace = if (setting.system) "system" else "global"
                                     a.getSystemService(android.content.ClipboardManager::class.java)
                                         ?.setPrimaryClip(android.content.ClipData.newPlainText(
@@ -2333,7 +2335,7 @@ private fun SettingsEditorPage(
                         }
                         Switch(
                             checked = checked,
-                            enabled = ready && !running,
+                            enabled = showToggle && ready && !running,
                             onCheckedChange = { checked = it },
                             modifier = Modifier.semantics {
                                 contentDescription = if (setting.key == "control_panelbar") "禁用下拉面板" else setting.title
@@ -2344,24 +2346,24 @@ private fun SettingsEditorPage(
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     TextButton(
                         "取消",
-                        { if (!running) selected = null },
+                        { if (!running) showToggle = false },
                         Modifier.weight(1f),
                         enabled = !running,
                     )
                     TextButton(
                         if (running) "正在写入…" else "确定",
                         {
-                            if (setting != null && ready && !running) {
+                            if (showToggle && setting != null && ready && !running) {
                                 running = true
                                 commands.writeSettingsToggle(setting.title, setting.key, setting.system, checked) { success, output ->
                                     running = false
-                                    selected = null
+                                    showToggle = false
                                     MiuixPages.showMessage(a, if (success) "执行完毕" else "执行失败", output)
                                 }
                             }
                         },
                         Modifier.weight(1f),
-                        enabled = ready && !running,
+                        enabled = showToggle && ready && !running,
                         colors = ButtonDefaults.textButtonColorsPrimary(),
                     )
                 }
