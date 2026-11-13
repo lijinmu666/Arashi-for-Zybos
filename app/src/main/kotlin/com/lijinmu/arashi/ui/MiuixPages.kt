@@ -2326,7 +2326,10 @@ private fun SettingsEditorPage(
                         "复制键名",
                         {
                             a.getSystemService(android.content.ClipboardManager::class.java)
-                                ?.setPrimaryClip(android.content.ClipData.newPlainText("设置键名", setting.key))
+                                ?.setPrimaryClip(android.content.ClipData.newPlainText(
+                                    "设置键名",
+                                    "${if (setting.system) "system" else "global"} ${setting.key}",
+                                ))
                         },
                         Modifier.align(Alignment.End),
                         enabled = !running,
