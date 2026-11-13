@@ -2315,7 +2315,7 @@ private fun SettingsEditorPage(
                     Card(Modifier.fillMaxWidth(), insideMargin = PaddingValues(12.dp)) {
                         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             Text(
-                                "设置键",
+                                if (setting.system) "设置键 · SYSTEM" else "设置键 · GLOBAL",
                                 style = MiuixTheme.textStyles.footnote1,
                                 color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                             )
