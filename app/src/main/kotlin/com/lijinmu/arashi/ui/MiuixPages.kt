@@ -2312,28 +2312,36 @@ private fun SettingsEditorPage(
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 if (setting != null) {
-                    Card(Modifier.fillMaxWidth(), insideMargin = PaddingValues(12.dp)) {
-                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(
+                            modifier = Modifier.weight(1f),
+                            verticalArrangement = Arrangement.spacedBy(4.dp),
+                        ) {
                             Text(
                                 if (setting.system) "设置键 · SYSTEM" else "设置键 · GLOBAL",
                                 style = MiuixTheme.textStyles.footnote1,
                                 color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                             )
-                            Text(setting.key, fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace)
+                            if (setting.title != setting.key) {
+                                Text(setting.key, fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace)
+                            }
                         }
+                        TextButton(
+                            "复制键名",
+                            {
+                                a.getSystemService(android.content.ClipboardManager::class.java)
+                                    ?.setPrimaryClip(android.content.ClipData.newPlainText(
+                                        "设置键名",
+                                        "${if (setting.system) "system" else "global"} ${setting.key}",
+                                    ))
+                            },
+                            enabled = !running,
+                        )
                     }
-                    TextButton(
-                        "复制键名",
-                        {
-                            a.getSystemService(android.content.ClipboardManager::class.java)
-                                ?.setPrimaryClip(android.content.ClipData.newPlainText(
-                                    "设置键名",
-                                    "${if (setting.system) "system" else "global"} ${setting.key}",
-                                ))
-                        },
-                        Modifier.align(Alignment.End),
-                        enabled = !running,
-                    )
                 }
                 SwitchPreference(
                     title = if (setting?.key == "control_panelbar") "禁用下拉面板" else "是否开启",
