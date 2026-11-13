@@ -172,24 +172,27 @@ public final class QuickCommandController {
                 == PackageManager.PERMISSION_GRANTED;
     }
 
-    public void writeGlobalToggle(String title, String key, boolean enabled, Completion completion) {
+    public void writeSettingsToggle(String title, String key, boolean system, boolean enabled, Completion completion) {
         if (!key.matches("[a-z0-9_]+")) throw new IllegalArgumentException("Invalid settings key");
         WorkMode mode = WorkMode.get(activity);
         int value = enabled ? 1 : 0;
         executeAsync(title, () -> {
-            String directFailure = "请在工作模式中授予写入安全设置权限";
-            if (canWriteSecureSettings(activity)) {
+            String directFailure = system ? "请在工作模式中授予修改系统设置权限"
+                    : "请在工作模式中授予写入安全设置权限";
+            if (canWriteSecureSettings(activity) || (system && Settings.System.canWrite(activity))) {
                 var resolver = activity.getContentResolver();
                 boolean written = false;
                 try {
-                    written = Settings.Global.putInt(resolver, key, value);
+                    written = system ? Settings.System.putInt(resolver, key, value)
+                            : Settings.Global.putInt(resolver, key, value);
                     directFailure = "系统未接受写入 " + key;
                 } catch (RuntimeException error) {
                     directFailure = "写入 " + key + " 时出错：" + error;
                 }
                 if (written) {
                     try {
-                        String actual = Settings.Global.getString(resolver, key);
+                        String actual = system ? Settings.System.getString(resolver, key)
+                                : Settings.Global.getString(resolver, key);
                         if (Integer.toString(value).equals(actual)) {
                             return new RootShell.Result(true, "");
                         }
@@ -205,8 +208,9 @@ public final class QuickCommandController {
             if (mode == WorkMode.UNPRIVILEGED) {
                 return new RootShell.Result(false, directFailure);
             }
-            String command = "settings put global " + key + " " + value
-                    + " && [ \"$(settings get global " + key + ")\" = '" + value + "' ]";
+            String table = system ? "system" : "global";
+            String command = "settings put " + table + " " + key + " " + value
+                    + " && [ \"$(settings get " + table + " " + key + ")\" = '" + value + "' ]";
             return mode.execute(activity, command);
         }, completion);
     }

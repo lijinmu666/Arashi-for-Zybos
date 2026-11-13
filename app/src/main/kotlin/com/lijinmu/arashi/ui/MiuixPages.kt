@@ -2259,6 +2259,8 @@ private fun DeviceControlPage(a: ComponentActivity, back: () -> Unit) {
 
 private const val SETTINGS_EDITOR_DESCRIPTION = "系统设置和属性修改"
 
+private data class EditorToggle(val title: String, val key: String, val system: Boolean)
+
 @Composable
 private fun SettingsEditorPage(
     a: ComponentActivity,
@@ -2266,7 +2268,7 @@ private fun SettingsEditorPage(
     onZybosEnv: () -> Unit,
 ) {
     val commands = remember(a) { QuickCommandController(a) }
-    var selected by remember { mutableStateOf<Pair<String, String>?>(null) }
+    var selected by remember { mutableStateOf<EditorToggle?>(null) }
     var checked by remember { mutableStateOf(false) }
     var ready by remember { mutableStateOf(false) }
     var running by remember { mutableStateOf(false) }
@@ -2276,17 +2278,20 @@ private fun SettingsEditorPage(
     LaunchedEffect(setting) {
         if (setting != null) {
             val result = withContext(Dispatchers.IO) {
-                runCatching { Settings.Global.getString(a.contentResolver, setting.second) }
+                runCatching {
+                    if (setting.system) Settings.System.getString(a.contentResolver, setting.key)
+                    else Settings.Global.getString(a.contentResolver, setting.key)
+                }
             }
             checked = result.getOrNull() == "1"
             ready = true
         }
     }
 
-    fun openToggle(title: String, key: String) {
+    fun openToggle(title: String, key: String, system: Boolean = false) {
         ready = false
         checked = false
-        selected = title to key
+        selected = EditorToggle(title, key, system)
     }
 
     Page(a, "设置编辑器", back, overlay = {
@@ -2302,12 +2307,12 @@ private fun SettingsEditorPage(
         }
         OverlayDialog(
             show = setting != null,
-            title = setting?.first.orEmpty(),
+            title = setting?.title.orEmpty(),
             onDismissRequest = { if (!running) selected = null },
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 SwitchPreference(
-                    title = "是否开启",
+                    title = if (setting?.key == "control_panelbar") "禁用下拉面板" else "是否开启",
                     summary = if (ready) null else "正在读取…",
                     checked = checked,
                     enabled = ready && !running,
@@ -2317,7 +2322,7 @@ private fun SettingsEditorPage(
                     TextButton(
                         "复制键名",
                         {
-                            setting?.second?.let { key ->
+                            setting?.key?.let { key ->
                                 a.getSystemService(android.content.ClipboardManager::class.java)
                                     ?.setPrimaryClip(android.content.ClipData.newPlainText("设置键名", key))
                             }
@@ -2330,7 +2335,7 @@ private fun SettingsEditorPage(
                         {
                             if (setting != null && ready && !running) {
                                 running = true
-                                commands.writeGlobalToggle(setting.first, setting.second, checked) { success, output ->
+                                commands.writeSettingsToggle(setting.title, setting.key, setting.system, checked) { success, output ->
                                     running = false
                                     selected = null
                                     MiuixPages.showMessage(a, if (success) "执行完毕" else "执行失败", output)
@@ -2361,6 +2366,20 @@ private fun SettingsEditorPage(
             }
             QuickCommandItem("息屏关闭 WLAN", "控制 zyb_power_screen_off_wifi 设置。息屏后是否关闭 WLAN 以节省电量，仅在省电模式开启时生效") {
                 openToggle("息屏关闭 WLAN", "zyb_power_screen_off_wifi")
+            }
+            QuickCommandItem("禁用下拉面板", "开启后下拉面板不可用，关闭后恢复默认。启用「阻止禁用系统导航与下拉面板」时，此设置不生效") {
+                openToggle("禁用下拉面板", "control_panelbar")
+            }
+        }
+        Group("系统设置") {
+            QuickCommandItem("网页认证 Wi-Fi", "控制 zyb_captiveportal_enabled，关联需网页认证的 Wi-Fi。具体行为待实机确认") {
+                openToggle("网页认证 Wi-Fi", "zyb_captiveportal_enabled", system = true)
+            }
+            QuickCommandItem("精选应用", "允许桌面显示「精选应用」标签页，实际显示也受云端配置影响") {
+                openToggle("精选应用", "zyb_selected_app_enabled", system = true)
+            }
+            QuickCommandItem("素养", "允许桌面显示「素养」标签页") {
+                openToggle("素养", "zyb_suyang_enabled", system = true)
             }
         }
         Group("系统属性") {
