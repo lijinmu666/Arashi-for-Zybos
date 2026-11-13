@@ -2079,13 +2079,21 @@ private fun QuickActionDialog(
     dismiss: () -> Unit,
     execute: (QuickOption) -> Unit,
 ) {
+    // Keep the last visible content intact while the overlay animates out.
+    val visible = selected != null
+    val current = selected?.let { it to running }
+    var retained by remember { mutableStateOf(current) }
+    SideEffect {
+        if (current != null) retained = current
+    }
+    val displayed = current ?: retained
     OverlayDialog(
-        show = selected != null,
-        title = selected?.title.orEmpty(),
+        show = visible,
+        title = displayed?.first?.title.orEmpty(),
         onDismissRequest = { if (!running) dismiss() },
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            if (running) {
+            if (displayed?.second == true) {
                 Row(
                     Modifier.fillMaxWidth().padding(vertical = 16.dp),
                     horizontalArrangement = Arrangement.spacedBy(16.dp),
@@ -2095,8 +2103,8 @@ private fun QuickActionDialog(
                     Text("正在处理…")
                 }
             } else {
-                selected?.options?.forEach { option ->
-                    val onClick = { execute(option) }
+                displayed?.first?.options?.forEach { option ->
+                    val onClick = { if (visible && !running) execute(option) }
                     val modifier = Modifier.fillMaxWidth()
                     if (option.primary) {
                         TextButton(option.label, onClick, modifier, colors = ButtonDefaults.textButtonColorsPrimary())
@@ -2187,6 +2195,13 @@ private fun DeviceControlPage(a: ComponentActivity, back: () -> Unit) {
         })
     }
 
+    // Freeze the list data while the picker is leaving the screen.
+    var displayedComponents by remember { mutableStateOf(availableComponents) }
+    SideEffect {
+        if (showComponents) displayedComponents = availableComponents
+    }
+    val pickerComponents = if (showComponents) availableComponents else displayedComponents
+
     Page(a, "管控和云控", back, overlay = {
         OverlayDialog(
             show = showComponents,
@@ -2199,7 +2214,7 @@ private fun DeviceControlPage(a: ComponentActivity, back: () -> Unit) {
                     modifier = Modifier.fillMaxWidth().heightIn(max = 240.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
-                    items(availableComponents.keys.toList(), key = { it }) { title ->
+                    items(pickerComponents.keys.toList(), key = { it }) { title ->
                         AppPickerCheckbox(
                             checked = title in checkedComponents,
                             onCheckedChange = { checked ->
@@ -2214,7 +2229,7 @@ private fun DeviceControlPage(a: ComponentActivity, back: () -> Unit) {
                         )
                     }
                 }
-                if (availableComponents.isEmpty()) Text("未找到匹配的系统组件")
+                if (pickerComponents.isEmpty()) Text("未找到匹配的系统组件")
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     val canExecute = checkedComponents.isNotEmpty() && !running
                     TextButton("解冻", { setComponentsFrozen(false) }, Modifier.weight(1f), enabled = canExecute)
