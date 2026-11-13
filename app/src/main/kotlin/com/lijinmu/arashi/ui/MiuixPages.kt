@@ -526,7 +526,7 @@ private const val DEVICE_CONTROL_DESCRIPTION = "控制系统管控和云控组�
 // Enum names form a stable, Bundle-saveable route format without reflection/serialization.
 internal enum class ArashiRoute : NavKey {
     Main, HookSettings, BackgroundWhitelist, TcpHistory, UninstallSettings,
-    UninstallWhitelist, UninstallBlacklist, UninstallHistory, Notifications, About, Logs, ZybosEnv, DeviceControl, SettingsEditor, WorkModeSettings,
+    UninstallWhitelist, UninstallBlacklist, UninstallHistory, Notifications, About, Logs, ZybosEnv, DeviceControl, SettingsEditor, WorkModeSettings, FreezeModeSettings,
 }
 
 private val ArashiBackStackSaver = Saver<NavBackStack, ArrayList<String>>(
@@ -572,6 +572,7 @@ private fun MainNavigationPage(a: Main) {
                 ArashiRoute.SettingsEditor -> SettingsEditorPage(a, back) { open(ArashiRoute.ZybosEnv) }
                 ArashiRoute.ZybosEnv -> ZybosEnvPage(a, back)
                 ArashiRoute.WorkModeSettings -> WorkModePage(a, back)
+                ArashiRoute.FreezeModeSettings -> FreezeModePage(a, back)
                 ArashiRoute.Notifications -> NotificationSettingsPage(a, back)
                 ArashiRoute.About -> AboutPage(a, back)
                 ArashiRoute.Logs -> RuntimeLogPage(a, back)
@@ -584,6 +585,7 @@ private fun MainNavigationPage(a: Main) {
                     else if (page == 1) JailbreakPage(a)
                     else SettingsPage(a,
                         onWorkMode = { open(ArashiRoute.WorkModeSettings) },
+                        onFreezeMode = { open(ArashiRoute.FreezeModeSettings) },
                         onNotifications = { open(ArashiRoute.Notifications) },
                         onAbout = { open(ArashiRoute.About) },
                         onLogs = { open(ArashiRoute.Logs) })
@@ -2192,8 +2194,9 @@ private fun DeviceControlPage(a: ComponentActivity, back: () -> Unit) {
     fun setComponentsFrozen(freeze: Boolean) {
         if (componentAction != null || checkedComponents.isEmpty()) return
         val freshComponents = installedDeviceControlComponents(a.packageManager)
-        val verb = if (freeze) "disable" else "enable"
-        val state = if (freeze) "disabled" else "enabled"
+        val freezeMode = DeviceFreezeMode.get(a)
+        val verb = if (freeze) freezeMode.command else "enable"
+        val state = if (freeze) freezeMode.resultState else "enabled"
         val action = if (freeze) "冻结" else "解冻"
         val commandsByItem = checkedComponents.map { title ->
             val attempts = freshComponents[title].orEmpty().joinToString("\n") { target ->
@@ -2202,7 +2205,12 @@ private fun DeviceControlPage(a: ComponentActivity, back: () -> Unit) {
             "item_ok=0\n$attempts\n" +
                 """if [ "${'$'}item_ok" -eq 0 ]; then printf '%s\n' '$title：${action}失败'; failed=1; fi"""
         }
-        val script = commandsByItem.joinToString("\n", prefix = "failed=0\n", postfix = "\nexit \$failed")
+        val rootCheck = if (freeze && freezeMode == DeviceFreezeMode.SYSTEM) {
+            """if [ "$(id -u)" != 0 ]; then printf '%s\n' '系统级冻结需要 Root 权限，请在设置中选择 Root 工作模式并授权'; exit 1; fi""" + "\n"
+        } else {
+            ""
+        }
+        val script = commandsByItem.joinToString("\n", prefix = rootCheck + "failed=0\n", postfix = "\nexit \$failed")
         showComponents = false
         componentAction = QuickAction(action, emptyList())
         commands.run(action, script, QuickCommandController.Completion { success, output ->
@@ -2592,10 +2600,58 @@ private fun WorkModePage(a: ComponentActivity, back: () -> Unit) {
     }
 }
 
+private enum class DeviceFreezeMode(
+    val title: String,
+    val summary: String,
+    val command: String,
+    val resultState: String,
+) {
+    USER("用户级冻结", "由于厂商限制，重启后冻结失效", "disable-user", "disabled-user"),
+    SYSTEM("系统级冻结", "需要 Root 权限，重启后仍生效", "disable", "disabled");
+
+    fun save(context: Context) {
+        context.getSharedPreferences("work_mode", Context.MODE_PRIVATE)
+            .edit().putString("device_freeze_mode", name).apply()
+    }
+
+    companion object {
+        fun get(context: Context): DeviceFreezeMode {
+            val value = context.getSharedPreferences("work_mode", Context.MODE_PRIVATE)
+                .getString("device_freeze_mode", null)
+            return entries.firstOrNull { it.name == value } ?: SYSTEM
+        }
+    }
+}
+
+@Composable
+private fun FreezeModePage(a: ComponentActivity, back: () -> Unit) {
+    var mode by remember(a) { mutableStateOf(DeviceFreezeMode.get(a)) }
+    Page(a, "冻结方式", back) {
+        IntroCard("仅用于「管控和云控」，解冻统一使用 pm enable")
+        Group("冻结方式") {
+            DeviceFreezeMode.entries.forEach { option ->
+                CheckboxPreference(
+                    title = option.title,
+                    summary = "pm ${option.command} · ${option.summary}",
+                    checked = mode == option,
+                    checkboxLocation = CheckboxLocation.End,
+                    onCheckedChange = { checked ->
+                        if (checked) {
+                            option.save(a)
+                            mode = option
+                        }
+                    },
+                )
+            }
+        }
+    }
+}
+
 @Composable
 private fun SettingsPage(
     a: androidx.activity.ComponentActivity,
     onWorkMode: () -> Unit,
+    onFreezeMode: () -> Unit,
     onNotifications: () -> Unit,
     onAbout: () -> Unit,
     onLogs: () -> Unit,
@@ -2646,6 +2702,7 @@ private fun SettingsPage(
     }
     Group("工作模式") {
         Link("工作模式", WorkMode.get(a).label) { onWorkMode() }
+        Link("冻结方式", DeviceFreezeMode.get(a).title) { onFreezeMode() }
     }
     Group("外观") {
         OverlayDropdownPreference(
