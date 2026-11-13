@@ -1,7 +1,6 @@
 package com.lijinmu.arashi.tools;
 
 import androidx.activity.ComponentActivity;
-import com.lijinmu.arashi.tools.QuickCommands.Completion;
 
 import android.content.Context;
 import android.content.pm.PackageManager;
@@ -13,6 +12,11 @@ import android.os.Looper;
 
 /** Command operations shared by the navigation page and legacy Activity entry point. */
 public final class QuickCommandController {
+    @FunctionalInterface
+    public interface Completion {
+        void onComplete(boolean success, String output);
+    }
+
     private final ComponentActivity activity;
     private final Handler ui = new Handler(Looper.getMainLooper());
 

@@ -7,7 +7,6 @@ import com.lijinmu.arashi.settings.HookSettings
 import com.lijinmu.arashi.settings.BackgroundWhitelistActivity
 import com.lijinmu.arashi.xposed.BackgroundPolicy
 import com.lijinmu.arashi.tools.QuickCommandController
-import com.lijinmu.arashi.tools.QuickCommands
 import com.lijinmu.arashi.tools.ScopedAppStopper
 import com.lijinmu.arashi.tools.WorkMode
 import rikka.shizuku.Shizuku
@@ -64,7 +63,6 @@ import androidx.compose.material.icons.rounded.HourglassTop
 import androidx.compose.material.icons.rounded.FactCheck
 import androidx.compose.material.icons.rounded.Shield
 import androidx.compose.material.icons.rounded.Extension
-import androidx.compose.material.icons.rounded.Terminal
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.foundation.Canvas
@@ -183,7 +181,6 @@ object MiuixPages {
     ) = render(a) { UninstallPrompt(a, target, uid, packages, deadline) }
     @JvmStatic fun renderZybosEnvController(a: com.lijinmu.arashi.tools.ZybosEnvController) = render(a) { ZybosEnvPage(a) }
 
-    @JvmStatic fun renderQuickCommands(a: QuickCommands) = render(a) { QuickPage(a) }
 
     @JvmStatic fun renderUnsupportedDevice(a: Main) = render(a) { UnsupportedDevicePage(a) }
     @JvmStatic fun showMessage(a: Activity, title: String, body: String) {
@@ -529,7 +526,7 @@ private const val DEVICE_CONTROL_DESCRIPTION = "控制系统管控和云控组�
 // Enum names form a stable, Bundle-saveable route format without reflection/serialization.
 internal enum class ArashiRoute : NavKey {
     Main, HookSettings, BackgroundWhitelist, TcpHistory, UninstallSettings,
-    UninstallWhitelist, UninstallBlacklist, UninstallHistory, Notifications, About, Logs, QuickCommands, ZybosEnv, DeviceControl, SettingsEditor, WorkModeSettings,
+    UninstallWhitelist, UninstallBlacklist, UninstallHistory, Notifications, About, Logs, ZybosEnv, DeviceControl, SettingsEditor, WorkModeSettings,
 }
 
 private val ArashiBackStackSaver = Saver<NavBackStack, ArrayList<String>>(
@@ -573,7 +570,6 @@ private fun MainNavigationPage(a: Main) {
                 ArashiRoute.UninstallHistory -> UninstallHistoryPage(a, back)
                 ArashiRoute.DeviceControl -> DeviceControlPage(a, back)
                 ArashiRoute.SettingsEditor -> SettingsEditorPage(a, back) { open(ArashiRoute.ZybosEnv) }
-                ArashiRoute.QuickCommands -> QuickPage(a, back)
                 ArashiRoute.ZybosEnv -> ZybosEnvPage(a, back)
                 ArashiRoute.WorkModeSettings -> WorkModePage(a, back)
                 ArashiRoute.Notifications -> NotificationSettingsPage(a, back)
@@ -584,7 +580,6 @@ private fun MainNavigationPage(a: Main) {
                         onHookSettings = { open(ArashiRoute.HookSettings) },
                         onDeviceControl = { open(ArashiRoute.DeviceControl) },
                         onSettingsEditor = { open(ArashiRoute.SettingsEditor) },
-                        onQuickCommands = { open(ArashiRoute.QuickCommands) },
                         onUninstallSettings = { open(ArashiRoute.UninstallSettings) })
                     else if (page == 1) JailbreakPage(a)
                     else SettingsPage(a,
@@ -924,7 +919,6 @@ private fun HomePage(
     onHookSettings: () -> Unit,
     onDeviceControl: () -> Unit,
     onSettingsEditor: () -> Unit,
-    onQuickCommands: () -> Unit,
     onUninstallSettings: () -> Unit,
 ) =
     Page(a, "Arashi for Zybos", bottomBar = bottomBar) {
@@ -997,7 +991,6 @@ private fun HomePage(
         Link("Hook 设置", "控制 Hook 是否启用", Icons.Rounded.Extension) { onHookSettings() }
         Link("管控和云控", DEVICE_CONTROL_DESCRIPTION, Icons.Rounded.Block) { onDeviceControl() }
         Link("设置编辑器", SETTINGS_EDITOR_DESCRIPTION, Icons.Rounded.Tune) { onSettingsEditor() }
-        Link("快捷指令执行", "调整设置、冻结应用等快捷操作", Icons.Rounded.Terminal) { onQuickCommands() }
         Link("卸载验证设置", "验证发起的卸载请求", Icons.Rounded.Delete) { onUninstallSettings() }
     }
 }
@@ -2054,7 +2047,7 @@ private fun QuickCommandItem(title: String, summary: String, action: () -> Unit)
 private data class QuickOption(
     val label: String,
     val primary: Boolean = false,
-    val execute: (QuickCommands.Completion) -> Unit,
+    val execute: (QuickCommandController.Completion) -> Unit,
 )
 private data class QuickAction(val title: String, val options: List<QuickOption>, val successMessageOnly: Boolean = false)
 
@@ -2187,7 +2180,7 @@ private fun DeviceControlPage(a: ComponentActivity, back: () -> Unit) {
         val script = commandsByItem.joinToString("\n", prefix = "failed=0\n", postfix = "\nexit \$failed")
         showComponents = false
         componentAction = QuickAction(action, emptyList())
-        commands.run(action, script, QuickCommands.Completion { success, output ->
+        commands.run(action, script, QuickCommandController.Completion { success, output ->
             componentAction = null
             availableComponents = installedDeviceControlComponents(a.packageManager)
             MiuixPages.showMessage(a, if (success) "执行完毕" else "执行失败", output)
@@ -2238,7 +2231,7 @@ private fun DeviceControlPage(a: ComponentActivity, back: () -> Unit) {
         QuickActionDialog(componentAction ?: selected, componentAction != null || running, { selected = null }) { option ->
             if (!running) {
                 running = true
-                option.execute(QuickCommands.Completion { success, output ->
+                option.execute(QuickCommandController.Completion { success, output ->
                     running = false
                     selected = null
                     MiuixPages.showMessage(a, if (success) "执行完毕" else "执行失败", if (success) "" else output)
@@ -2274,7 +2267,7 @@ private fun SettingsEditorPage(
     var ready by remember { mutableStateOf(false) }
     var running by remember { mutableStateOf(false) }
     val setting = selected
-    var propertyAction by remember { mutableStateOf<QuickAction?>(null) }
+    var commandAction by remember { mutableStateOf<QuickAction?>(null) }
 
     LaunchedEffect(setting) {
         if (setting != null) {
@@ -2296,13 +2289,14 @@ private fun SettingsEditorPage(
     }
 
     Page(a, "设置编辑器", back, overlay = {
-        QuickActionDialog(propertyAction, running, { propertyAction = null }) { option ->
+        QuickActionDialog(commandAction, running, { commandAction = null }) { option ->
             if (!running) {
                 running = true
-                option.execute(QuickCommands.Completion { success, output ->
+                option.execute(QuickCommandController.Completion { success, output ->
                     running = false
-                    propertyAction = null
-                    MiuixPages.showMessage(a, if (success) "执行完毕" else "执行失败", if (success) "" else output)
+                    val message = if (success && commandAction?.successMessageOnly == true) "" else output
+                    commandAction = null
+                    MiuixPages.showMessage(a, if (success) "执行完毕" else "执行失败", message)
                 })
             }
         }
@@ -2376,6 +2370,16 @@ private fun SettingsEditorPage(
     }) {
         IntroCard(SETTINGS_EDITOR_DESCRIPTION)
         Group("Settings") {
+            QuickCommandItem("投屏", "调整无线显示和 SystemUI 投屏磁贴") {
+                val title = "投屏"
+                commandAction = QuickAction(title, listOf(true, false).map { enabled ->
+                    QuickOption(if (enabled) "开启" else "关闭") { done ->
+                        val command =
+                        "settings put global wifi_display_on ${if (enabled) 1 else 0} && am broadcast --user current -a com.android.systemui.cast.${if (enabled) "Add" else "Remove"} -p com.android.systemui"
+                        commands.run(title, command, done)
+                    }
+                })
+            }
             QuickCommandItem("USB 调试", "是否打开系统的有线 ADB") {
                 openToggle("USB 调试", "adb_enabled")
             }
@@ -2410,7 +2414,7 @@ private fun SettingsEditorPage(
             }
             QuickCommandItem("允许安装应用", "控制 sys.allow.install.package 属性。重启后系统会将其恢复默认，其作用与 Hook 的 “允许 Shell 安装应用” 效果相同") {
                 val title = "允许安装应用"
-                propertyAction = QuickAction(
+                commandAction = QuickAction(
                     title,
                     listOf("true" to "true", "默认" to "").map { (label, value) ->
                         QuickOption(label) { done ->
@@ -2421,161 +2425,12 @@ private fun SettingsEditorPage(
                             commands.run(title, command, done)
                         }
                     },
+                    successMessageOnly = true,
                 )
             }
         }
     }
 }
-
-@Composable
-private fun QuickPage(
-    a: ComponentActivity,
-    back: () -> Unit = a::finish,
-) {
-    val commands = remember(a) { QuickCommandController(a) }
-    var otaFrozen by remember { mutableStateOf(false) }
-    var confirmOtaFreeze by remember { mutableStateOf<Boolean?>(null) }
-    var otaRunning by remember { mutableStateOf(false) }
-    var allFrozen by remember { mutableStateOf(false) }
-    var confirmFreeze by remember { mutableStateOf<Boolean?>(null) }
-    var freezeRunning by remember { mutableStateOf(false) }
-    var freezeQueryVersion by remember { mutableIntStateOf(0) }
-    val componentSnackbar = remember { SnackbarHostState() }
-    val componentScope = rememberCoroutineScope()
-    fun refreshFrozen() {
-        val version = ++freezeQueryVersion
-        allFrozen = false
-        otaFrozen = false
-        commands.queryOtaFrozen { frozen, _ -> if (version == freezeQueryVersion) otaFrozen = frozen }
-        commands.queryRecommendedFrozen { frozen, _ -> if (version == freezeQueryVersion) allFrozen = frozen }
-    }
-    DisposableEffect(a) {
-        val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_RESUME && !freezeRunning && !otaRunning) refreshFrozen()
-        }
-        a.lifecycle.addObserver(observer)
-        refreshFrozen()
-        onDispose { a.lifecycle.removeObserver(observer) }
-    }
-    var selected by remember { mutableStateOf<QuickAction?>(null) }
-    var running by remember { mutableStateOf(false) }
-    fun choose(
-        title: String,
-        successMessageOnly: Boolean = false,
-        enabledLabel: String = "开启",
-        disabledLabel: String = "关闭",
-        command: (Boolean) -> String,
-    ): QuickAction =
-        QuickAction(title, listOf(true, false).map { enabled ->
-            QuickOption(if (enabled) enabledLabel else disabledLabel) { done ->
-                commands.run(title, command(enabled), done)
-            }
-        }, successMessageOnly)
-    val completion = QuickCommands.Completion { success, output ->
-        val message = if (success && selected?.successMessageOnly == true) "" else output
-        running = false
-        selected = null
-        MiuixPages.showMessage(a, if (success) "执行完毕" else "执行失败", message)
-    }
-    Page(
-        a, "快捷指令执行", back,
-        snackbarHost = { SnackbarHost(componentSnackbar) },
-        overlay = {
-            OverlayDialog(
-                show = confirmFreeze != null,
-                title = if (confirmFreeze == false) "解冻推荐的作业帮应用" else "冻结推荐的作业帮应用",
-                summary = if (freezeRunning) null else
-                    "将会立即${if (confirmFreeze == false) "解冻 (pm enable)" else "冻结 (pm disable)"} 以下系统应用：ZpReport、PadMs、SlardarOsClient、日志服务、桌面 ErrorActivity",
-                onDismissRequest = { if (!freezeRunning) confirmFreeze = null },
-            ) {
-                if (freezeRunning) Row(
-                    Modifier.fillMaxWidth().padding(vertical = 16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    top.yukonga.miuix.kmp.basic.CircularProgressIndicator()
-                    Text("正在处理…")
-                }
-                if (!freezeRunning) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    TextButton("取消", { confirmFreeze = null }, Modifier.weight(1f))
-                    TextButton("继续", {
-                        val freeze = confirmFreeze
-                        if (freeze != null && !freezeRunning) {
-                            freezeRunning = true
-                            freezeQueryVersion++
-                            commands.setRecommendedFrozen(freeze) { _, result ->
-                                freezeRunning = false
-                                confirmFreeze = null
-                                refreshFrozen()
-                                componentScope.launch { componentSnackbar.showSnackbar(result, duration = SnackbarDuration.Long) }
-                            }
-                        }
-                    }, Modifier.weight(1f), colors = ButtonDefaults.textButtonColorsPrimary())
-                }
-            }
-            OverlayDialog(
-                show = confirmOtaFreeze != null,
-                title = if (confirmOtaFreeze == false) "解冻系统升级" else "冻结系统升级",
-                summary = if (otaRunning) null else
-                    "将会立即${if (confirmOtaFreeze == false) "解冻 (pm enable)" else "冻结 (pm disable)"} 系统升级（OtaServer）",
-                onDismissRequest = { if (!otaRunning) confirmOtaFreeze = null },
-            ) {
-                if (otaRunning) Row(
-                    Modifier.fillMaxWidth().padding(vertical = 16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    top.yukonga.miuix.kmp.basic.CircularProgressIndicator()
-                    Text("正在处理…")
-                }
-                if (!otaRunning) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    TextButton("取消", { confirmOtaFreeze = null }, Modifier.weight(1f))
-                    TextButton("继续", {
-                        val freeze = confirmOtaFreeze
-                        if (freeze != null && !otaRunning) {
-                            otaRunning = true
-                            freezeQueryVersion++
-                            commands.setOtaFrozen(freeze) { _, result ->
-                                otaRunning = false
-                                confirmOtaFreeze = null
-                                refreshFrozen()
-                                componentScope.launch { componentSnackbar.showSnackbar(result, duration = SnackbarDuration.Long) }
-                            }
-                        }
-                    }, Modifier.weight(1f), colors = ButtonDefaults.textButtonColorsPrimary())
-                }
-            }
-            QuickActionDialog(selected, running, { selected = null }) { option ->
-                if (!running) {
-                    running = true
-                    option.execute(completion)
-                }
-            }
-        },
-    ) {
-        IntroCard("包含冻结应用、调整厂商设置等控制")
-        Group("作业帮系统组件控制") {
-            QuickCommandItem(
-                if (allFrozen) "解冻推荐的作业帮应用" else "冻结推荐的作业帮应用",
-                "将会冻结作业帮的 ZpReport、PadMs、SlardarOsClient、日志服务、桌面 ErrorActivity",
-            ) { if (!freezeRunning && !otaRunning) confirmFreeze = !allFrozen }
-            QuickCommandItem(
-                if (otaFrozen) "解冻系统升级" else "冻结系统升级",
-                "将会冻结OtaServer",
-            ) { if (!freezeRunning && !otaRunning) confirmOtaFreeze = !otaFrozen }
-            PadMsBackgroundItem { selected = padMsBackgroundAction(commands) }
-        }
-        Group("投屏") {
-            QuickCommandItem("投屏", "调整无线显示和 SystemUI 投屏磁贴") {
-                selected = choose("投屏") { enabled ->
-                    "settings put global wifi_display_on ${if (enabled) 1 else 0} && am broadcast --user current -a com.android.systemui.cast.${if (enabled) "Add" else "Remove"} -p com.android.systemui"
-                }
-            }
-        }
-        InfoCard("这些操作按当前工作模式执行。pm disable 的冻结在重启系统后仍然生效")
-    }
-}
-
 
 @Composable
 private fun WorkModePage(a: ComponentActivity, back: () -> Unit) {

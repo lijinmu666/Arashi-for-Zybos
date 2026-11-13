@@ -20,7 +20,6 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.Arashi">
         <activity android:name=".tools.ZybosEnvController" android:exported="false" />
-        <activity android:name=".tools.QuickCommands" android:exported="false" />
         <activity android:name=".settings.HookSettings" android:exported="false" />
         <activity android:name=".settings.BackgroundWhitelistActivity" android:exported="false" />
         <activity android:name=".uninstall.UninstallSettings" android:exported="false" />
