@@ -2326,9 +2326,7 @@ private fun SettingsEditorPage(
                                 style = MiuixTheme.textStyles.footnote1,
                                 color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                             )
-                            if (setting.title != setting.key) {
-                                Text(setting.key, fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace)
-                            }
+                            Text(setting.key, fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace)
                         }
                         TextButton(
                             "复制键名",
