@@ -2545,7 +2545,11 @@ private fun WorkModePage(a: ComponentActivity, back: () -> Unit) {
             WorkMode.ROOT -> InfoCard("首次执行时，请在 Root 管理器中授权 Arashi")
         }
         Group("备用权限") {
-            Link("修改系统设置", if (canWrite) "已授权" else "前往系统设置授权") {
+            Link(
+                "修改系统设置",
+                "Shell 和 Root 均不可用时，可备用写入 SYSTEM 设置\n" +
+                    if (canWrite) "已授权" else "前往系统设置授权",
+            ) {
                 try {
                     a.startActivity(Intent(
                         Settings.ACTION_MANAGE_WRITE_SETTINGS,
@@ -2555,7 +2559,11 @@ private fun WorkModePage(a: ComponentActivity, back: () -> Unit) {
                     MiuixPages.showMessage(a, "无法打开设置", "此系统未提供修改系统设置的授权页面")
                 }
             }
-            Link("写入安全设置", if (canWriteSecure) "已授权" else "查看并复制 ADB 授权命令") {
+            Link(
+                "写入安全设置",
+                "Shell 和 Root 均不可用时，可备用写入支持的设置\n" +
+                    if (canWriteSecure) "已授权" else "查看并复制 ADB 授权命令",
+            ) {
                 canWriteSecure = QuickCommandController.canWriteSecureSettings(a)
                 showSecureGrant = true
             }
