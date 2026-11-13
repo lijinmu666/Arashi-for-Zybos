@@ -2347,10 +2347,10 @@ private fun SettingsEditorPage(
     }) {
         IntroCard(SETTINGS_EDITOR_DESCRIPTION)
         Group("全局设置") {
-            QuickCommandItem("USB 调试", "控制 adb_enabled 设置。关闭后会断开 USB ADB 连接") {
+            QuickCommandItem("USB 调试", "是否打开系统的有线 ADB") {
                 openToggle("USB 调试", "adb_enabled")
             }
-            QuickCommandItem("special_enable_adb_debug", "这个厂商自定义设置并没有什么实际用处") {
+            QuickCommandItem("special_enable_adb_debug", "不直接控制一个功能开关，作用基本为棍母") {
                 openToggle("special_enable_adb_debug", "special_enable_adb_debug")
             }
             QuickCommandItem("截屏音效", "控制 zyb_screenshot_sounds_enabled 设置。截屏音效是否开启，在系统静音模式下该设置不生效") {
