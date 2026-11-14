@@ -2060,7 +2060,7 @@ private const val PAD_MS_BACKGROUND_OP = "com.zuoyebang.padms RUN_IN_BACKGROUND"
 private fun PadMsBackgroundItem(action: () -> Unit) =
     QuickCommandItem(
         PAD_MS_BACKGROUND_TITLE,
-        "限制 PadMs 后台运行以此禁止其偷偷卸载应用、摘除设备所有者权限等行为。系统将不再主动运行 PadMs 的进程",
+        "限制后系统不主动运行 PadMs 的后台进程，以此防止卸载应用等行为",
         action,
     )
 
@@ -2550,7 +2550,7 @@ private fun WorkModePage(a: ComponentActivity, back: () -> Unit) {
         OverlayDialog(
             show = showSecureGrant,
             title = "写入安全设置",
-            summary = "请在已连接设备的 ADB Shell 中执行，完成后返回 Arashi 检查授权状态。",
+            summary = "请在有权限的 Shell（例如 adb shell）中执行下面的指令授予权限，完成后返回 Arashi 检查授权状态。",
             onDismissRequest = { showSecureGrant = false },
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -2574,7 +2574,7 @@ private fun WorkModePage(a: ComponentActivity, back: () -> Unit) {
                 CheckboxPreference(
                     title = option.label,
                     summary = when (option) {
-                        WorkMode.SHELL -> "通过 Shizuku 或 Sui 执行指令"
+                        WorkMode.SHELL -> "通过 Shizuku 或 Sui 执行指令。由于系统限制，部分不可用"
                         WorkMode.ROOT -> "通过 su 执行指令"
                     },
                     checked = mode == option,
@@ -2605,7 +2605,7 @@ private fun WorkModePage(a: ComponentActivity, back: () -> Unit) {
                     }
                 }
             }
-            WorkMode.ROOT -> InfoCard("首次执行时，请在 Root 管理器中授权 Arashi")
+            WorkMode.ROOT -> InfoCard(" 请授予 Arashi 完整的超级用户权限，如果弹出授权对话框请选择允许")
         }
         Group("备用权限") {
             Link(
@@ -2659,7 +2659,7 @@ private enum class DeviceFreezeMode(
 private fun FreezeModePage(a: ComponentActivity, back: () -> Unit) {
     var mode by remember(a) { mutableStateOf(DeviceFreezeMode.get(a)) }
     Page(a, "冻结方式", back) {
-        IntroCard("仅用于「管控和云控」，解冻统一使用 pm enable")
+        IntroCard("仅用于「管控和云控」")
         Group("冻结方式") {
             DeviceFreezeMode.entries.forEach { option ->
                 CheckboxPreference(
