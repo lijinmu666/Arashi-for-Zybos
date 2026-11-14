@@ -2190,7 +2190,7 @@ private fun DeviceControlPage(a: ComponentActivity, back: () -> Unit) {
         val action = if (freeze) "冻结" else "解冻"
         val commandsByItem = checkedComponents.map { title ->
             val attempts = freshComponents[title].orEmpty().joinToString("\n") { target ->
-                """if result=$(pm $verb --user current '$target' 2>&1) && printf '%s\n' "${'$'}result" | grep -q 'new state: $state$'; then item_ok=1; else printf '%s\n' "${'
+                """if result=$(pm $verb --user current '$target' 2>&1) && printf '%s\n' "${'$'}result" | grep -q 'new state: $state$'; then item_ok=1; else printf '%s\n' "${'$'}result"; fi"""
             }
             "item_ok=0\n$attempts\n" +
                 """if [ "${'$'}item_ok" -eq 0 ]; then printf '%s\n' '$title：${action}失败'; failed=1; fi"""
