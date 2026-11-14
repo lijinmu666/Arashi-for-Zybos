@@ -2184,7 +2184,7 @@ private fun DeviceControlPage(a: ComponentActivity, back: () -> Unit) {
     fun setComponentsFrozen(freeze: Boolean) {
         if (componentAction != null || checkedComponents.isEmpty()) return
         val freshComponents = installedDeviceControlComponents(a.packageManager)
-        val freezeMode = DeviceFreezeMode.get(a)
+        val freezeMode = DeviceFreezeMode.effective(a)
         val verb = if (freeze) freezeMode.command else "enable"
         val state = if (freeze) freezeMode.resultState else "enabled"
         val action = if (freeze) "冻结" else "解冻"
@@ -2647,6 +2647,24 @@ private enum class DeviceFreezeMode(
     }
 
     companion object {
+        fun isAutomatic(context: Context): Boolean =
+            context.getSharedPreferences("work_mode", Context.MODE_PRIVATE)
+                .getBoolean("device_freeze_automatic", false)
+
+        fun setAutomatic(context: Context, automatic: Boolean) {
+            context.getSharedPreferences("work_mode", Context.MODE_PRIVATE)
+                .edit().putBoolean("device_freeze_automatic", automatic).apply()
+        }
+
+        fun forWorkMode(context: Context): DeviceFreezeMode =
+            when (WorkMode.get(context)) {
+                WorkMode.SHELL -> USER
+                WorkMode.ROOT -> SYSTEM
+            }
+
+        fun effective(context: Context): DeviceFreezeMode =
+            if (isAutomatic(context)) forWorkMode(context) else get(context)
+
         fun get(context: Context): DeviceFreezeMode {
             val value = context.getSharedPreferences("work_mode", Context.MODE_PRIVATE)
                 .getString("device_freeze_mode", null)
@@ -2658,17 +2676,29 @@ private enum class DeviceFreezeMode(
 @Composable
 private fun FreezeModePage(a: ComponentActivity, back: () -> Unit) {
     var mode by remember(a) { mutableStateOf(DeviceFreezeMode.get(a)) }
+    var automatic by remember(a) { mutableStateOf(DeviceFreezeMode.isAutomatic(a)) }
+    val effectiveMode = if (automatic) DeviceFreezeMode.forWorkMode(a) else mode
     Page(a, "冻结方式", back) {
         IntroCard("仅用于「管控和云控」")
         Group("冻结方式") {
+            SwitchPreference(
+                title = "自动选择",
+                summary = if (automatic) "当前使用${effectiveMode.title}" else "按工作模式选择冻结方式",
+                checked = automatic,
+                onCheckedChange = {
+                    DeviceFreezeMode.setAutomatic(a, it)
+                    automatic = it
+                },
+            )
             DeviceFreezeMode.entries.forEach { option ->
                 CheckboxPreference(
                     title = option.title,
                     summary = "pm ${option.command} · ${option.summary}",
-                    checked = mode == option,
+                    checked = effectiveMode == option,
+                    enabled = !automatic,
                     checkboxLocation = CheckboxLocation.End,
                     onCheckedChange = { checked ->
-                        if (checked) {
+                        if (!automatic && checked) {
                             option.save(a)
                             mode = option
                         }
@@ -2734,7 +2764,7 @@ private fun SettingsPage(
     }
     Group("工作模式") {
         Link("工作模式", WorkMode.get(a).label) { onWorkMode() }
-        Link("冻结方式", DeviceFreezeMode.get(a).title) { onFreezeMode() }
+        Link("冻结方式", DeviceFreezeMode.effective(a).title) { onFreezeMode() }
     }
     Group("外观") {
         OverlayDropdownPreference(
