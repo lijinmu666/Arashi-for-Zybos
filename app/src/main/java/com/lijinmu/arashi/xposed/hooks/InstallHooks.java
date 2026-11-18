@@ -239,7 +239,10 @@ public static void hookPackageInstaller(XposedModule mod, ClassLoader cl) {
                 });
                 mod.hook(setting).intercept(chain -> {
                     if (Boolean.TRUE.equals(installerResume.get())
-                            && "special_enable_adb_debug".equals(chain.getArg(1))
+                            // Installer 4.3 renamed the self-update-only gate. Keep both
+                            // variants scoped to onResume; do not change stored settings.
+                            && ("special_enable_adb_debug".equals(chain.getArg(1))
+                                || "zpad_prop_special_settings".equals(chain.getArg(1)))
                             && ConfigManager.isEnabled(HookConfig.KEY_EXTERNAL_INSTALL)) return 1;
                     return chain.proceed();
                 });
