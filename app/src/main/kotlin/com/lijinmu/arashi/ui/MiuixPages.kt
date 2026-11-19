@@ -2492,7 +2492,7 @@ private fun SettingsEditorPage(
             Link("作业帮学习机系统环境控制", "读取和修改 persist.sys.env_config") {
                 onZybosEnv()
             }
-            QuickCommandItem("允许安装应用", "控制 sys.allow.install.package 属性。重启后系统会将其恢复默认，其作用与 Hook 的 “允许 Shell 安装应用” 效果相同") {
+            QuickCommandItem("允许安装应用", "控制 sys.allow.install.package 属性。重启后系统会将其恢复默认，其作用与 Hook 的 “允许 Shell 安装应用” 效果相同，仅限 7.13 以下有效") {
                 val title = "允许安装应用"
                 commandAction = QuickAction(
                     title,
