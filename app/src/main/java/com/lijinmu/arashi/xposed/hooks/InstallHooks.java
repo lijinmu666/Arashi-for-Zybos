@@ -33,6 +33,8 @@ public static void hookSystemServer(XposedModule mod, ClassLoader cl) {
         
         hookBooleanProp(mod, cl);
 
+        hookPackageManagerShellCommand(mod, cl);
+
 hookZybosNoArg(mod, cl, "isDisallowInstallPackage", false);
 
 hookZybosStringArg(mod, cl, "isSilentInstallDisallow", false);
@@ -73,6 +75,57 @@ hookZybosServiceCtor(mod, cl);
             });
         } catch (Throwable t) {
             Log.w(TAG, "SystemProperties hook failed: " + t);
+        }
+    }
+
+    /**
+     * Some AIbangOS builds compile the Shell install gate in
+     * PackageManagerShellCommand.onCommand() as a local constant instead of reading
+     * sys.allow.install.package at runtime. Hooking SystemProperties therefore cannot
+     * affect those builds. Dispatch only the five commands guarded by that constant
+     * directly to their original private handlers.
+     */
+    private static void hookPackageManagerShellCommand(XposedModule mod, ClassLoader cl) {
+        try {
+            Class<?> shellCommand = Class.forName(
+                    "com.android.server.pm.PackageManagerShellCommand", false, cl);
+            Method onCommand = Reflect.findMethodExact(
+                    shellCommand, "onCommand", String.class);
+            if (onCommand == null) {
+                Log.w(TAG, "PackageManagerShellCommand.onCommand not found");
+                return;
+            }
+            mod.hook(onCommand).intercept(chain -> {
+                if (!ConfigManager.isEnabled(HookConfig.KEY_SHELL_INSTALL)) {
+                    return chain.proceed();
+                }
+                String command = (String) chain.getArg(0);
+                String handler;
+                if ("install".equals(command)) {
+                    handler = "runInstall";
+                } else if ("install-streaming".equals(command)) {
+                    handler = "runStreamingInstall";
+                } else if ("install-incremental".equals(command)) {
+                    handler = "runIncrementalInstall";
+                } else if ("install-commit".equals(command)) {
+                    handler = "runInstallCommit";
+                } else if ("install-create".equals(command)) {
+                    handler = "runInstallCreate";
+                } else {
+                    return chain.proceed();
+                }
+                try {
+                    Object result = Reflect.callMethod(chain.getThisObject(), handler);
+                    Log.i(TAG, command + " dispatched through " + handler);
+                    return result;
+                } catch (Throwable t) {
+                    Log.w(TAG, command + " direct dispatch failed; using system path: " + t);
+                    return chain.proceed();
+                }
+            });
+            Log.i(TAG, "PackageManagerShellCommand install gate hook registered");
+        } catch (Throwable t) {
+            Log.w(TAG, "PackageManagerShellCommand hook failed: " + t);
         }
     }
 
