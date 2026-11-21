@@ -171,7 +171,7 @@ object MiuixPages {
     @JvmStatic fun renderTcpHistory(a: TcpHistoryActivity) = render(a) { TcpHistoryPage(a) }
     @JvmStatic fun renderUninstallHistory(a: UninstallHistoryActivity) = render(a) { UninstallHistoryPage(a) }
     @JvmStatic fun renderUninstallList(a: UninstallListActivity, blacklist: Boolean) =
-        render(a) { UninstallListPage(a, blacklist) }
+        render(a) { UninstallListPage(a, blacklist, blockedTargets = a.intent.getBooleanExtra("blocked_targets", false)) }
     @JvmStatic fun renderUninstallPrompt(
         a: UninstallPromptActivity,
         target: String?,
@@ -508,7 +508,7 @@ private const val DEVICE_CONTROL_DESCRIPTION = "控制系统管控和云控组�
 // Enum names form a stable, Bundle-saveable route format without reflection/serialization.
 internal enum class ArashiRoute : NavKey {
     Main, HookSettings, BackgroundWhitelist, TcpHistory, UninstallSettings,
-    UninstallWhitelist, UninstallBlacklist, UninstallHistory, Notifications, About, Logs, ZybosEnv, DeviceControl, SettingsEditor, WorkModeSettings, FreezeModeSettings,
+    UninstallWhitelist, UninstallBlacklist, UninstallBlockedTargets, UninstallHistory, Notifications, About, Logs, ZybosEnv, DeviceControl, SettingsEditor, WorkModeSettings, FreezeModeSettings,
 }
 
 private val ArashiBackStackSaver = Saver<NavBackStack, ArrayList<String>>(
@@ -546,9 +546,10 @@ private fun MainNavigationPage(a: Main) {
                 ArashiRoute.TcpHistory -> TcpHistoryPage(a, back)
                 ArashiRoute.UninstallSettings -> UninstallPage(a, back,
                     { open(ArashiRoute.UninstallWhitelist) }, { open(ArashiRoute.UninstallBlacklist) },
-                    { open(ArashiRoute.UninstallHistory) })
+                    { open(ArashiRoute.UninstallHistory) }, { open(ArashiRoute.UninstallBlockedTargets) })
                 ArashiRoute.UninstallWhitelist -> UninstallListPage(a, false, back)
                 ArashiRoute.UninstallBlacklist -> UninstallListPage(a, true, back)
+                ArashiRoute.UninstallBlockedTargets -> UninstallListPage(a, true, back, blockedTargets = true)
                 ArashiRoute.UninstallHistory -> UninstallHistoryPage(a, back)
                 ArashiRoute.DeviceControl -> DeviceControlPage(a, back)
                 ArashiRoute.SettingsEditor -> SettingsEditorPage(a, back) { open(ArashiRoute.ZybosEnv) }
@@ -1477,6 +1478,7 @@ private fun UninstallPage(
     onWhitelist: () -> Unit = { a.startActivity(Intent(a, UninstallListActivity::class.java).putExtra("blacklist", false)) },
     onBlacklist: () -> Unit = { a.startActivity(Intent(a, UninstallListActivity::class.java).putExtra("blacklist", true)) },
     onHistory: () -> Unit = { a.startActivity(Intent(a, UninstallHistoryActivity::class.java)) },
+    onBlockedTargets: () -> Unit = { a.startActivity(Intent(a, UninstallListActivity::class.java).putExtra("blocked_targets", true)) },
 ) = Page(a, "卸载验证", back) {
     val prefs = a.getSharedPreferences(UninstallConfig.PREF_NAME, Context.MODE_PRIVATE)
     var moduleActive by rememberSystemServerActivation(a)
@@ -1576,6 +1578,11 @@ private fun UninstallPage(
         )
     }
 
+    Group("目标应用策略") {
+        Link("禁止卸载", "一律拒绝卸载选中的应用，优先于发起方白名单") {
+            onBlockedTargets()
+        }
+    }
     Group("发起方策略") {
         Link("白名单", "白名单中的发起方不会弹窗向你确认，直接允许") {
             onWhitelist()
@@ -1769,9 +1776,15 @@ private fun UninstallHistoryPage(a: ComponentActivity, back: () -> Unit = a::fin
 }
 
 @Composable
-private fun UninstallListPage(a: ComponentActivity, blacklist: Boolean, back: () -> Unit = a::finish) {
-    val prefKey = if (blacklist) UninstallConfig.BLACKLIST else UninstallConfig.WHITELIST
-    val title = if (blacklist) "卸载黑名单" else "卸载白名单"
+private fun UninstallListPage(
+    a: ComponentActivity,
+    blacklist: Boolean,
+    back: () -> Unit = a::finish,
+    blockedTargets: Boolean = false,
+) {
+    val prefKey = if (blockedTargets) UninstallConfig.BLOCKED_TARGETS
+        else if (blacklist) UninstallConfig.BLACKLIST else UninstallConfig.WHITELIST
+    val title = if (blockedTargets) "禁止卸载" else if (blacklist) "卸载黑名单" else "卸载白名单"
     val prefs = a.getSharedPreferences(UninstallConfig.PREF_NAME, Context.MODE_PRIVATE)
     var selected by remember(prefKey) {
         mutableStateOf(prefs.getStringSet(prefKey, mutableSetOf()).orEmpty().toSet())
@@ -1804,7 +1817,7 @@ private fun UninstallListPage(a: ComponentActivity, blacklist: Boolean, back: ()
         val uids = systemUids.map { (name, uid) ->
             UninstallChoice("uid:" + uid, name, "UID " + uid, 3)
         }
-        applications + uids
+        if (blockedTargets) applications else applications + uids
     }
     val choices = apps.choices
     val knownKeys = remember(choices) { choices.mapTo(HashSet<String>()) { it.key } }
@@ -1844,7 +1857,7 @@ private fun UninstallListPage(a: ComponentActivity, blacklist: Boolean, back: ()
                     AppPickerFilterMenu(
                         showSystemApps,
                         onShowSystemAppsChange = { showSystemApps = it },
-                        showUid = showUid,
+                        showUid = if (blockedTargets) null else showUid,
                         onShowUidChange = { showUid = it },
                     )
                 },
@@ -1857,7 +1870,8 @@ private fun UninstallListPage(a: ComponentActivity, blacklist: Boolean, back: ()
         ) {
             item {
                 IntroCard(
-                    if (blacklist) "选中的发起方直接拒绝卸载" else "选中的发起方直接允许卸载，并且黑名单优先",
+                    if (blockedTargets) "启用卸载验证后，一律拒绝卸载选中的应用，不弹窗询问，并且优先于发起方白名单"
+                    else if (blacklist) "选中的发起方直接拒绝卸载" else "选中的发起方直接允许卸载，并且黑名单优先",
                 )
             }
             item {
@@ -1873,7 +1887,7 @@ private fun UninstallListPage(a: ComponentActivity, blacklist: Boolean, back: ()
                         value = manual,
                         onValueChange = { manual = it; inputError = null },
                         modifier = Modifier.weight(1f),
-                        label = "输入包名或 UID...",
+                        label = if (blockedTargets) "输入应用包名..." else "输入包名或 UID...",
                         useLabelAsPlaceholder = true,
                         singleLine = true,
                     )
@@ -1885,12 +1899,12 @@ private fun UninstallListPage(a: ComponentActivity, blacklist: Boolean, back: ()
                             val rawUid = value.removePrefix("uid:").toIntOrNull()
                             val rawPackage = value.removePrefix("pkg:")
                             val entry = when {
-                                rawUid != null && rawUid >= 0 -> "uid:" + rawUid
+                                !blockedTargets && rawUid != null && rawUid >= 0 -> "uid:" + rawUid
                                 packagePattern.matches(rawPackage) -> "pkg:" + rawPackage
                                 else -> null
                             }
                             if (entry == null) {
-                                inputError = "请输入应用包名或非负数字 UID"
+                                inputError = if (blockedTargets) "请输入应用包名" else "请输入应用包名或非负数字 UID"
                             } else {
                                 save(selected + entry)
                                 manual = ""

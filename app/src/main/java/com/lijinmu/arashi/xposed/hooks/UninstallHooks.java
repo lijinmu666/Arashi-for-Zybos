@@ -308,6 +308,9 @@ public final class UninstallHooks {
         Decision decision;
         if (!policy.getBoolean(UninstallConfig.ENABLED, false)) {
             decision = new Decision(true, "验证未启用");
+        } else if (target != null && matches(policy.getStringArrayList(
+                UninstallConfig.BLOCKED_TARGETS), Collections.singleton("pkg:" + target))) {
+            decision = new Decision(false, "目标应用禁止卸载");
         } else if (matches(policy.getStringArrayList(UninstallConfig.BLACKLIST), identities)) {
             Log.i(TAG, "Blacklist denied uid=" + uid + " target=" + target);
             decision = new Decision(false, "黑名单");
