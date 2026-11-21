@@ -31,8 +31,6 @@ public final class InstallHooks {
 
 public static void hookSystemServer(XposedModule mod, ClassLoader cl) {
         
-        hookBooleanProp(mod, cl);
-
         hookPackageManagerShellCommand(mod, cl);
 
 hookZybosNoArg(mod, cl, "isDisallowInstallPackage", false);
@@ -50,40 +48,11 @@ hookZybosServiceCtor(mod, cl);
         Log.i(TAG, "system_server hooks initialized");
     }
 
-    private static void hookBooleanProp(XposedModule mod, ClassLoader cl) {
-        try {
-            Class<?> sysProp = Class.forName("android.os.SystemProperties", false, cl);
-            Method m = Reflect.findMethodExact(sysProp, "getBoolean",
-                    String.class, boolean.class);
-            if (m == null) {
-                Log.w(TAG, "SystemProperties.getBoolean not found");
-                return;
-            }
-            mod.hook(m).intercept(chain -> {
-                if (!"sys.allow.install.package".equals(chain.getArg(0))) {
-                    return chain.proceed();
-                }
-                clearBlacklistsIfEnabled();
-                try {
-                    if (ConfigManager.isEnabled(HookConfig.KEY_SHELL_INSTALL)) {
-                        Log.i(TAG, "sys.allow.install.package -> true");
-                        return true;
-                    }
-                } catch (Throwable ignored) {
-                }
-                return chain.proceed();
-            });
-        } catch (Throwable t) {
-            Log.w(TAG, "SystemProperties hook failed: " + t);
-        }
-    }
-
     /**
-     * Some AIbangOS builds compile the Shell install gate in
-     * PackageManagerShellCommand.onCommand() as a local constant instead of reading
-     * sys.allow.install.package at runtime. Hooking SystemProperties therefore cannot
-     * affect those builds. Dispatch only the five commands guarded by that constant
-     * directly to their original private handlers.
+     * Use the PackageManager Shell command dispatcher as the single compatibility
+     * point for AIbangOS 7.10 and 7.13. This works whether the vendor gate reads
+     * sys.allow.install.package or has already compiled the value to a constant.
+     * Only commands blocked by the vendor gate are dispatched directly.
      */
     private static void hookPackageManagerShellCommand(XposedModule mod, ClassLoader cl) {
         try {
@@ -366,22 +335,6 @@ public static void hookPackageInstaller(XposedModule mod, ClassLoader cl) {
             });
         } catch (Throwable t) {
             Log.w(TAG, method + " hook failed: " + t);
-        }
-    }
-
-private static void clearBlacklistsIfEnabled() {
-        if (!ConfigManager.isEnabled(HookConfig.KEY_CLEAR_BLACKLIST)) {
-            return;
-        }
-        if (useAndroid12BlacklistHook()) {
-            clearLegacyBlacklistIfEnabled();
-        } else if (installPkgHelperClass != null) {
-            clearBlacklistField(installPkgHelperClass, "mZybBlacklistApp");
-        }
-        if (zybServiceInstance != null) {
-            clearListField(zybServiceInstance, "allowClassList");
-            clearListField(zybServiceInstance, "disallowClassList");
-            clearListField(zybServiceInstance, "disallowPackageList");
         }
     }
 
