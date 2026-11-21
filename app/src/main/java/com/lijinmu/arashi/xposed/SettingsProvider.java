@@ -149,6 +149,9 @@ Log.w(TAG, "reject untrusted caller uid=" + Binder.getCallingUid());
             policy.putStringArrayList(UninstallConfig.BLACKLIST,
                     new java.util.ArrayList<>(uninstall.getStringSet(
                             UninstallConfig.BLACKLIST, java.util.Collections.emptySet())));
+            policy.putStringArrayList(UninstallConfig.BLOCKED_TARGETS,
+                    new java.util.ArrayList<>(uninstall.getStringSet(
+                            UninstallConfig.BLOCKED_TARGETS, java.util.Collections.emptySet())));
             return policy;
         }
 
