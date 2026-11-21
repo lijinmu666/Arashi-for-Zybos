@@ -485,24 +485,6 @@ private fun Link(
     onClick = action,
 )
 
-@Composable
-private fun StatusLine(name: String, value: String, available: Boolean) {
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .heightIn(min = 36.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(name, style = MiuixTheme.textStyles.main.copy(fontWeight = FontWeight.SemiBold))
-        Text(
-            value,
-            color = if (available) Color(0xFF36A866) else Color(0xFFE05252),
-            style = MiuixTheme.textStyles.main.copy(fontWeight = FontWeight.SemiBold),
-        )
-    }
-}
-
 private fun isLsposedActive(context: Context): Boolean {
     return HookScopes.isSystemServerActive(context)
 }
