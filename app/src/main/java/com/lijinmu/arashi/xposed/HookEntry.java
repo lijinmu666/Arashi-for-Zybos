@@ -64,6 +64,7 @@ public final class HookEntry extends XposedModule {
         ClassLoader cl = param.getClassLoader();
         ConfigManager.init("android");
         com.lijinmu.arashi.xposed.hooks.GlobalIconMaskHooks.hookSystemServer(this, cl);
+        com.lijinmu.arashi.xposed.hooks.BehaviorHooks.hookSystemServer(this, cl);
         InstallHooks.hookSystemServer(this, cl);
         UninstallHooks.hookSystemServer(this, cl);
         RestrictionHooks.hookSystemServer(this, cl);

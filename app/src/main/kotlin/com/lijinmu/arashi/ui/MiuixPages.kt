@@ -1105,6 +1105,8 @@ private fun HookPage(
             HookItem("解除安装黑名单限制", "允许安装被硬编码在 mZybBlacklistApp 中的包名", HookConfig.KEY_CLEAR_BLACKLIST),
         ),
         "行为" to listOf(
+            HookItem("允许使用无线调试", "解除系统对无线调试的强制禁用，保留手动开关。需要系统框架作用域", HookConfig.KEY_ALLOW_WIRELESS_DEBUGGING),
+            HookItem("阻止卸载应用", "清空系统自动清理应用的硬编码黑名单，并阻止清理卸载执行。需要系统框架作用域", HookConfig.KEY_BLOCK_APP_UNINSTALL),
             HookItem("允许打开开发者选项", "绕过系统设置检查，允许打开开发者选项的 Activity", HookConfig.KEY_DEV_OPTIONS),
             HookItem("保留后台进程", "拦截系统在划卡后杀死应用后台进程", HookConfig.KEY_KEEP_BACKGROUND),
             HookItem("允许 USB 文件传输", "允许挂载外部 USB 设备和使用数据传输", HookConfig.KEY_ALLOW_USB),
@@ -1181,6 +1183,8 @@ private fun HookPage(
                                 HookConfig.KEY_NOTIFICATION_LONG_PRESS,
                                 HookConfig.KEY_SYSTEMUI_MONET,
                                 HookConfig.KEY_AOSP_STATUS_ICONS -> "重启 SystemUI 后生效"
+                                HookConfig.KEY_ALLOW_WIRELESS_DEBUGGING,
+                                HookConfig.KEY_BLOCK_APP_UNINSTALL,
                                 HookConfig.KEY_BOOT_ANIMATION_NO_WAIT,
                                 HookConfig.KEY_CLEAR_BLACKLIST -> "重启系统后生效"
                                 HookConfig.KEY_STATUS_BAR_DATE -> "下一次时钟刷新后生效"
