@@ -2466,6 +2466,9 @@ private fun SettingsEditorPage(
             QuickCommandItem("special_enable_adb_debug", "不直接控制一个功能开关，作用基本为棍母") {
                 openToggle("special_enable_adb_debug", "special_enable_adb_debug")
             }
+            QuickCommandItem("zpad_prop_special_settings", "作业帮系统特殊设置，控制无线调试和新版安装器限制") {
+                openToggle("zpad_prop_special_settings", "zpad_prop_special_settings")
+            }
             QuickCommandItem("启用素养", "桌面是否显示素养标签页") {
                 openToggle("启用素养", "zyb_suyang_enabled", system = true)
             }
