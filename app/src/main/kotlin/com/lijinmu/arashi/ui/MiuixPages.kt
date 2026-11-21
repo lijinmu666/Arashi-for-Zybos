@@ -1505,6 +1505,7 @@ private fun UninstallPage(
             a.lifecycle.removeObserver(observer)
         }
     }
+    var whitelistOnly by remember { mutableStateOf(prefs.getBoolean(UninstallConfig.WHITELIST_ONLY, false)) }
     var spoofResult by remember { mutableStateOf(prefs.getBoolean(UninstallConfig.SPOOF_RESULT, false)) }
     val durations = listOf(5, 10, 15, 30)
     var duration by remember {
@@ -1590,6 +1591,15 @@ private fun UninstallPage(
         Link("黑名单", "与白名单排斥，黑名单直接拒绝卸载。优先于白名单") {
             onBlacklist()
         }
+        SwitchPreference(
+            checked = whitelistOnly,
+            onCheckedChange = {
+                whitelistOnly = it
+                prefs.edit().putBoolean(UninstallConfig.WHITELIST_ONLY, it).apply()
+            },
+            title = "仅允许白名单卸载应用",
+            summary = "仅允许白名单中的发起方卸载应用，其余请求直接拒绝，不弹窗询问。黑名单与目标应用禁止卸载策略仍优先",
+        )
     }
     Group("记录") {
         Link("卸载记录", "查看允许和拒绝的卸载验证记录") {

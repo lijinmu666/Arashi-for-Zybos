@@ -105,6 +105,19 @@ public class Check {
   check("target.app",false,"设备息屏",true); // Target list never matches the caller instead.
   check(null,false,"设备息屏",true);
   c.resolver.policy.remove(UninstallConfig.BLOCKED_TARGETS);check("target.app",false,"设备息屏",true); // Existing configs.
+  c.resolver.policy.putBoolean(UninstallConfig.WHITELIST_ONLY,true);
+  check("target.app",false,"非白名单拒绝",true); // Empty whitelist denies without a prompt.
+  list(UninstallConfig.WHITELIST,"pkg:caller.app");check("target.app",true,"白名单",false);
+  list(UninstallConfig.BLACKLIST,"uid:2000");check("target.app",false,"黑名单",true);
+  list(UninstallConfig.BLACKLIST);list(UninstallConfig.BLOCKED_TARGETS,"pkg:target.app");
+  check("target.app",false,"目标应用禁止卸载",true);
+  list(UninstallConfig.BLOCKED_TARGETS);list(UninstallConfig.WHITELIST,"uid:2000");
+  check("target.app",true,"白名单",false); // UID whitelist remains supported.
+  list(UninstallConfig.WHITELIST);c.resolver.policy.putBoolean(UninstallConfig.ENABLED,false);
+  check("target.app",true,"验证未启用",false);
+  c.resolver.policy.putBoolean(UninstallConfig.ENABLED,true);
+  c.resolver.policy.putBoolean(UninstallConfig.WHITELIST_ONLY,false);
+  check("target.app",false,"设备息屏",true); // Disabling restores confirmation rules.
   c.resolver.policy=null;Object d=evaluate.invoke(null,c,2000,"target.app",null);
   Field f=d.getClass().getDeclaredField("allowed");f.setAccessible(true);if(!(Boolean)f.get(d))throw new AssertionError("unavailable policy");
   System.out.println("Uninstall target protection: priority, exact matching, enablement, live updates, spoofing and records passed");

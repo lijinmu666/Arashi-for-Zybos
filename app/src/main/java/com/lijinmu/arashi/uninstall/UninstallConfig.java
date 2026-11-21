@@ -10,6 +10,7 @@ public final class UninstallConfig {
     public static final String SPOOF_RESULT = "spoof_uninstall_result";
     public static final String TIMEOUT_SECONDS = "timeout_seconds";
     public static final String WHITELIST = "whitelist";
+    public static final String WHITELIST_ONLY = "whitelist_only";
     public static final String BLACKLIST = "blacklist";
     public static final String BLOCKED_TARGETS = "blocked_targets";
     public static final int DEFAULT_TIMEOUT = 10;

@@ -316,6 +316,8 @@ public final class UninstallHooks {
             decision = new Decision(false, "黑名单");
         } else if (matches(policy.getStringArrayList(UninstallConfig.WHITELIST), identities)) {
             decision = new Decision(true, "白名单");
+        } else if (policy.getBoolean(UninstallConfig.WHITELIST_ONLY, false)) {
+            decision = new Decision(false, "非白名单拒绝");
         } else {
             int seconds = UninstallConfig.normalizeTimeoutSeconds(policy.getInt(
                     UninstallConfig.TIMEOUT_SECONDS, UninstallConfig.DEFAULT_TIMEOUT));
