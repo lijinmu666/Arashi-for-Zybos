@@ -117,10 +117,7 @@ public final class HookScopes {
                 && !HookConfig.KEY_EXTERNAL_INSTALL.equals(key)
                 && !HookConfig.KEY_CAPTIVE_PORTAL.equals(key)
                 && !HookConfig.KEY_DEV_OPTIONS.equals(key)
-                && !HookConfig.KEY_DEV_OPTIONS_MENU.equals(key)
-                && !HookConfig.KEY_NEUTRALIZE_POLICY.equals(key)
-                && !HookConfig.KEY_NEUTRALIZE_ADVANCE.equals(key)
-                && !HookConfig.KEY_NO_TIMEOUT_LOCK.equals(key);
+                && !HookConfig.KEY_DEV_OPTIONS_MENU.equals(key);
     }
 
     private static String[] applicationScopes(String key) {
@@ -142,11 +139,6 @@ public final class HookScopes {
         if (HookConfig.KEY_DEV_OPTIONS.equals(key) || HookConfig.KEY_DEV_OPTIONS_MENU.equals(key)
                 || HookConfig.KEY_AOSP_APP_DETAILS.equals(key)) {
             return new String[] { "com.android.settings" };
-        }
-        if (HookConfig.KEY_NEUTRALIZE_POLICY.equals(key)
-                || HookConfig.KEY_NEUTRALIZE_ADVANCE.equals(key)
-                || HookConfig.KEY_NO_TIMEOUT_LOCK.equals(key)) {
-            return new String[] { "com.zuoyebang.iot.pad.supervise" };
         }
         if (HookConfig.KEY_ALLOW_WALLPAPER.equals(key)
                 || HookConfig.KEY_IOS_ICONS.equals(key)) {

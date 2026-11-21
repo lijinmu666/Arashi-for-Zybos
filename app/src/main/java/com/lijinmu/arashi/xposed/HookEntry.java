@@ -18,7 +18,6 @@ import com.lijinmu.arashi.xposed.hooks.LauncherIconHooks;
 import com.lijinmu.arashi.xposed.hooks.LauncherFolderHooks;
 import com.lijinmu.arashi.xposed.hooks.LauncherUninstallHooks;
 import com.lijinmu.arashi.xposed.hooks.RestrictionHooks;
-import com.lijinmu.arashi.xposed.hooks.SuperviseHooks;
 import com.lijinmu.arashi.xposed.hooks.SystemUIHooks;
 import com.lijinmu.arashi.xposed.hooks.UninstallHooks;
 import com.lijinmu.arashi.xposed.hooks.TcpLoginHooks;
@@ -34,7 +33,6 @@ public final class HookEntry extends XposedModule {
     private static final String PKG_INSTALLER = "com.android.packageinstaller";
     private static final String PKG_CAPTIVE = "com.android.captiveportallogin";
     private static final String PKG_SETTINGS = "com.android.settings";
-    private static final String PKG_SUPERVISE = "com.zuoyebang.iot.pad.supervise";
     private static final String PKG_SYSTEMUI = "com.android.systemui";
 
     @Override
@@ -103,9 +101,6 @@ public final class HookEntry extends XposedModule {
             AppInfoPageHooks.hookSettings(this, param.getClassLoader());
             AppDetailsHooks.hookSettings(this, param.getClassLoader());
             AppNotificationHooks.hookSettings(this, param.getClassLoader());
-        } else if (PKG_SUPERVISE.equals(pkg)) {
-            ConfigManager.init(pkg);
-            SuperviseHooks.hookSupervise(this, param.getClassLoader());
         } else if ("com.zuoyebang.iot.pad.launcher14".equals(pkg)
                 || "com.android.launcher3".equals(pkg)) {
             ConfigManager.init(pkg);
