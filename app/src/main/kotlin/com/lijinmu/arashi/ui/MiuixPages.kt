@@ -2972,6 +2972,7 @@ private fun NotificationSettingsPage(a: androidx.activity.ComponentActivity, bac
     IntroCard("通知开关仅控制消息提醒，不影响卸载验证、TCP 拦截与记录保存，点按通知可查看对应记录")
     Group("卸载验证") {
         listOf(
+            com.lijinmu.arashi.notifications.NotificationPreferences.BLOCKED_TARGET to "目标应用禁止卸载",
             com.lijinmu.arashi.notifications.NotificationPreferences.BLACKLIST to "黑名单拒绝",
             com.lijinmu.arashi.notifications.NotificationPreferences.WHITELIST to "白名单放行",
             com.lijinmu.arashi.notifications.NotificationPreferences.TIMEOUT to "倒计时自动拒绝",

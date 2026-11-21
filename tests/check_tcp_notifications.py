@@ -129,6 +129,18 @@ public class Check {
  check(events.manager.sent.get("uninstall-13").text.equals("桌面(1000) 试图卸载应用，由于设备未使用，已拒绝本次卸载。点按查看详情信息"));
  events.prefs.putBoolean(NotificationPreferences.SCREEN_OFF,false);
  UninstallNotifications.post(events,14,data);check(events.manager.sent.size()==5);
+ check(NotificationPreferences.uninstallEnabled(events)); // Target protection notifications default to enabled.
+ check(UninstallNoticePolicy.key("目标应用禁止卸载",true)==null);
+ data.put("reason","目标应用禁止卸载");data.put("allowed",false);
+ UninstallNotifications.post(events,15,data);
+ Notification target=events.manager.sent.get("uninstall-15");
+ check(target.text.equals("桌面(1000) 试图卸载应用，由于目标应用已设置为禁止卸载，已拒绝本次卸载。点按查看详情信息"));
+ check(target.channel.equals(NotificationPreferences.BLOCKED_TARGET+"_heads_up_v2"));
+ check(target.click.intent.target==com.lijinmu.arashi.uninstall.UninstallHistoryActivity.class);
+ check(events.manager.channels.get(target.channel).importance==NotificationManager.IMPORTANCE_HIGH);
+ check(events.manager.channels.get(target.channel).sound==android.provider.Settings.System.DEFAULT_NOTIFICATION_URI);
+ events.prefs.putBoolean(NotificationPreferences.BLOCKED_TARGET,false);
+ UninstallNotifications.post(events,16,data);check(events.manager.sent.size()==6);
  check(!NotificationPreferences.uninstallEnabled(events));
  System.out.println("TCP and uninstall notification checks passed");
  }

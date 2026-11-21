@@ -4,6 +4,7 @@ package com.lijinmu.arashi.notifications;
 public final class UninstallNoticePolicy {
     private UninstallNoticePolicy() {}
     public static String key(String reason, boolean allowed) {
+        if (!allowed && "目标应用禁止卸载".equals(reason)) return NotificationPreferences.BLOCKED_TARGET;
         if (!allowed && "黑名单".equals(reason)) return NotificationPreferences.BLACKLIST;
         if (allowed && "白名单".equals(reason)) return NotificationPreferences.WHITELIST;
         if (!allowed && "超时默认拒绝".equals(reason)) return NotificationPreferences.TIMEOUT;
@@ -13,7 +14,9 @@ public final class UninstallNoticePolicy {
     public static String text(String key, String caller, int uid) {
         if (caller == null || caller.trim().isEmpty()) caller = "未知发起者";
         String cause;
-        if (NotificationPreferences.BLACKLIST.equals(key)) {
+        if (NotificationPreferences.BLOCKED_TARGET.equals(key)) {
+            cause = "由于目标应用已设置为禁止卸载，已拒绝本次卸载";
+        } else if (NotificationPreferences.BLACKLIST.equals(key)) {
             cause = "由于其已被添加至黑名单，已拒绝本次卸载";
         } else if (NotificationPreferences.WHITELIST.equals(key)) {
             cause = "由于其已被添加至白名单，已放行本次卸载";
