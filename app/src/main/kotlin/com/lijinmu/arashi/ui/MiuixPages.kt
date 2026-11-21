@@ -1105,9 +1105,9 @@ private fun HookPage(
             HookItem("解除安装黑名单限制", "允许安装被硬编码在 mZybBlacklistApp 中的包名", HookConfig.KEY_CLEAR_BLACKLIST),
         ),
         "限制" to listOf(
+            HookItem("允许打开开发者选项", "绕过系统设置检查，允许打开开发者选项的 Activity", HookConfig.KEY_DEV_OPTIONS),
             HookItem("允许使用无线调试", "解除系统对无线调试的强制禁用，保留手动开关。需要系统框架作用域", HookConfig.KEY_ALLOW_WIRELESS_DEBUGGING),
             HookItem("阻止卸载应用", "清空系统自动清理应用的硬编码黑名单，并阻止清理卸载执行。需要系统框架作用域", HookConfig.KEY_BLOCK_APP_UNINSTALL),
-            HookItem("允许打开开发者选项", "绕过系统设置检查，允许打开开发者选项的 Activity", HookConfig.KEY_DEV_OPTIONS),
             HookItem("允许 USB 文件传输", "允许挂载外部 USB 设备和使用数据传输", HookConfig.KEY_ALLOW_USB),
             HookItem("允许任意应用设置壁纸", "允许任意应用设置壁纸，并移除新版桌面覆盖系统壁纸的静态背景。需要系统框架和桌面作用域", HookConfig.KEY_ALLOW_WALLPAPER),
             HookItem("允许 WiFi 网页登录", "允许连接到认证型 WiFi 并正常跳转到 “登录到网络” 登录验证网页", HookConfig.KEY_CAPTIVE_PORTAL),
