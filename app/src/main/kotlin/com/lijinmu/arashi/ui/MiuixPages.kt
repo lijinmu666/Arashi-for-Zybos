@@ -1069,6 +1069,16 @@ private fun HookPage(
         label = "搜索…",
     )
     val prefs = a.getSharedPreferences(HookConfig.PREF_NAME, Context.MODE_PRIVATE)
+    val behaviorSupported = remember { com.lijinmu.arashi.xposed.BehaviorCompatibility.isSupported() }
+    LaunchedEffect(prefs, behaviorSupported) {
+        if (!behaviorSupported) {
+            prefs.edit()
+                .putBoolean(HookConfig.KEY_ALLOW_WIRELESS_DEBUGGING, false)
+                .putBoolean(HookConfig.KEY_BLOCK_APP_UNINSTALL, false)
+                .apply()
+        }
+    }
+
     var backgroundSelected by remember {
         mutableStateOf(prefs.getStringSet(HookConfig.KEY_KEEP_BACKGROUND_WHITELIST, emptySet()).orEmpty().toSet())
     }

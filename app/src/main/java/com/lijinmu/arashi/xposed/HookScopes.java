@@ -186,6 +186,7 @@ public final class HookScopes {
         }
 
         public boolean isAvailable(String key) {
+            if (BehaviorCompatibility.requiresVersion(key) && !BehaviorCompatibility.isSupported()) return false;
             if (HookConfig.KEY_IOS_SYSTEM_ICON_MASK.equals(key) && android.os.Build.VERSION.SDK_INT < 34) return false;
             return hasSelectedScope(key) && (!usesSystemServer(key) || systemActive);
         }
@@ -195,6 +196,9 @@ public final class HookScopes {
         }
 
         public String unavailableReason(String key) {
+            if (BehaviorCompatibility.requiresVersion(key) && !BehaviorCompatibility.isSupported()) {
+                return BehaviorCompatibility.REQUIREMENT;
+            }
             if (HookConfig.KEY_IOS_SYSTEM_ICON_MASK.equals(key) && android.os.Build.VERSION.SDK_INT < 34) {
                 return "全局图标遮罩需要 Android 14 或更新版本";
             }

@@ -5,6 +5,8 @@ import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCES = {
+    'android/os/SystemProperties.java': '''package android.os;
+public class SystemProperties { public static String get(String key) { return System.getProperty("test.os.version", "V7.13.0"); }}''',
     'android/content/ContentResolver.java': 'package android.content; public class ContentResolver {}',
     'android/provider/Settings.java': '''package android.provider;
 public class Settings { public static class Global {
@@ -63,7 +65,13 @@ return (Integer)m.call(read,null,new Object[]{null,key,value},()->value);
 }
 static void check(boolean b) {if(!b)throw new AssertionError();}
 public static void main(String[] args) throws Throwable {
+for (String version : new String[]{"V7.13.0", "V7.13.1", "V7.14.0", "V8.0.0", "V7.100.0"})
+check(BehaviorCompatibility.supportsVersion(version));
+for (String version : new String[]{"", "V7.10.0", "V7.12.99", "V6.99.0", "7.13.0", "unknown", "V7.13", "V7.13.-1"})
+check(!BehaviorCompatibility.supportsVersion(version));
+check(!BehaviorCompatibility.supportsVersion(null));
 BehaviorHooks.hookSystemServer(m,BehaviorHooksCheck.class.getClassLoader());
+if (!BehaviorCompatibility.isSupported()) {check(m.hooks.isEmpty());return;}
 read=android.provider.Settings.Global.class.getDeclaredMethod("getInt",android.content.ContentResolver.class,String.class,int.class);
 ready=AdbService.class.getDeclaredMethod("systemReady");
 disable=AdbService.class.getDeclaredMethod("shouldDisableWifiAdb");
@@ -115,6 +123,9 @@ with tempfile.TemporaryDirectory() as directory:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(source)
     actual = ROOT / 'app/src/main/java/com/lijinmu/arashi/xposed'
-    files = list(base.rglob('*.java')) + [actual / 'HookConfig.java', actual / 'hooks/BehaviorHooks.java']
+    files = list(base.rglob('*.java')) + [actual / 'HookConfig.java', actual / 'BehaviorCompatibility.java', actual / 'hooks/BehaviorHooks.java']
     subprocess.run(['javac', '-d', str(base / 'classes'), *map(str, files)], check=True)
     subprocess.run(['java', '-cp', str(base / 'classes'), 'BehaviorHooksCheck'], check=True)
+
+    for version in ('V7.10.0', '', 'unknown'):
+        subprocess.run(['java', '-Dtest.os.version=' + version, '-cp', str(base / 'classes'), 'BehaviorHooksCheck'], check=True)
