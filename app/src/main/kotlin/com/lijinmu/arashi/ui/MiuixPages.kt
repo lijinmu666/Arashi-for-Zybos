@@ -1608,7 +1608,7 @@ private fun UninstallPage(
                 prefs.edit().putBoolean(UninstallConfig.WHITELIST_ONLY, it).apply()
             },
             title = "仅允许白名单卸载应用",
-            summary = "仅允许白名单中的发起方卸载应用，其余请求直接拒绝，不弹窗询问。黑名单与目标应用禁止卸载策略仍优先",
+            summary = "只允许白名单发起卸载，其它一律拒绝卸载。黑名单和目标应用禁止卸载策略优先",
         )
     }
     Group("记录") {
