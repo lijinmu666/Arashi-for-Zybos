@@ -141,6 +141,18 @@ public class Check {
  check(events.manager.channels.get(target.channel).sound==android.provider.Settings.System.DEFAULT_NOTIFICATION_URI);
  events.prefs.putBoolean(NotificationPreferences.BLOCKED_TARGET,false);
  UninstallNotifications.post(events,16,data);check(events.manager.sent.size()==6);
+ check(NotificationPreferences.uninstallEnabled(events));
+ check(UninstallNoticePolicy.key("非白名单拒绝",true)==null);
+ data.put("reason","非白名单拒绝");data.put("allowed",false);
+ UninstallNotifications.post(events,17,data);
+ Notification strict=events.manager.sent.get("uninstall-17");
+ check(strict.text.equals("桌面(1000) 试图卸载应用，由于已开启仅允许白名单卸载应用，且发起方不在白名单中，已拒绝本次卸载。点按查看详情信息"));
+ check(strict.channel.equals(NotificationPreferences.WHITELIST_ONLY_DENIED+"_heads_up_v2"));
+ check(strict.click.intent.target==com.lijinmu.arashi.uninstall.UninstallHistoryActivity.class);
+ check(events.manager.channels.get(strict.channel).importance==NotificationManager.IMPORTANCE_HIGH);
+ check(events.manager.channels.get(strict.channel).sound==android.provider.Settings.System.DEFAULT_NOTIFICATION_URI);
+ events.prefs.putBoolean(NotificationPreferences.WHITELIST_ONLY_DENIED,false);
+ UninstallNotifications.post(events,18,data);check(events.manager.sent.size()==7);
  check(!NotificationPreferences.uninstallEnabled(events));
  System.out.println("TCP and uninstall notification checks passed");
  }

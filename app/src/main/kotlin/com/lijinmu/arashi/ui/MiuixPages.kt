@@ -2994,6 +2994,7 @@ private fun NotificationSettingsPage(a: androidx.activity.ComponentActivity, bac
         listOf(
             com.lijinmu.arashi.notifications.NotificationPreferences.BLOCKED_TARGET to "目标应用禁止卸载",
             com.lijinmu.arashi.notifications.NotificationPreferences.BLACKLIST to "黑名单拒绝",
+            com.lijinmu.arashi.notifications.NotificationPreferences.WHITELIST_ONLY_DENIED to "非白名单拒绝",
             com.lijinmu.arashi.notifications.NotificationPreferences.WHITELIST to "白名单放行",
             com.lijinmu.arashi.notifications.NotificationPreferences.TIMEOUT to "倒计时自动拒绝",
             com.lijinmu.arashi.notifications.NotificationPreferences.SCREEN_OFF to "息屏自动拒绝",
