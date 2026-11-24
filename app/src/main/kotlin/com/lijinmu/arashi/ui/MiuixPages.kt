@@ -1516,13 +1516,14 @@ private fun UninstallPage(
         }
     }
     var whitelistOnly by remember { mutableStateOf(prefs.getBoolean(UninstallConfig.WHITELIST_ONLY, false)) }
+    var freezeEnabled by remember { mutableStateOf(prefs.getBoolean(UninstallConfig.FREEZE_ENABLED, false)) }
     var spoofResult by remember { mutableStateOf(prefs.getBoolean(UninstallConfig.SPOOF_RESULT, false)) }
     val durations = listOf(5, 10, 15, 30)
     var duration by remember {
         mutableIntStateOf(durations.indexOf(UninstallConfig.normalizeTimeoutSeconds(
             prefs.getInt(UninstallConfig.TIMEOUT_SECONDS, UninstallConfig.DEFAULT_TIMEOUT))))
     }
-    IntroCard("细化并管理每一次卸载请求。当系统尝试卸载应用时，会向你询问是否允许")
+    IntroCard("管理卸载请求；开启冻结验证后，应用禁用请求也会使用相同的名单、确认规则和记录")
     Group("验证") {
         SwitchPreference(
             checked = enabled && moduleActive,
@@ -1538,6 +1539,16 @@ private fun UninstallPage(
             title = "启用卸载验证",
             summary = if (moduleActive) "每次卸载请求将会弹窗向你确认"
                 else "未检测到 system_server 的 Hook，卸载验证暂时关闭。激活后会恢复此前的开启状态",
+            enabled = moduleActive,
+        )
+        SwitchPreference(
+            checked = freezeEnabled,
+            onCheckedChange = {
+                freezeEnabled = it
+                prefs.edit().putBoolean(UninstallConfig.FREEZE_ENABLED, it).apply()
+            },
+            title = "验证应用冻结",
+            summary = "启用卸载验证后，拦截 pm disable、disable-user、disable-until-used 及应用发起的整包禁用请求，共用下方策略",
             enabled = moduleActive,
         )
         Column {
@@ -1584,13 +1595,13 @@ private fun UninstallPage(
                 spoofResult = it
                 prefs.edit().putBoolean(UninstallConfig.SPOOF_RESULT, it).apply()
             },
-            title = "伪装卸载结果",
-            summary = "返回拒绝的卸载请求已成功卸载",
+            title = if (freezeEnabled) "伪装卸载与冻结结果" else "伪装卸载结果",
+            summary = if (freezeEnabled) "拒绝操作时返回成功；冻结请求的实际状态保持不变" else "返回拒绝的卸载请求已成功卸载",
         )
     }
 
     Group("目标应用策略") {
-        Link("禁止卸载", "一律拒绝卸载选中的应用，优先于发起方白名单") {
+        Link("禁止卸载", "一律拒绝卸载选中的应用；开启冻结验证后同时禁止冻结。优先于发起方白名单") {
             onBlockedTargets()
         }
     }
@@ -1612,7 +1623,7 @@ private fun UninstallPage(
         )
     }
     Group("记录") {
-        Link("卸载记录", "查看允许和拒绝的卸载验证记录") {
+        Link("卸载与冻结记录", "查看操作类型、发起方和验证结果") {
             onHistory()
         }
     }
@@ -1710,7 +1721,7 @@ private fun UninstallHistoryPage(a: ComponentActivity, back: () -> Unit = a::fin
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 item {
-                    IntroCard("记录已捕获的卸载请求，允许不代表系统最终卸载成功")
+                    IntroCard("记录已捕获的卸载与冻结请求，允许不代表系统最终执行成功")
                 }
                 item {
                     LoadingTextButton(
@@ -1735,6 +1746,16 @@ private fun UninstallHistoryPage(a: ComponentActivity, back: () -> Unit = a::fin
                                 )
                                 Text(time, color = MiuixTheme.colorScheme.onSurfaceVariantSummary)
                             }
+                            Text("操作：" + if (record.operation == UninstallConfig.FREEZE) "冻结应用" else "卸载应用")
+                            if (record.operation == UninstallConfig.FREEZE) {
+                                val state = when (record.requestedState) {
+                                    2 -> "disabled"
+                                    3 -> "disabled-user"
+                                    4 -> "disabled-until-used"
+                                    else -> record.requestedState.toString()
+                                }
+                                Text("请求状态：$state · 用户：${record.userId}")
+                            }
                             Text("目标应用：" + (record.targetName ?: record.targetPackage ?: "未知应用"))
                             if (!record.targetPackage.isNullOrBlank()
                                 && record.targetPackage != record.targetName) {
@@ -1747,6 +1768,7 @@ private fun UninstallHistoryPage(a: ComponentActivity, back: () -> Unit = a::fin
                                 Text(record.callerPackage.orEmpty(),
                                     color = MiuixTheme.colorScheme.onSurfaceVariantSummary)
                             }
+                            if (record.callerPid > 0) Text("发起进程 PID：${record.callerPid}")
                             Text("原因：" + (record.reason ?: "未知"),
                                 color = MiuixTheme.colorScheme.onSurfaceVariantSummary)
                         }
@@ -1890,7 +1912,7 @@ private fun UninstallListPage(
         ) {
             item {
                 IntroCard(
-                    if (blockedTargets) "启用卸载验证后，一律拒绝卸载选中的应用，不弹窗询问，并且优先于发起方白名单"
+                    if (blockedTargets) "启用卸载验证后，一律拒绝卸载选中的应用；开启冻结验证后同时禁止冻结。不弹窗询问，并且优先于发起方白名单"
                     else if (blacklist) "选中的发起方直接拒绝卸载" else "选中的发起方直接允许卸载，并且黑名单优先",
                 )
             }
@@ -2022,7 +2044,8 @@ private fun UninstallPrompt(
     Box(Modifier.fillMaxWidth().padding(12.dp)) {
         Card(Modifier.fillMaxWidth(), cornerRadius = 28.dp, insideMargin = PaddingValues(20.dp)) {
             Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                Text("是否要允许 $callerName($uid) 卸载这个应用？", style = MiuixTheme.textStyles.title2)
+                val action = if (a.intent.getStringExtra(UninstallConfig.OPERATION) == UninstallConfig.FREEZE) "冻结" else "卸载"
+                Text("是否要允许 $callerName($uid) ${action}这个应用？", style = MiuixTheme.textStyles.title2)
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     AndroidView(
                         factory = { context ->

@@ -50,6 +50,71 @@ public final class UninstallHooks {
         hookInstaller(module, loader);
         hookZybos(module, loader);
         hookPackageManager(module, loader);
+        hookFreeze(module, loader);
+    }
+
+    private static void hookFreeze(XposedModule module, ClassLoader loader) {
+        try {
+            Class<?> owner = Class.forName("com.android.server.pm.PackageManagerService", false, loader);
+            int count = 0;
+            for (Method method : owner.getDeclaredMethods()) {
+                Class<?>[] types = method.getParameterTypes();
+                boolean single = "setEnabledSetting".equals(method.getName())
+                        && java.util.Arrays.equals(types, new Class<?>[] { String.class,
+                        String.class, int.class, int.class, int.class, String.class });
+                boolean batch = "setEnabledSettings".equals(method.getName())
+                        && types.length == 3 && java.util.List.class.isAssignableFrom(types[0])
+                        && types[1] == int.class && types[2] == String.class;
+                if (!single && !batch) continue;
+                method.setAccessible(true);
+                module.hook(method).intercept(chain -> {
+                    Context context = systemContext();
+                    if (context == null) return chain.proceed();
+                    if (single) {
+                        // Component state changes are not whole-application freezing.
+                        if (chain.getArg(1) == null) {
+                            int state = (Integer) chain.getArg(2);
+                            if (isDisabledState(state)) {
+                                Decision decision = evaluateRequest(context, Binder.getCallingUid(),
+                                        (String) chain.getArg(0), (String) chain.getArg(5),
+                                        true, state, (Integer) chain.getArg(4));
+                                if (!decision.allowed) return denyFreeze(decision);
+                            }
+                        }
+                    } else {
+                        java.util.List<?> settings = (java.util.List<?>) chain.getArg(0);
+                        if (settings != null) {
+                            for (Object setting : settings) {
+                                if (setting == null || Reflect.callMethod(setting, "getComponentName") != null) continue;
+                                int state = (Integer) Reflect.callMethod(setting, "getEnabledState");
+                                if (!isDisabledState(state)) continue;
+                                Decision decision = evaluateRequest(context, Binder.getCallingUid(),
+                                        (String) Reflect.callMethod(setting, "getPackageName"),
+                                        (String) chain.getArg(2), true, state, (Integer) chain.getArg(1));
+                                // Keep the platform's batch atomic: a denial rejects the batch.
+                                if (!decision.allowed) return denyFreeze(decision);
+                            }
+                        }
+                    }
+                    return chain.proceed();
+                });
+                count++;
+            }
+            Log.i(TAG, "Application freeze hooks=" + count);
+        } catch (Throwable error) {
+            Log.w(TAG, "Application freeze hook unavailable", error);
+        }
+    }
+
+    private static boolean isDisabledState(int state) {
+        return state == 2 || state == 3 || state == 4;
+    }
+
+    private static Object denyFreeze(Decision decision) {
+        if (!decision.spoofSuccess) {
+            throw new SecurityException("Arashi 已拒绝冻结应用：" + decision.reason);
+        }
+        return null;
     }
 
     private static void hookZybos(XposedModule module, ClassLoader loader) {
@@ -251,6 +316,11 @@ public final class UninstallHooks {
     }
 
     private static Decision evaluateRequest(Context context, int uid, String target, String callerPackage) {
+        return evaluateRequest(context, uid, target, callerPackage, false, -1, -1);
+    }
+
+    private static Decision evaluateRequest(Context context, int uid, String target,
+            String callerPackage, boolean freeze, int requestedState, int userId) {
         int callerPid = Binder.getCallingPid();
         Bundle policy;
         // Query as system_server, not as the application requesting deletion.
@@ -268,6 +338,10 @@ public final class UninstallHooks {
         // Never resurrect an old enabled policy after the user disables validation.
         if (policy == null) {
             return new Decision(true, "策略不可用");
+        }
+        if (freeze && (!policy.getBoolean(UninstallConfig.ENABLED, false)
+                || !policy.getBoolean(UninstallConfig.FREEZE_ENABLED, false))) {
+            return new Decision(true, "冻结验证未启用");
         }
         String[] packages;
         try {
@@ -310,7 +384,7 @@ public final class UninstallHooks {
             decision = new Decision(true, "验证未启用");
         } else if (target != null && matches(policy.getStringArrayList(
                 UninstallConfig.BLOCKED_TARGETS), Collections.singleton("pkg:" + target))) {
-            decision = new Decision(false, "目标应用禁止卸载");
+            decision = new Decision(false, freeze ? "目标应用禁止冻结" : "目标应用禁止卸载");
         } else if (matches(policy.getStringArrayList(UninstallConfig.BLACKLIST), identities)) {
             Log.i(TAG, "Blacklist denied uid=" + uid + " target=" + target);
             decision = new Decision(false, "黑名单");
@@ -323,23 +397,28 @@ public final class UninstallHooks {
                     UninstallConfig.TIMEOUT_SECONDS, UninstallConfig.DEFAULT_TIMEOUT));
             decision = confirm(context, uid,
                     verifiedCaller == null ? new String[0] : new String[] { verifiedCaller },
-                    target, seconds);
+                    target, seconds, freeze);
         }
         // Snapshot the setting for this request, including while its prompt is pending.
         decision = new Decision(decision.allowed, decision.reason,
                 !decision.allowed && policy.getBoolean(UninstallConfig.SPOOF_RESULT, false));
-        recordDecision(context, uid, verifiedCaller, target, decision);
+        recordDecision(context, uid, verifiedCaller, target, decision,
+                freeze, callerPid, requestedState, userId);
         return decision;
     }
 
     private static void recordDecision(Context context, int uid, String callerPackage,
-            String target, Decision decision) {
+            String target, Decision decision, boolean freeze, int callerPid, int requestedState, int userId) {
         long identity = 0;
         boolean cleared = false;
         try {
             identity = Binder.clearCallingIdentity();
             cleared = true;
             Bundle record = new Bundle();
+            record.putString(UninstallConfig.OPERATION, freeze ? UninstallConfig.FREEZE : "uninstall");
+            record.putInt("caller_pid", callerPid);
+            record.putInt("requested_state", requestedState);
+            record.putInt("user_id", userId);
             record.putLong(UninstallHistoryStore.TIME, System.currentTimeMillis());
             record.putInt(UninstallHistoryStore.CALLER_UID, uid);
             record.putString(UninstallHistoryStore.CALLER_PACKAGE, callerPackage);
@@ -434,7 +513,7 @@ public final class UninstallHooks {
     }
 
     private static Decision confirm(Context context, int uid, String[] packages,
-            String target, int seconds) {
+            String target, int seconds, boolean freeze) {
         // Only requests that reached popup confirmation use this rule.
         // Enabled state and black/white lists were already handled above.
         if (UninstallScreenState.isScreenOff(context)) {
@@ -458,6 +537,7 @@ public final class UninstallHooks {
         prompt.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_MULTIPLE_TASK
                 | Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS);
         prompt.putExtra("target", target);
+        prompt.putExtra(UninstallConfig.OPERATION, freeze ? UninstallConfig.FREEZE : "uninstall");
         prompt.putExtra("caller_uid", uid);
         prompt.putExtra("caller_packages", packages == null ? new String[0] : packages);
         prompt.putExtra("deadline_elapsed", SystemClock.elapsedRealtime() + seconds * 1000L);

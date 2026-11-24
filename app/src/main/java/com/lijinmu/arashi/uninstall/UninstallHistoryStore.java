@@ -37,6 +37,10 @@ public final class UninstallHistoryStore {
         values.put(TARGET_NAME, data.getString(TARGET_NAME));
         values.put(ALLOWED, data.getBoolean(ALLOWED, false) ? 1 : 0);
         values.put(REASON, data.getString(REASON));
+        values.put("operation", data.getString("operation", "uninstall"));
+        values.put("caller_pid", data.getInt("caller_pid", -1));
+        values.put("requested_state", data.getInt("requested_state", -1));
+        values.put("user_id", data.getInt("user_id", -1));
         return database(context).insertOrThrow(TABLE, null, values);
     }
 
@@ -46,14 +50,16 @@ public final class UninstallHistoryStore {
         String[] args = selection == null ? null : new String[] { Long.toString(beforeId) };
         try (Cursor cursor = database(context).query(TABLE,
                 new String[] { "_id", TIME, CALLER_UID, CALLER_PACKAGE, CALLER_NAME,
-                        TARGET_PACKAGE, TARGET_NAME, ALLOWED, REASON },
+                        TARGET_PACKAGE, TARGET_NAME, ALLOWED, REASON,
+                        "operation", "caller_pid", "requested_state", "user_id" },
                 selection, args, null, null, "_id DESC",
                 Integer.toString(Math.max(1, Math.min(limit, 101))))) {
             while (cursor.moveToNext()) {
                 records.add(new Record(
                         cursor.getLong(0), cursor.getLong(1), cursor.getInt(2),
                         cursor.getString(3), cursor.getString(4), cursor.getString(5),
-                        cursor.getString(6), cursor.getInt(7) != 0, cursor.getString(8)));
+                        cursor.getString(6), cursor.getInt(7) != 0, cursor.getString(8),
+                        cursor.getString(9), cursor.getInt(10), cursor.getInt(11), cursor.getInt(12)));
             }
         }
         return records;
@@ -80,10 +86,14 @@ public final class UninstallHistoryStore {
         public final String targetName;
         public final boolean allowed;
         public final String reason;
+        public final String operation;
+        public final int callerPid;
+        public final int requestedState;
+        public final int userId;
 
         private Record(long id, long time, int callerUid, String callerPackage,
                 String callerName, String targetPackage, String targetName,
-                boolean allowed, String reason) {
+                boolean allowed, String reason, String operation, int callerPid, int requestedState, int userId) {
             this.id = id;
             this.time = time;
             this.callerUid = callerUid;
@@ -93,12 +103,16 @@ public final class UninstallHistoryStore {
             this.targetName = targetName;
             this.allowed = allowed;
             this.reason = reason;
+            this.operation = operation;
+            this.callerPid = callerPid;
+            this.requestedState = requestedState;
+            this.userId = userId;
         }
     }
 
     private static final class Helper extends SQLiteOpenHelper {
         private Helper(Context context) {
-            super(context, "uninstall_history.db", null, 1);
+            super(context, "uninstall_history.db", null, 2);
         }
 
         @Override public void onCreate(SQLiteDatabase database) {
@@ -111,10 +125,20 @@ public final class UninstallHistoryStore {
                     + TARGET_PACKAGE + " TEXT, "
                     + TARGET_NAME + " TEXT, "
                     + ALLOWED + " INTEGER NOT NULL, "
-                    + REASON + " TEXT)");
+                    + REASON + " TEXT, "
+                    + "operation TEXT NOT NULL DEFAULT 'uninstall', "
+                    + "caller_pid INTEGER NOT NULL DEFAULT -1, "
+                    + "requested_state INTEGER NOT NULL DEFAULT -1, "
+                    + "user_id INTEGER NOT NULL DEFAULT -1)");
         }
 
         @Override public void onUpgrade(SQLiteDatabase database, int oldVersion, int newVersion) {
+            if (oldVersion < 2) {
+                database.execSQL("ALTER TABLE " + TABLE + " ADD COLUMN operation TEXT NOT NULL DEFAULT 'uninstall'");
+                database.execSQL("ALTER TABLE " + TABLE + " ADD COLUMN caller_pid INTEGER NOT NULL DEFAULT -1");
+                database.execSQL("ALTER TABLE " + TABLE + " ADD COLUMN requested_state INTEGER NOT NULL DEFAULT -1");
+                database.execSQL("ALTER TABLE " + TABLE + " ADD COLUMN user_id INTEGER NOT NULL DEFAULT -1");
+            }
         }
     }
 }

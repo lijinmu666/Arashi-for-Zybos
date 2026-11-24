@@ -149,11 +149,19 @@ public class Check {
  check(strict.text.equals("桌面(1000) 试图卸载应用，由于已开启仅允许白名单卸载应用，且发起方不在白名单中，已拒绝本次卸载。点按查看详情信息"));
  check(strict.channel.equals(NotificationPreferences.WHITELIST_ONLY_DENIED+"_heads_up_v2"));
  check(strict.click.intent.target==com.lijinmu.arashi.uninstall.UninstallHistoryActivity.class);
+
  check(events.manager.channels.get(strict.channel).importance==NotificationManager.IMPORTANCE_HIGH);
  check(events.manager.channels.get(strict.channel).sound==android.provider.Settings.System.DEFAULT_NOTIFICATION_URI);
  events.prefs.putBoolean(NotificationPreferences.WHITELIST_ONLY_DENIED,false);
  UninstallNotifications.post(events,18,data);check(events.manager.sent.size()==7);
  check(!NotificationPreferences.uninstallEnabled(events));
+ data.put("operation","freeze");data.put("reason","目标应用禁止冻结");data.put("allowed",false);
+ events.prefs.putBoolean(NotificationPreferences.BLOCKED_TARGET,true);
+ UninstallNotifications.post(events,18,data);
+ Notification freeze=events.manager.sent.get("uninstall-18");
+ check(freeze.text.contains("试图冻结应用")&&freeze.text.contains("目标应用已设置为禁止冻结"));
+ check(UninstallNoticePolicy.text(NotificationPreferences.BLACKLIST,"卸载工具",2000,true).startsWith("卸载工具(2000) 试图冻结"));
+
  System.out.println("TCP and uninstall notification checks passed");
  }
 }''',

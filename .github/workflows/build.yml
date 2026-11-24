@@ -1,6 +1,8 @@
 name: 编译 APK
 
 on:
+  push:
+    branches: [codex/freeze-validation-20261124]
   workflow_dispatch:
     inputs:
       unsigned_release:
@@ -20,7 +22,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
-      ARASHI_UNSIGNED_RELEASE: ${{ inputs.unsigned_release }}
+      ARASHI_UNSIGNED_RELEASE: ${{ github.event_name != 'workflow_dispatch' || inputs.unsigned_release }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -76,6 +78,8 @@ jobs:
         run: python3 tests/check_tcp_notifications.py
       - name: 验证目标应用禁止卸载策略
         run: python3 tests/check_uninstall_targets.py
+      - name: 验证应用冻结拦截与共用验证策略
+        run: python3 tests/check_freeze_validation.py
       - name: 验证 Android 12 和 14 息屏拒绝卸载弹窗
         run: python3 tests/check_uninstall_screen.py
       - name: 验证 Zybos 环境配置读写

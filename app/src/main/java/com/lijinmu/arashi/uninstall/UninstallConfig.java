@@ -6,6 +6,9 @@ import android.content.SharedPreferences;
 public final class UninstallConfig {
     public static final String PREF_NAME = "uninstall_validation";
     public static final String ENABLED = "enabled";
+    public static final String FREEZE_ENABLED = "freeze_enabled";
+    public static final String OPERATION = "operation";
+    public static final String FREEZE = "freeze";
     public static final String RESTORE_ENABLED = "restore_enabled_after_activation";
     public static final String SPOOF_RESULT = "spoof_uninstall_result";
     public static final String TIMEOUT_SECONDS = "timeout_seconds";

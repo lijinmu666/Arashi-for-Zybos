@@ -27,11 +27,11 @@ stubs.update({
  public void unregisterReceiver(BroadcastReceiver r){registered=null;removed++;}
 }''',
 'android/content/Intent.java': '''package android.content; public class Intent {
- public static final String ACTION_SCREEN_OFF="screen_off";String action; public android.os.ResultReceiver receiver;
+ public static final String ACTION_SCREEN_OFF="screen_off";String action;public String operation; public android.os.ResultReceiver receiver;
  public Intent(){} public Intent(String a){action=a;}public String getAction(){return action;}
  public <T>T getParcelableExtra(String k,Class<T> c){return c.cast(receiver);}
  @SuppressWarnings("unchecked") public <T>T getParcelableExtra(String k){return (T)receiver;}
- public String getStringExtra(String k){return null;}public String[] getStringArrayExtra(String k){return null;}
+ public String getStringExtra(String k){return k.equals("operation")?operation:null;}public String[] getStringArrayExtra(String k){return null;}
  public int getIntExtra(String k,int d){return d;}public long getLongExtra(String k,long d){return d;}
 }''',
 'android/app/Activity.java': '''package android.app; public class Activity extends android.content.Context {}''',
@@ -47,7 +47,7 @@ stubs.update({
 'android/os/SystemClock.java': '''package android.os; public class SystemClock {public static long elapsedRealtime(){return 100;}}''',
 'com/lijinmu/arashi/ui/MiuixPages.java': '''package com.lijinmu.arashi.ui; public class MiuixPages {
  public static int renders;public static void renderUninstallPrompt(com.lijinmu.arashi.UninstallPromptActivity a,String t,int uid,String[] pkgs,long deadline){renders++;}}''',
-'com/lijinmu/arashi/uninstall/UninstallConfig.java': '''package com.lijinmu.arashi.uninstall; public class UninstallConfig {public static String PREF_NAME="uninstall",ENABLED="enabled";}''',
+'com/lijinmu/arashi/uninstall/UninstallConfig.java': '''package com.lijinmu.arashi.uninstall; public class UninstallConfig {public static String PREF_NAME="uninstall",ENABLED="enabled",FREEZE="freeze",OPERATION="operation",FREEZE_ENABLED="freeze_enabled";}''',
 'Check.java': '''package com.lijinmu.arashi; import android.os.*;import android.content.*;import com.lijinmu.arashi.ui.MiuixPages;
 public class Check {
  static void start(UninstallPromptActivity a){a.onCreate(null);} static void destroy(UninstallPromptActivity a){a.onDestroy();}
@@ -64,6 +64,8 @@ public class Check {
  result(shown,4);check(shown.finished);shown.decide(true);destroy(shown);result(shown,4);check(shown.removed==1);
  UninstallPromptActivity race=prompt(true,true);start(race);race.power.interactive=false;race.decide(true);result(race,4);destroy(race);
  UninstallPromptActivity disabled=prompt(false,false);start(disabled);result(disabled,1);check(disabled.registered==null);destroy(disabled);
+ UninstallPromptActivity freezeOff=prompt(true,true);freezeOff.intent.operation="freeze";start(freezeOff);result(freezeOff,1);check(freezeOff.registered==null);destroy(freezeOff);
+ UninstallPromptActivity freezeOn=prompt(true,true);freezeOn.intent.operation="freeze";freezeOn.prefs.putBoolean("freeze_enabled",true);start(freezeOn);check(!freezeOn.finished);freezeOn.decide(false);result(freezeOn,0);destroy(freezeOn);
  UninstallPromptActivity allow=prompt(true,true);start(allow);allow.decide(true);destroy(allow);result(allow,1);
  UninstallPromptActivity timeout=prompt(true,true);start(timeout);timeout.timeout();destroy(timeout);result(timeout,2);
  UninstallPromptActivity offTimeout=prompt(true,true);start(offTimeout);offTimeout.power.interactive=false;offTimeout.timeout();destroy(offTimeout);result(offTimeout,4);

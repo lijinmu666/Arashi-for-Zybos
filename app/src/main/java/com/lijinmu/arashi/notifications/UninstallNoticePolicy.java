@@ -4,7 +4,7 @@ package com.lijinmu.arashi.notifications;
 public final class UninstallNoticePolicy {
     private UninstallNoticePolicy() {}
     public static String key(String reason, boolean allowed) {
-        if (!allowed && "目标应用禁止卸载".equals(reason)) return NotificationPreferences.BLOCKED_TARGET;
+        if (!allowed && ("目标应用禁止卸载".equals(reason) || "目标应用禁止冻结".equals(reason))) return NotificationPreferences.BLOCKED_TARGET;
         if (!allowed && "非白名单拒绝".equals(reason)) return NotificationPreferences.WHITELIST_ONLY_DENIED;
         if (!allowed && "黑名单".equals(reason)) return NotificationPreferences.BLACKLIST;
         if (allowed && "白名单".equals(reason)) return NotificationPreferences.WHITELIST;
@@ -13,6 +13,9 @@ public final class UninstallNoticePolicy {
         return null;
     }
     public static String text(String key, String caller, int uid) {
+        return text(key, caller, uid, false);
+    }
+    public static String text(String key, String caller, int uid, boolean freeze) {
         if (caller == null || caller.trim().isEmpty()) caller = "未知发起者";
         String cause;
         if (NotificationPreferences.BLOCKED_TARGET.equals(key)) {
@@ -28,6 +31,8 @@ public final class UninstallNoticePolicy {
         } else if (NotificationPreferences.SCREEN_OFF.equals(key)) {
             cause = "由于设备未使用，已拒绝本次卸载";
         } else return null;
-        return caller + "(" + uid + ") 试图卸载应用，" + cause + "。点按查看详情信息";
+        if (freeze) cause = cause.replace("卸载", "冻结");
+        return caller + "(" + uid + ") 试图" + (freeze ? "冻结" : "卸载")
+                + "应用，" + cause + "。点按查看详情信息";
     }
 }

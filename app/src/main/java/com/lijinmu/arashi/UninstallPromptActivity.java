@@ -39,8 +39,13 @@ public final class UninstallPromptActivity extends ComponentActivity {
             return;
         }
         // A queued request may arrive after the user has switched validation off.
-        if (!getSharedPreferences(com.lijinmu.arashi.uninstall.UninstallConfig.PREF_NAME, MODE_PRIVATE)
-                .getBoolean(com.lijinmu.arashi.uninstall.UninstallConfig.ENABLED, false)) {
+        android.content.SharedPreferences policy = getSharedPreferences(
+                com.lijinmu.arashi.uninstall.UninstallConfig.PREF_NAME, MODE_PRIVATE);
+        boolean freeze = com.lijinmu.arashi.uninstall.UninstallConfig.FREEZE.equals(
+                getIntent().getStringExtra(com.lijinmu.arashi.uninstall.UninstallConfig.OPERATION));
+        if (!policy.getBoolean(com.lijinmu.arashi.uninstall.UninstallConfig.ENABLED, false)
+                || (freeze && !policy.getBoolean(
+                com.lijinmu.arashi.uninstall.UninstallConfig.FREEZE_ENABLED, false))) {
             sendDecision(1);
             return;
         }

@@ -138,6 +138,8 @@ Log.w(TAG, "reject untrusted caller uid=" + Binder.getCallingUid());
             Bundle policy = new Bundle();
             policy.putBoolean(UninstallConfig.ENABLED,
                     uninstall.getBoolean(UninstallConfig.ENABLED, false));
+            policy.putBoolean(UninstallConfig.FREEZE_ENABLED,
+                    uninstall.getBoolean(UninstallConfig.FREEZE_ENABLED, false));
             policy.putBoolean(UninstallConfig.WHITELIST_ONLY,
                     uninstall.getBoolean(UninstallConfig.WHITELIST_ONLY, false));
             policy.putBoolean(UninstallConfig.SPOOF_RESULT,
