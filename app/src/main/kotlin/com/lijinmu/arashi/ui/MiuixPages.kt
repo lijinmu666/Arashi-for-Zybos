@@ -1119,7 +1119,7 @@ private fun HookPage(
         "安装" to listOf(
             HookItem("允许外部应用安装", "绕过 PackageInstaller 安装限制，允许安装外部应用", HookConfig.KEY_EXTERNAL_INSTALL),
             HookItem("允许 Shell 安装", "绕过系统的 Shell 安装限制，允许 adb 和 pm install 安装应用", HookConfig.KEY_SHELL_INSTALL),
-            HookItem("解除安装黑名单限制", "允许安装被硬编码在 mZybBlacklistApp 中的包名", HookConfig.KEY_CLEAR_BLACKLIST),
+            HookItem("解除安装黑名单限制", "允许安装和平精英等在内被硬编码 mZybBlacklistApp 中的包名", HookConfig.KEY_CLEAR_BLACKLIST),
         ),
         "限制" to listOf(
             HookItem("允许打开开发者选项", "绕过系统设置检查，允许打开开发者选项的 Activity", HookConfig.KEY_DEV_OPTIONS),
