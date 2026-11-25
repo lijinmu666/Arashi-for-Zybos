@@ -1144,6 +1144,9 @@ private fun HookPage(
             HookItem("系统应用图标遮罩", "全局修改系统自适应图标形状为 iOS 连续圆角，只需勾选系统框架。需要 Android 14 或更新版本", HookConfig.KEY_IOS_SYSTEM_ICON_MASK),
             HookItem("状态栏显示日期", "仿 iPadOS 在状态栏左侧时间后显示月日与星期，如 16:40  10月17日周六", HookConfig.KEY_STATUS_BAR_DATE),
         ),
+        "杂项" to listOf(
+            HookItem("移除 ZybosSysApiService", "阻止作业帮系统 API 服务创建与注册，停用其全部接口、事件监听和后台功能。依赖此服务的厂商功能将不可用，修改后需重启系统", HookConfig.KEY_REMOVE_ZYBOS_SYS_API_SERVICE),
+        ),
     )
     val searchQuery = query.trim()
     val visibleGroups = groups.mapNotNull { (name, entries) ->
@@ -1196,6 +1199,7 @@ private fun HookPage(
                                 HookConfig.KEY_AOSP_STATUS_ICONS -> "重启 SystemUI 后生效"
                                 HookConfig.KEY_ALLOW_WIRELESS_DEBUGGING,
                                 HookConfig.KEY_BLOCK_APP_UNINSTALL,
+                                HookConfig.KEY_REMOVE_ZYBOS_SYS_API_SERVICE,
                                 HookConfig.KEY_BOOT_ANIMATION_NO_WAIT,
                                 HookConfig.KEY_CLEAR_BLACKLIST -> "重启系统后生效"
                                 HookConfig.KEY_STATUS_BAR_DATE -> "下一次时钟刷新后生效"
