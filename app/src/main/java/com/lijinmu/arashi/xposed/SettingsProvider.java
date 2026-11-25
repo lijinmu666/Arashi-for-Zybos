@@ -85,7 +85,9 @@ private static final Map<Integer, Boolean> TRUSTED_UID_CACHE = new ConcurrentHas
             if (context == null) return null;
             try {
                 long recordId = UninstallHistoryStore.append(context, extras);
-                com.lijinmu.arashi.logs.RuntimeLogger.info("Uninstall", "已处理卸载验证请求，记录 ID=" + recordId);
+                com.lijinmu.arashi.logs.RuntimeLogger.info("包管理服务",
+                        "已处理" + UninstallConfig.operationLabel(extras.getString(UninstallConfig.OPERATION))
+                                + "请求，记录 ID=" + recordId);
                 long identity = Binder.clearCallingIdentity();
                 try {
                     com.lijinmu.arashi.notifications.UninstallNotifications.post(context, recordId, extras);
@@ -138,10 +140,19 @@ Log.w(TAG, "reject untrusted caller uid=" + Binder.getCallingUid());
             Bundle policy = new Bundle();
             policy.putBoolean(UninstallConfig.ENABLED,
                     uninstall.getBoolean(UninstallConfig.ENABLED, false));
+            policy.putBoolean(UninstallConfig.FREEZE_ENABLED,
+                    uninstall.getBoolean(UninstallConfig.FREEZE_ENABLED, false));
             policy.putBoolean(UninstallConfig.WHITELIST_ONLY,
                     uninstall.getBoolean(UninstallConfig.WHITELIST_ONLY, false));
             policy.putBoolean(UninstallConfig.SPOOF_RESULT,
                     uninstall.getBoolean(UninstallConfig.SPOOF_RESULT, false));
+            policy.putInt(UninstallConfig.DENIAL_RESPONSE, uninstall.getInt(UninstallConfig.DENIAL_RESPONSE,
+                    uninstall.getBoolean(UninstallConfig.SPOOF_RESULT, false)
+                            ? UninstallConfig.SPOOF_SUCCESS : UninstallConfig.DEFAULT_RESPONSE));
+            policy.putString(UninstallConfig.DENIAL_MESSAGE,
+                    uninstall.getString(UninstallConfig.DENIAL_MESSAGE, ""));
+            policy.putBoolean(UninstallConfig.KEEP_DATA,
+                    uninstall.getBoolean(UninstallConfig.KEEP_DATA, true));
             policy.putInt(UninstallConfig.TIMEOUT_SECONDS,
                     UninstallConfig.normalizeTimeoutSeconds(uninstall.getInt(
                             UninstallConfig.TIMEOUT_SECONDS, UninstallConfig.DEFAULT_TIMEOUT)));
@@ -154,6 +165,9 @@ Log.w(TAG, "reject untrusted caller uid=" + Binder.getCallingUid());
             policy.putStringArrayList(UninstallConfig.BLOCKED_TARGETS,
                     new java.util.ArrayList<>(uninstall.getStringSet(
                             UninstallConfig.BLOCKED_TARGETS, java.util.Collections.emptySet())));
+            policy.putStringArrayList(UninstallConfig.UNMANAGED_TARGETS,
+                    new java.util.ArrayList<>(uninstall.getStringSet(
+                            UninstallConfig.UNMANAGED_TARGETS, java.util.Collections.emptySet())));
             return policy;
         }
 

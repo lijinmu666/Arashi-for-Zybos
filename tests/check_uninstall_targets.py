@@ -10,7 +10,12 @@ module = ast.parse((ROOT / 'tests/check_behavior_hooks.py').read_text())
 stubs = ast.literal_eval(next(n.value for n in module.body if isinstance(n, ast.Assign)
                             and any(isinstance(t, ast.Name) and t.id == 'SOURCES' for t in n.targets)))
 stubs = {'io/github/libxposed/api/XposedModule.java': stubs['io/github/libxposed/api/XposedModule.java'].replace(
-    'public Object getArg(int i)', 'public Object getThisObject(){return owner;} public Object getArg(int i)')}
+    'public Object getArg(int i)',  'public Object getThisObject(){return owner;} public Object getArg(int i)').replace(
+    'public Object proceed() throws Throwable',
+    'public java.util.List<Object> getArgs(){return java.util.Arrays.asList(args);} '
+    'public Object proceed(Object[] replacement) throws Throwable {'
+    'System.arraycopy(replacement,0,args,0,args.length);return original.run();} '
+    'public Object proceed() throws Throwable')}
 stubs.update({
 'android/content/Context.java': '''package android.content; public class Context {
  public static final int MODE_PRIVATE=0; public int prompts;
@@ -52,6 +57,7 @@ stubs.update({
 }''',
 'android/os/Bundle.java': '''package android.os; public class Bundle extends java.util.HashMap<String,Object> {
  public boolean getBoolean(String k,boolean d){return containsKey(k)?(Boolean)get(k):d;}
+ public String getString(String k){return (String)get(k);}
  public int getInt(String k,int d){return containsKey(k)?(Integer)get(k):d;}
  @SuppressWarnings("unchecked") public java.util.ArrayList<String> getStringArrayList(String k){return (java.util.ArrayList<String>)get(k);}
  public void putBoolean(String k,boolean v){put(k,v);} public void putInt(String k,int v){put(k,v);}

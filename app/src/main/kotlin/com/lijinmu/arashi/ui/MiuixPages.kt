@@ -64,7 +64,7 @@ import androidx.compose.material.icons.rounded.FactCheck
 import androidx.compose.material.icons.rounded.Shield
 import androidx.compose.material.icons.rounded.Extension
 import androidx.compose.material.icons.rounded.Tune
-import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material.icons.rounded.Apps
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.ui.draw.clip
@@ -171,7 +171,11 @@ object MiuixPages {
     @JvmStatic fun renderTcpHistory(a: TcpHistoryActivity) = render(a) { TcpHistoryPage(a) }
     @JvmStatic fun renderUninstallHistory(a: UninstallHistoryActivity) = render(a) { UninstallHistoryPage(a) }
     @JvmStatic fun renderUninstallList(a: UninstallListActivity, blacklist: Boolean) =
-        render(a) { UninstallListPage(a, blacklist, blockedTargets = a.intent.getBooleanExtra("blocked_targets", false)) }
+        render(a) {
+            UninstallListPage(a, blacklist,
+                blockedTargets = a.intent.getBooleanExtra("blocked_targets", false),
+                unmanagedTargets = a.intent.getBooleanExtra("unmanaged_targets", false))
+        }
     @JvmStatic fun renderUninstallPrompt(
         a: UninstallPromptActivity,
         target: String?,
@@ -508,7 +512,7 @@ private const val DEVICE_CONTROL_DESCRIPTION = "控制系统管控和云控组�
 // Enum names form a stable, Bundle-saveable route format without reflection/serialization.
 internal enum class ArashiRoute : NavKey {
     Main, HookSettings, BackgroundWhitelist, TcpHistory, UninstallSettings,
-    UninstallWhitelist, UninstallBlacklist, UninstallBlockedTargets, UninstallHistory, Notifications, About, Logs, ZybosEnv, DeviceControl, SettingsEditor, WorkModeSettings, FreezeModeSettings,
+    UninstallWhitelist, UninstallBlacklist, UninstallBlockedTargets, UninstallUnmanagedTargets, UninstallHistory, Notifications, About, Logs, ZybosEnv, DeviceControl, SettingsEditor, WorkModeSettings, FreezeModeSettings,
 }
 
 private val ArashiBackStackSaver = Saver<NavBackStack, ArrayList<String>>(
@@ -546,10 +550,12 @@ private fun MainNavigationPage(a: Main) {
                 ArashiRoute.TcpHistory -> TcpHistoryPage(a, back)
                 ArashiRoute.UninstallSettings -> UninstallPage(a, back,
                     { open(ArashiRoute.UninstallWhitelist) }, { open(ArashiRoute.UninstallBlacklist) },
-                    { open(ArashiRoute.UninstallHistory) }, { open(ArashiRoute.UninstallBlockedTargets) })
+                    { open(ArashiRoute.UninstallHistory) }, { open(ArashiRoute.UninstallBlockedTargets) },
+                    { open(ArashiRoute.UninstallUnmanagedTargets) })
                 ArashiRoute.UninstallWhitelist -> UninstallListPage(a, false, back)
                 ArashiRoute.UninstallBlacklist -> UninstallListPage(a, true, back)
                 ArashiRoute.UninstallBlockedTargets -> UninstallListPage(a, true, back, blockedTargets = true)
+                ArashiRoute.UninstallUnmanagedTargets -> UninstallListPage(a, false, back, unmanagedTargets = true)
                 ArashiRoute.UninstallHistory -> UninstallHistoryPage(a, back)
                 ArashiRoute.DeviceControl -> DeviceControlPage(a, back)
                 ArashiRoute.SettingsEditor -> SettingsEditorPage(a, back) { open(ArashiRoute.ZybosEnv) }
@@ -976,7 +982,7 @@ private fun HomePage(
         Link("Hook 设置", "控制 Hook 是否启用", Icons.Rounded.Extension) { onHookSettings() }
         Link("管控和云控", DEVICE_CONTROL_DESCRIPTION, Icons.Rounded.Block) { onDeviceControl() }
         Link("设置编辑器", SETTINGS_EDITOR_DESCRIPTION, Icons.Rounded.Tune) { onSettingsEditor() }
-        Link("卸载验证设置", "验证发起的卸载请求", Icons.Rounded.Delete) { onUninstallSettings() }
+        Link("包管理服务", "管理冻结、隐藏、卸载、暂停和清空应用数据", Icons.Rounded.Apps) { onUninstallSettings() }
     }
 }
 
@@ -1493,7 +1499,8 @@ private fun UninstallPage(
     onBlacklist: () -> Unit = { a.startActivity(Intent(a, UninstallListActivity::class.java).putExtra("blacklist", true)) },
     onHistory: () -> Unit = { a.startActivity(Intent(a, UninstallHistoryActivity::class.java)) },
     onBlockedTargets: () -> Unit = { a.startActivity(Intent(a, UninstallListActivity::class.java).putExtra("blocked_targets", true)) },
-) = Page(a, "卸载验证", back) {
+    onUnmanagedTargets: () -> Unit = { a.startActivity(Intent(a, UninstallListActivity::class.java).putExtra("unmanaged_targets", true)) },
+) = Page(a, "包管理服务", back) {
     val prefs = a.getSharedPreferences(UninstallConfig.PREF_NAME, Context.MODE_PRIVATE)
     var moduleActive by rememberSystemServerActivation(a)
     var enabled by remember { mutableStateOf(prefs.getBoolean(UninstallConfig.ENABLED, false)) }
@@ -1520,14 +1527,23 @@ private fun UninstallPage(
         }
     }
     var whitelistOnly by remember { mutableStateOf(prefs.getBoolean(UninstallConfig.WHITELIST_ONLY, false)) }
-    var spoofResult by remember { mutableStateOf(prefs.getBoolean(UninstallConfig.SPOOF_RESULT, false)) }
-    val durations = listOf(5, 10, 15, 30)
+    var freezeEnabled by remember { mutableStateOf(prefs.getBoolean(UninstallConfig.FREEZE_ENABLED, false)) }
+    var response by remember {
+        val previous = if (prefs.getBoolean(UninstallConfig.SPOOF_RESULT, false))
+            UninstallConfig.SPOOF_SUCCESS else UninstallConfig.DEFAULT_RESPONSE
+        mutableIntStateOf(prefs.getInt(UninstallConfig.DENIAL_RESPONSE, previous)
+            .takeIf { it in UninstallConfig.DEFAULT_RESPONSE..UninstallConfig.CUSTOM_RESPONSE }
+            ?: UninstallConfig.DEFAULT_RESPONSE)
+    }
+    var editResponse by remember { mutableStateOf(false) }
+    var denialMessage by remember { mutableStateOf("") }
+    var keepData by remember { mutableStateOf(prefs.getBoolean(UninstallConfig.KEEP_DATA, true)) }
+    val durations = listOf(5, 10, 15, 20, 30)
     var duration by remember {
         mutableIntStateOf(durations.indexOf(UninstallConfig.normalizeTimeoutSeconds(
             prefs.getInt(UninstallConfig.TIMEOUT_SECONDS, UninstallConfig.DEFAULT_TIMEOUT))))
     }
-    IntroCard("细化并管理每一次卸载请求。当系统尝试卸载应用时，会向你询问是否允许")
-    Group("验证") {
+    Group("操作拦截") {
         SwitchPreference(
             checked = enabled && moduleActive,
             onCheckedChange = { requested ->
@@ -1539,14 +1555,24 @@ private fun UninstallPage(
                     com.lijinmu.arashi.notifications.AppNotifications.requestPermissionIfNeeded(a)
                 }
             },
-            title = "启用卸载验证",
-            summary = if (moduleActive) "每次卸载请求将会弹窗向你确认"
-                else "未检测到 system_server 的 Hook，卸载验证暂时关闭。激活后会恢复此前的开启状态",
+            title = "启用包管理服务",
+            summary = if (moduleActive) "按下方策略处理隐藏、卸载、暂停和清空应用数据请求"
+                else "等待 system_server Hook 激活，激活后恢复上次设置",
             enabled = moduleActive,
+        )
+        SwitchPreference(
+            checked = freezeEnabled,
+            onCheckedChange = {
+                freezeEnabled = it
+                prefs.edit().putBoolean(UninstallConfig.FREEZE_ENABLED, it).apply()
+            },
+            title = "拦截应用冻结",
+            summary = "对 disable、disable-user、disable-until-used 等整包禁用请求应用相同策略",
+            enabled = enabled && moduleActive,
         )
         Column {
             BasicComponent(
-                title = "验证倒计时",
+                title = "确认倒计时",
                 summary = "${durations[duration]} 秒",
             )
             Slider(
@@ -1564,7 +1590,7 @@ private fun UninstallPage(
                     .padding(horizontal = 24.dp)
                     .padding(bottom = 16.dp)
                     .semantics {
-                        contentDescription = "验证倒计时，${durations[duration]} 秒"
+                        contentDescription = "确认倒计时，${durations[duration]} 秒"
                     },
             )
             Row(
@@ -1582,27 +1608,45 @@ private fun UninstallPage(
                 }
             }
         }
-        SwitchPreference(
-            checked = spoofResult,
-            onCheckedChange = {
-                spoofResult = it
-                prefs.edit().putBoolean(UninstallConfig.SPOOF_RESULT, it).apply()
+        OverlayDropdownPreference(
+            items = listOf("默认", "伪装成功", "自定义"),
+            selectedIndex = response,
+            title = "拒绝后的响应",
+            onSelectedIndexChange = { index ->
+                response = index
+                prefs.edit().putInt(UninstallConfig.DENIAL_RESPONSE, index).apply()
             },
-            title = "伪装卸载结果",
-            summary = "返回拒绝的卸载请求已成功卸载",
+        )
+        if (response == UninstallConfig.CUSTOM_RESPONSE) {
+            Link("自定义响应", "设置所有操作被拒绝时共用的回调文案") {
+                denialMessage = prefs.getString(UninstallConfig.DENIAL_MESSAGE, "").orEmpty()
+                editResponse = true
+            }
+        }
+        SwitchPreference(
+            checked = keepData,
+            onCheckedChange = {
+                keepData = it
+                prefs.edit().putBoolean(UninstallConfig.KEEP_DATA, it).apply()
+            },
+            title = "卸载时保留数据",
+            summary = "按保留数据的方式卸载受包管理服务管控的应用",
         )
     }
 
     Group("目标应用策略") {
-        Link("禁止卸载", "一律拒绝卸载选中的应用，优先于发起方白名单") {
+        Link("保护名单", "直接拒绝针对名单内应用的受管控操作，优先于发起方策略") {
             onBlockedTargets()
+        }
+        Link("不拦截名单", "交由系统处理针对名单内应用的操作") {
+            onUnmanagedTargets()
         }
     }
     Group("发起方策略") {
         Link("白名单", "白名单中的发起方不会弹窗向你确认，直接允许") {
             onWhitelist()
         }
-        Link("黑名单", "与白名单排斥，黑名单直接拒绝卸载。优先于白名单") {
+        Link("黑名单", "直接拒绝名单内发起方的请求，优先于发起方白名单") {
             onBlacklist()
         }
         SwitchPreference(
@@ -1611,13 +1655,41 @@ private fun UninstallPage(
                 whitelistOnly = it
                 prefs.edit().putBoolean(UninstallConfig.WHITELIST_ONLY, it).apply()
             },
-            title = "仅允许白名单卸载应用",
-            summary = "只允许白名单发起卸载，其它一律拒绝卸载。黑名单和目标应用禁止卸载策略优先",
+            title = "仅允许白名单发起请求",
+            summary = "拒绝发起方白名单之外的请求。目标应用策略和发起方黑名单优先",
         )
     }
     Group("记录") {
-        Link("卸载记录", "查看允许和拒绝的卸载验证记录") {
+        Link("操作记录", "查看操作类型、发起方和处理结果") {
             onHistory()
+        }
+    }
+    OverlayDialog(
+        show = editResponse,
+        title = "自定义响应",
+        onDismissRequest = { editResponse = false },
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            TextField(
+                value = denialMessage,
+                onValueChange = { denialMessage = it.take(UninstallConfig.MAX_MESSAGE_LENGTH) },
+                modifier = Modifier.fillMaxWidth(),
+                label = "回调文案（留空使用默认文案）",
+                singleLine = true,
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                TextButton("取消", { editResponse = false }, Modifier.weight(1f))
+                TextButton(
+                    "保存",
+                    {
+                        prefs.edit()
+                            .putString(UninstallConfig.DENIAL_MESSAGE, denialMessage.trim()).apply()
+                        editResponse = false
+                    },
+                    Modifier.weight(1f),
+                    colors = ButtonDefaults.textButtonColorsPrimary(),
+                )
+            }
         }
     }
 }
@@ -1677,7 +1749,7 @@ private fun UninstallHistoryPage(a: ComponentActivity, back: () -> Unit = a::fin
                 hasMore = batch.size > 100
                 loadError = null
                 clearError = null
-                MiuixPages.showMessage(a, "清空完成", "已清空 $count 条卸载记录")
+                MiuixPages.showMessage(a, "清空完成", "已清空 $count 条操作记录")
             } catch (error: CancellationException) {
                 throw error
             } catch (error: Exception) {
@@ -1693,7 +1765,7 @@ private fun UninstallHistoryPage(a: ComponentActivity, back: () -> Unit = a::fin
         modifier = Modifier.fillMaxSize(),
         topBar = {
             SmallTopAppBar(
-                title = "卸载记录",
+                title = "操作记录",
                 navigationIcon = {
                     IconButton(onClick = back) {
                         Icon(MiuixIcons.Back, contentDescription = "返回")
@@ -1714,7 +1786,7 @@ private fun UninstallHistoryPage(a: ComponentActivity, back: () -> Unit = a::fin
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 item {
-                    IntroCard("记录已捕获的卸载请求，允许不代表系统最终卸载成功")
+                    IntroCard("记录包管理服务的放行与拒绝决定。放行后的执行结果由系统决定")
                 }
                 item {
                     LoadingTextButton(
@@ -1739,6 +1811,16 @@ private fun UninstallHistoryPage(a: ComponentActivity, back: () -> Unit = a::fin
                                 )
                                 Text(time, color = MiuixTheme.colorScheme.onSurfaceVariantSummary)
                             }
+                            Text("操作：" + UninstallConfig.operationLabel(record.operation))
+                            if (record.operation == UninstallConfig.FREEZE) {
+                                val state = when (record.requestedState) {
+                                    2 -> "disabled"
+                                    3 -> "disabled-user"
+                                    4 -> "disabled-until-used"
+                                    else -> record.requestedState.toString()
+                                }
+                                Text("请求状态：$state · 用户：${record.userId}")
+                            }
                             Text("目标应用：" + (record.targetName ?: record.targetPackage ?: "未知应用"))
                             if (!record.targetPackage.isNullOrBlank()
                                 && record.targetPackage != record.targetName) {
@@ -1751,13 +1833,14 @@ private fun UninstallHistoryPage(a: ComponentActivity, back: () -> Unit = a::fin
                                 Text(record.callerPackage.orEmpty(),
                                     color = MiuixTheme.colorScheme.onSurfaceVariantSummary)
                             }
+                            if (record.callerPid > 0) Text("发起进程 PID：${record.callerPid}")
                             Text("原因：" + (record.reason ?: "未知"),
                                 color = MiuixTheme.colorScheme.onSurfaceVariantSummary)
                         }
                     }
                 }
                 if (records.isEmpty() && !loading && loadError == null) {
-                    item { InfoCard("暂无卸载记录") }
+                    item { InfoCard("暂无操作记录") }
                 }
                 if (loading) {
                     item { LoadingCard("加载记录") }
@@ -1779,8 +1862,8 @@ private fun UninstallHistoryPage(a: ComponentActivity, back: () -> Unit = a::fin
         MiuixPages.MessageDialog(a)
         OverlayDialog(
             show = confirmClear,
-            title = "清空卸载记录",
-            summary = "确定清空全部卸载记录吗？",
+            title = "清空操作记录",
+            summary = "确定清空全部操作记录吗？",
             onDismissRequest = { confirmClear = false },
         ) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -1805,10 +1888,21 @@ private fun UninstallListPage(
     blacklist: Boolean,
     back: () -> Unit = a::finish,
     blockedTargets: Boolean = false,
+    unmanagedTargets: Boolean = false,
 ) {
-    val prefKey = if (blockedTargets) UninstallConfig.BLOCKED_TARGETS
-        else if (blacklist) UninstallConfig.BLACKLIST else UninstallConfig.WHITELIST
-    val title = if (blockedTargets) "禁止卸载" else if (blacklist) "卸载黑名单" else "卸载白名单"
+    val targetList = blockedTargets || unmanagedTargets
+    val prefKey = when {
+        blockedTargets -> UninstallConfig.BLOCKED_TARGETS
+        unmanagedTargets -> UninstallConfig.UNMANAGED_TARGETS
+        blacklist -> UninstallConfig.BLACKLIST
+        else -> UninstallConfig.WHITELIST
+    }
+    val title = when {
+        blockedTargets -> "保护名单"
+        unmanagedTargets -> "不拦截名单"
+        blacklist -> "发起方黑名单"
+        else -> "发起方白名单"
+    }
     val prefs = a.getSharedPreferences(UninstallConfig.PREF_NAME, Context.MODE_PRIVATE)
     var selected by remember(prefKey) {
         mutableStateOf(prefs.getStringSet(prefKey, mutableSetOf()).orEmpty().toSet())
@@ -1841,7 +1935,7 @@ private fun UninstallListPage(
         val uids = systemUids.map { (name, uid) ->
             UninstallChoice("uid:" + uid, name, "UID " + uid, 3)
         }
-        if (blockedTargets) applications else applications + uids
+        if (targetList) applications else applications + uids
     }
     val choices = apps.choices
     val knownKeys = remember(choices) { choices.mapTo(HashSet<String>()) { it.key } }
@@ -1881,7 +1975,7 @@ private fun UninstallListPage(
                     AppPickerFilterMenu(
                         showSystemApps,
                         onShowSystemAppsChange = { showSystemApps = it },
-                        showUid = if (blockedTargets) null else showUid,
+                        showUid = if (targetList) null else showUid,
                         onShowUidChange = { showUid = it },
                     )
                 },
@@ -1894,8 +1988,12 @@ private fun UninstallListPage(
         ) {
             item {
                 IntroCard(
-                    if (blockedTargets) "启用卸载验证后，一律拒绝卸载选中的应用，不弹窗询问，并且优先于发起方白名单"
-                    else if (blacklist) "选中的发起方直接拒绝卸载" else "选中的发起方直接允许卸载，并且黑名单优先",
+                    when {
+                        blockedTargets -> "直接拒绝针对选中应用的受管控操作，优先于发起方策略"
+                        unmanagedTargets -> "针对选中应用的操作由系统直接处理，保护名单优先"
+                        blacklist -> "直接拒绝选中发起方的操作请求"
+                        else -> "直接允许选中发起方的操作请求，黑名单优先"
+                    },
                 )
             }
             item {
@@ -1911,7 +2009,7 @@ private fun UninstallListPage(
                         value = manual,
                         onValueChange = { manual = it; inputError = null },
                         modifier = Modifier.weight(1f),
-                        label = if (blockedTargets) "输入应用包名..." else "输入包名或 UID...",
+                        label = if (targetList) "输入应用包名..." else "输入包名或 UID...",
                         useLabelAsPlaceholder = true,
                         singleLine = true,
                     )
@@ -1923,12 +2021,12 @@ private fun UninstallListPage(
                             val rawUid = value.removePrefix("uid:").toIntOrNull()
                             val rawPackage = value.removePrefix("pkg:")
                             val entry = when {
-                                !blockedTargets && rawUid != null && rawUid >= 0 -> "uid:" + rawUid
+                                !targetList && rawUid != null && rawUid >= 0 -> "uid:" + rawUid
                                 packagePattern.matches(rawPackage) -> "pkg:" + rawPackage
                                 else -> null
                             }
                             if (entry == null) {
-                                inputError = if (blockedTargets) "请输入应用包名" else "请输入应用包名或非负数字 UID"
+                                inputError = if (targetList) "请输入应用包名" else "请输入应用包名或非负数字 UID"
                             } else {
                                 save(selected + entry)
                                 manual = ""
@@ -2026,7 +2124,8 @@ private fun UninstallPrompt(
     Box(Modifier.fillMaxWidth().padding(12.dp)) {
         Card(Modifier.fillMaxWidth(), cornerRadius = 28.dp, insideMargin = PaddingValues(20.dp)) {
             Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                Text("是否要允许 $callerName($uid) 卸载这个应用？", style = MiuixTheme.textStyles.title2)
+                val action = UninstallConfig.operationLabel(a.intent.getStringExtra(UninstallConfig.OPERATION))
+                Text("允许 $callerName ($uid) 执行「$action」吗？", style = MiuixTheme.textStyles.title2)
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     AndroidView(
                         factory = { context ->
@@ -2828,7 +2927,7 @@ private fun SettingsPage(
         )
     }
     Group("通知") {
-        Link("通知设置", "管理卸载验证与 TCP 拦截通知") {
+        Link("通知设置", "管理包管理服务与 TCP 拦截通知") {
             onNotifications()
         }
     }
@@ -2993,10 +3092,10 @@ private fun AboutPage(a: androidx.activity.ComponentActivity, back: () -> Unit) 
 @Composable
 private fun NotificationSettingsPage(a: androidx.activity.ComponentActivity, back: () -> Unit) = Page(a, "通知设置", back) {
     val prefs = a.getSharedPreferences(com.lijinmu.arashi.notifications.NotificationPreferences.PREFS, Context.MODE_PRIVATE)
-    IntroCard("通知开关仅控制消息提醒，不影响卸载验证、TCP 拦截与记录保存，点按通知可查看对应记录")
-    Group("卸载验证") {
+    IntroCard("按类型设置消息提醒，点按通知可查看对应记录")
+    Group("包管理服务") {
         listOf(
-            com.lijinmu.arashi.notifications.NotificationPreferences.BLOCKED_TARGET to "目标应用禁止卸载",
+            com.lijinmu.arashi.notifications.NotificationPreferences.BLOCKED_TARGET to "保护名单拒绝",
             com.lijinmu.arashi.notifications.NotificationPreferences.BLACKLIST to "黑名单拒绝",
             com.lijinmu.arashi.notifications.NotificationPreferences.WHITELIST_ONLY_DENIED to "非白名单拒绝",
             com.lijinmu.arashi.notifications.NotificationPreferences.WHITELIST to "白名单放行",

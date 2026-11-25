@@ -4,7 +4,8 @@ package com.lijinmu.arashi.notifications;
 public final class UninstallNoticePolicy {
     private UninstallNoticePolicy() {}
     public static String key(String reason, boolean allowed) {
-        if (!allowed && "目标应用禁止卸载".equals(reason)) return NotificationPreferences.BLOCKED_TARGET;
+        if (!allowed && ("目标应用禁止卸载".equals(reason) || "目标应用禁止冻结".equals(reason)
+                || "目标应用禁止操作".equals(reason))) return NotificationPreferences.BLOCKED_TARGET;
         if (!allowed && "非白名单拒绝".equals(reason)) return NotificationPreferences.WHITELIST_ONLY_DENIED;
         if (!allowed && "黑名单".equals(reason)) return NotificationPreferences.BLACKLIST;
         if (allowed && "白名单".equals(reason)) return NotificationPreferences.WHITELIST;
@@ -12,22 +13,22 @@ public final class UninstallNoticePolicy {
         if (!allowed && "设备息屏".equals(reason)) return NotificationPreferences.SCREEN_OFF;
         return null;
     }
-    public static String text(String key, String caller, int uid) {
-        if (caller == null || caller.trim().isEmpty()) caller = "未知发起者";
+    public static String text(String key, String caller, int uid, String action) {
+        if (caller == null || caller.trim().isEmpty()) caller = "未知发起方";
         String cause;
         if (NotificationPreferences.BLOCKED_TARGET.equals(key)) {
-            cause = "由于目标应用已设置为禁止卸载，已拒绝本次卸载";
+            cause = "已由保护名单拒绝";
         } else if (NotificationPreferences.WHITELIST_ONLY_DENIED.equals(key)) {
-            cause = "由于已开启仅允许白名单卸载应用，且发起方不在白名单中，已拒绝本次卸载";
+            cause = "已拒绝，发起方不在白名单中";
         } else if (NotificationPreferences.BLACKLIST.equals(key)) {
-            cause = "由于其已被添加至黑名单，已拒绝本次卸载";
+            cause = "已由发起方黑名单拒绝";
         } else if (NotificationPreferences.WHITELIST.equals(key)) {
-            cause = "由于其已被添加至白名单，已放行本次卸载";
+            cause = "已由发起方白名单放行";
         } else if (NotificationPreferences.TIMEOUT.equals(key)) {
-            cause = "由于你未响应弹窗，倒计时已自动拒绝本次卸载";
+            cause = "已因确认超时自动拒绝";
         } else if (NotificationPreferences.SCREEN_OFF.equals(key)) {
-            cause = "由于设备未使用，已拒绝本次卸载";
+            cause = "已因设备息屏自动拒绝";
         } else return null;
-        return caller + "(" + uid + ") 试图卸载应用，" + cause + "。点按查看详情信息";
+        return caller + " (" + uid + ") 请求" + action + "，" + cause + "。点按查看记录";
     }
 }

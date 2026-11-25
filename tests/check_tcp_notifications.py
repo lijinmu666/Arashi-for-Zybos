@@ -97,7 +97,7 @@ public class Check {
  data.put("reason","黑名单");data.put("allowed",false);
  UninstallNotifications.post(events,1,data);
  Notification denied=events.manager.sent.get("uninstall-1");
- check(denied.text.equals("桌面(1000) 试图卸载应用，由于其已被添加至黑名单，已拒绝本次卸载。点按查看详情信息"));
+ check(denied.text.equals("桌面 (1000) 请求卸载应用，已由发起方黑名单拒绝。点按查看记录"));
  check(denied.click.intent.target==com.lijinmu.arashi.uninstall.UninstallHistoryActivity.class);
  NotificationChannel eventChannel=events.manager.channels.get(denied.channel);
  check(eventChannel.importance==NotificationManager.IMPORTANCE_HIGH);
@@ -107,11 +107,11 @@ public class Check {
  events.prefs.putBoolean(NotificationPreferences.BLACKLIST,false);
  UninstallNotifications.post(events,2,data);check(events.manager.sent.size()==1);
  data.put("reason","白名单");data.put("allowed",true);UninstallNotifications.post(events,3,data);
- check(events.manager.sent.get("uninstall-3").text.contains("已放行本次卸载"));
+ check(events.manager.sent.get("uninstall-3").text.contains("已由发起方白名单放行"));
  events.prefs.putBoolean(NotificationPreferences.WHITELIST,false);
  UninstallNotifications.post(events,4,data);check(events.manager.sent.size()==2);
  data.put("reason","超时默认拒绝");data.put("allowed",false);UninstallNotifications.post(events,5,data);
- check(events.manager.sent.get("uninstall-5").text.contains("倒计时已自动拒绝"));
+ check(events.manager.sent.get("uninstall-5").text.contains("已因确认超时自动拒绝"));
  events.prefs.putBoolean(NotificationPreferences.TIMEOUT,false);
  UninstallNotifications.post(events,6,data);check(events.manager.sent.size()==3);
  // Decisions that do not match the actual outcome must never generate misleading notifications.
@@ -126,7 +126,7 @@ public class Check {
  check(UninstallNoticePolicy.key("设备息屏",true)==null);
  data.put("reason","设备息屏");data.put("allowed",false);
  UninstallNotifications.post(events,13,data);
- check(events.manager.sent.get("uninstall-13").text.equals("桌面(1000) 试图卸载应用，由于设备未使用，已拒绝本次卸载。点按查看详情信息"));
+ check(events.manager.sent.get("uninstall-13").text.equals("桌面 (1000) 请求卸载应用，已因设备息屏自动拒绝。点按查看记录"));
  events.prefs.putBoolean(NotificationPreferences.SCREEN_OFF,false);
  UninstallNotifications.post(events,14,data);check(events.manager.sent.size()==5);
  check(NotificationPreferences.uninstallEnabled(events)); // Target protection notifications default to enabled.
@@ -134,7 +134,7 @@ public class Check {
  data.put("reason","目标应用禁止卸载");data.put("allowed",false);
  UninstallNotifications.post(events,15,data);
  Notification target=events.manager.sent.get("uninstall-15");
- check(target.text.equals("桌面(1000) 试图卸载应用，由于目标应用已设置为禁止卸载，已拒绝本次卸载。点按查看详情信息"));
+ check(target.text.equals("桌面 (1000) 请求卸载应用，已由保护名单拒绝。点按查看记录"));
  check(target.channel.equals(NotificationPreferences.BLOCKED_TARGET+"_heads_up_v2"));
  check(target.click.intent.target==com.lijinmu.arashi.uninstall.UninstallHistoryActivity.class);
  check(events.manager.channels.get(target.channel).importance==NotificationManager.IMPORTANCE_HIGH);
@@ -146,14 +146,22 @@ public class Check {
  data.put("reason","非白名单拒绝");data.put("allowed",false);
  UninstallNotifications.post(events,17,data);
  Notification strict=events.manager.sent.get("uninstall-17");
- check(strict.text.equals("桌面(1000) 试图卸载应用，由于已开启仅允许白名单卸载应用，且发起方不在白名单中，已拒绝本次卸载。点按查看详情信息"));
+ check(strict.text.equals("桌面 (1000) 请求卸载应用，已拒绝，发起方不在白名单中。点按查看记录"));
  check(strict.channel.equals(NotificationPreferences.WHITELIST_ONLY_DENIED+"_heads_up_v2"));
  check(strict.click.intent.target==com.lijinmu.arashi.uninstall.UninstallHistoryActivity.class);
+
  check(events.manager.channels.get(strict.channel).importance==NotificationManager.IMPORTANCE_HIGH);
  check(events.manager.channels.get(strict.channel).sound==android.provider.Settings.System.DEFAULT_NOTIFICATION_URI);
  events.prefs.putBoolean(NotificationPreferences.WHITELIST_ONLY_DENIED,false);
  UninstallNotifications.post(events,18,data);check(events.manager.sent.size()==7);
  check(!NotificationPreferences.uninstallEnabled(events));
+ data.put("operation","freeze");data.put("reason","目标应用禁止冻结");data.put("allowed",false);
+ events.prefs.putBoolean(NotificationPreferences.BLOCKED_TARGET,true);
+ UninstallNotifications.post(events,18,data);
+ Notification freeze=events.manager.sent.get("uninstall-18");
+ check(freeze.text.contains("请求冻结应用")&&freeze.text.contains("保护名单拒绝"));
+ check(UninstallNoticePolicy.text(NotificationPreferences.BLACKLIST,"卸载工具",2000,"冻结应用").startsWith("卸载工具 (2000) 请求冻结"));
+
  System.out.println("TCP and uninstall notification checks passed");
  }
 }''',
@@ -165,5 +173,5 @@ with tempfile.TemporaryDirectory(prefix='arashi-tcp-notify-') as directory:
         target.parent.mkdir(parents=True,exist_ok=True)
         target.write_text(source)
     real=ROOT/'app/src/main/java/com/lijinmu/arashi/tcp/TcpBlockNotifications.java'
-    subprocess.run(['javac','-d',str(tmp/'classes'),*map(str,tmp.rglob('*.java')),str(real),*map(str,(ROOT/'app/src/main/java/com/lijinmu/arashi/notifications').glob('*.java'))],check=True)
+    subprocess.run(['javac','-d',str(tmp/'classes'),*map(str,tmp.rglob('*.java')),str(real),str(ROOT/'app/src/main/java/com/lijinmu/arashi/uninstall/UninstallConfig.java'),*map(str,(ROOT/'app/src/main/java/com/lijinmu/arashi/notifications').glob('*.java'))],check=True)
     subprocess.run(['java','-cp',str(tmp/'classes'),'Check'],check=True)
