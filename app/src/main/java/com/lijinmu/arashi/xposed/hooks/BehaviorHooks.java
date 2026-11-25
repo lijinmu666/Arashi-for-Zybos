@@ -5,7 +5,6 @@ import android.provider.Settings;
 import android.util.Log;
 
 import com.lijinmu.arashi.xposed.ConfigManager;
-import com.lijinmu.arashi.xposed.BehaviorCompatibility;
 import com.lijinmu.arashi.xposed.HookConfig;
 
 import java.lang.reflect.Constructor;
@@ -25,7 +24,6 @@ public final class BehaviorHooks {
     private BehaviorHooks() {}
 
     public static void hookSystemServer(XposedModule module, ClassLoader loader) {
-        if (!BehaviorCompatibility.isSupported()) return;
         hookWirelessSettings(module);
         hookAdbService(module, loader);
         hookAppCleanup(module, loader);
