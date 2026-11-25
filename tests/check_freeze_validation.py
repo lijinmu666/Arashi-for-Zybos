@@ -77,6 +77,7 @@ import com.android.server.pm.PackageManagerShellCommand;import com.android.serve
 import android.content.pm.*;
 import io.github.libxposed.api.XposedModule;
 public class Check {
+ static final String CUSTOM_MESSAGE="Blocked by a custom policy.";
  static Context c=android.app.ActivityThread.context;static XposedModule module=new XposedModule();
  static PackageManagerService pms=new PackageManagerService();static Method single,batch;static int applied;
  static void check(boolean value){if(!value)throw new AssertionError();}
@@ -93,7 +94,7 @@ public class Check {
  static void operation(String name){check(name.equals(c.resolver.record.get("operation")));}
  static void customDenied(XposedModule.Action action)throws Throwable {
   try{action.run();throw new AssertionError("Missing custom response");}
-  catch(SecurityException expected){check("我是蒋介石".equals(expected.getMessage()));}
+  catch(SecurityException expected){check(CUSTOM_MESSAGE.equals(expected.getMessage()));}
  }
  static void packageOperations()throws Throwable {
   UninstallHooks.hookSystemServer(module,Check.class.getClassLoader());
@@ -152,14 +153,14 @@ public class Check {
   module.call(delete,pms,deleteArgs,()->{check(deleteArgs[3].equals(4));return null;});
   list(UninstallConfig.UNMANAGED_TARGETS);list(UninstallConfig.BLACKLIST,"uid:2000");
   c.resolver.policy.putInt(UninstallConfig.DENIAL_RESPONSE,UninstallConfig.CUSTOM_RESPONSE);
-  c.resolver.policy.putString(UninstallConfig.DENIAL_MESSAGE,"我是蒋介石");
+  c.resolver.policy.putString(UninstallConfig.DENIAL_MESSAGE,CUSTOM_MESSAGE);
   customDenied(hideTarget);
   customDenied(()->module.call(clear,impl,clearArgs,()->null));
   customDenied(()->module.call(outerClear,am,outerArgs,()->true));
   customDenied(()->module.call(single,pms,new Object[]{"target.app",null,3,0,10,"caller.app"},()->null));
   customDenied(()->module.call(suspend,impl,new Object[]{new String[]{"target.app"},true,null,null,null,"caller.app",10},()->null));
   IPackageDeleteObserver2 deleteObserver=(pkg,code,message)->{
-   check(code==-5);check("我是蒋介石".equals(message));callback[0]=2;
+   check(code==-5);check(CUSTOM_MESSAGE.equals(message));callback[0]=2;
   };
   deleteArgs[1]=deleteObserver;
   module.call(delete,pms,deleteArgs,()->{throw new AssertionError();});
@@ -168,7 +169,7 @@ public class Check {
   check(Integer.valueOf(1).equals(module.call(shell,command,new Object[]{"hide"},()->{
    hideTarget.run();throw new AssertionError("Shell continued after denial");
   })));
-  check(command.error.toString().trim().equals("我是蒋介石"));
+  check(command.error.toString().trim().equals(CUSTOM_MESSAGE));
   check(UninstallConfig.normalizeTimeoutSeconds(20)==20);
  }
  public static void main(String[] args)throws Throwable {

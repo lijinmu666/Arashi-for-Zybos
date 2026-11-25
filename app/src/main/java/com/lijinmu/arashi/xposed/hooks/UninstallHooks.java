@@ -43,7 +43,7 @@ public final class UninstallHooks {
     private static final int DELETE_KEEP_DATA = 1;
     private static final ThreadLocal<Boolean> KEEP_DATA = new ThreadLocal<>();
     private static final ThreadLocal<String> CLEARING_PACKAGE = new ThreadLocal<>();
-    private static final String DENIED_MESSAGE = "Arashi 已拒绝此操作";
+    private static final String DENIED_MESSAGE = "Arashi denied this operation.";
     private static final ThreadLocal<ShellDenial> SHELL_DENIAL = new ThreadLocal<>();
     private static final Semaphore PROMPT_SLOT = new Semaphore(1);
     private static final ThreadLocal<Boolean> INSTALLER_CALL = new ThreadLocal<>();
