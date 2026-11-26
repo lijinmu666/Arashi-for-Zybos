@@ -1081,6 +1081,10 @@ private fun HookPage(
     LaunchedEffect(prefs, installerAuthSupported) {
         if (!installerAuthSupported) prefs.edit().putBoolean(HookConfig.KEY_DISABLE_INSTALLER_AUTH, false).apply()
     }
+    val forcedFreezeSupported = remember { com.lijinmu.arashi.xposed.BehaviorCompatibility.isForcedFreezeSupported() }
+    LaunchedEffect(prefs, forcedFreezeSupported) {
+        if (!forcedFreezeSupported) prefs.edit().putBoolean(HookConfig.KEY_DISABLE_FORCED_FREEZE, false).apply()
+    }
     val padMsWatchdogSupported = remember { com.lijinmu.arashi.xposed.BehaviorCompatibility.isPadMsWatchdogSupported() }
     LaunchedEffect(prefs, padMsWatchdogSupported) {
         if (!padMsWatchdogSupported) prefs.edit().putBoolean(HookConfig.KEY_DISABLE_PADMS_WATCHDOG, false).apply()
@@ -1133,6 +1137,7 @@ private fun HookPage(
         ),
         "限制" to listOf(
             HookItem("允许打开开发者选项", "绕过系统设置检查，允许打开开发者选项的 Activity", HookConfig.KEY_DEV_OPTIONS),
+            HookItem("禁用强制冻结应用", "移除系统强制禁用名单、禁止解冻及安装卸载时保留禁用状态的限制，修改后需重启系统", HookConfig.KEY_DISABLE_FORCED_FREEZE),
             HookItem("禁用 PadMs 看门狗", "阻止系统监视和重新拉起 PadMs，修改后需重启系统", HookConfig.KEY_DISABLE_PADMS_WATCHDOG),
             HookItem("禁用安装器授权验证", "允许未经授权的软件包安装应用", HookConfig.KEY_DISABLE_INSTALLER_AUTH),
             HookItem("允许使用无线调试", "解除系统对无线调试的强制禁用，保留手动开关", HookConfig.KEY_ALLOW_WIRELESS_DEBUGGING),
@@ -1212,6 +1217,7 @@ private fun HookPage(
                                 HookConfig.KEY_NOTIFICATION_LONG_PRESS,
                                 HookConfig.KEY_SYSTEMUI_MONET,
                                 HookConfig.KEY_AOSP_STATUS_ICONS -> "重启 SystemUI 后生效"
+                                HookConfig.KEY_DISABLE_FORCED_FREEZE,
                                 HookConfig.KEY_DISABLE_PADMS_WATCHDOG,
                                 HookConfig.KEY_ALLOW_WIRELESS_DEBUGGING,
                                 HookConfig.KEY_BLOCK_APP_UNINSTALL,

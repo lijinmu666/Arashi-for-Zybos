@@ -10,7 +10,6 @@ module = ast.parse((ROOT / 'tests/check_behavior_hooks.py').read_text())
 stubs = ast.literal_eval(next(n.value for n in module.body if isinstance(n, ast.Assign)
                             and any(isinstance(t, ast.Name) and t.id == 'SOURCES' for t in n.targets)))
 stubs = {'io/github/libxposed/api/XposedModule.java': stubs['io/github/libxposed/api/XposedModule.java'].replace(
-    'public Object getArg(int i)',  'public Object getThisObject(){return owner;} public Object getArg(int i)').replace(
     'public Object proceed() throws Throwable',
     'public java.util.List<Object> getArgs(){return java.util.Arrays.asList(args);} '
     'public Object proceed(Object[] replacement) throws Throwable {'

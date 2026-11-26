@@ -28,13 +28,15 @@ public static class Chain {
 Object owner; Object[] args; Action original;
 Chain(Object o, Object[] a, Action p) { owner=o; args=a; original=p; }
 public Object getArg(int i) { return args[i]; }
+public Object getThisObject() { return owner; }
 public Object proceed() throws Throwable { return original.run(); }
 }
 public final Map<Executable, Interceptor> hooks = new HashMap<>();
 public class Builder { Executable m; Builder(Executable e) {m=e;}
 public void intercept(Interceptor i) { hooks.put(m,i); }}
 public Builder hook(Executable e) {return new Builder(e);}
-public void deoptimize(Executable e) {}
+public final Set<Executable> deoptimized = new HashSet<>();
+public void deoptimize(Executable e) {deoptimized.add(e);}
 public Object call(Executable e, Object o, Object[] a, Action p) throws Throwable {
 Interceptor i=hooks.get(e); return i==null?p.run():i.run(new Chain(o,a,p));
 }}''',
@@ -58,6 +60,23 @@ private void ensurePadMsAlive() {}
 public void systemReady() {}
 public void unrelatedApi() {}
 static void access$500(ZybosSysApiService s) {s.ensurePadMsAlive();}
+}''',
+    'com/android/server/pm/ProtectedPackages.java': '''package com.android.server.pm;
+public class ProtectedPackages {
+public final java.util.Set<String> mZybEnforcedDisabledPackages = new java.util.HashSet<>();
+public synchronized boolean isZybEnforcedDisabled(String name) {return mZybEnforcedDisabledPackages.contains(name);}
+public synchronized void setZybEnforcedDisabledPackages(java.util.Set<String> names) {mZybEnforcedDisabledPackages.clear();mZybEnforcedDisabledPackages.addAll(names);}
+public boolean isPackageStateProtected(int user, String name) {return true;}
+}''',
+    'com/android/server/pm/PackageManagerService.java': '''package com.android.server.pm;
+public class PackageManagerService {
+public final ProtectedPackages mProtectedPackages = new ProtectedPackages();
+private void registerZybEnforcedDisabledObserver() {}
+private void refreshZybEnforcedDisabledPackages() {}
+public void systemReady() {}
+private void setEnabledSetting() {}
+private void updateSettingsInternalLI() {}
+private void markPackageUninstalledForUserLPw() {}
 }''',
     'BehaviorHooksCheck.java': '''import com.lijinmu.arashi.xposed.*;
 import com.lijinmu.arashi.xposed.hooks.BehaviorHooks;
@@ -143,6 +162,57 @@ check(BehaviorCompatibility.isAllowed(HookConfig.KEY_BLOCK_APP_UNINSTALL)==Behav
 check(java.util.Arrays.asList(HookConfig.keys()).contains(HookConfig.KEY_DISABLE_PADMS_WATCHDOG));
 check(!m.hooks.containsKey(vendor.getMethod("unrelatedApi")));
 check(!m.hooks.containsKey(vendor.getMethod("systemReady")));
+// Vendor forced-disable policy: runtime toggle, existing state and firmware gate.
+Class<?> policy = Class.forName("com.android.server.pm.ProtectedPackages");
+Class<?> pms = Class.forName("com.android.server.pm.PackageManagerService");
+Object service = pms.getConstructor().newInstance();
+com.android.server.pm.ProtectedPackages protectedApps =
+ (com.android.server.pm.ProtectedPackages)pms.getField("mProtectedPackages").get(service);
+Method query = policy.getMethod("isZybEnforcedDisabled",String.class);
+Method setter = policy.getMethod("setZybEnforcedDisabledPackages",java.util.Set.class);
+java.util.Set<String> blocked = java.util.Collections.singleton("test.blocked");
+protectedApps.setZybEnforcedDisabledPackages(blocked);
+check((Boolean)m.call(query,protectedApps,new Object[]{"test.blocked"},()->true));
+ConfigManager.enabled.add(HookConfig.KEY_DISABLE_FORCED_FREEZE);
+boolean supported = BehaviorCompatibility.isForcedFreezeSupported();
+check(BehaviorCompatibility.isAllowed(HookConfig.KEY_DISABLE_FORCED_FREEZE)==supported);
+check(!HookConfig.defaultEnabled(HookConfig.KEY_DISABLE_FORCED_FREEZE));
+check(java.util.Arrays.asList(HookConfig.keys()).contains(HookConfig.KEY_DISABLE_FORCED_FREEZE));
+check((Boolean)m.call(query,protectedApps,new Object[]{"test.blocked"},()->true)==!supported);
+// Loader hooks clear stale state and suppress both initial registration and later refresh.
+for (String name : new String[]{"registerZybEnforcedDisabledObserver","refreshZybEnforcedDisabledPackages"}) {
+ Method loader = pms.getDeclaredMethod(name);
+ protectedApps.setZybEnforcedDisabledPackages(blocked);
+ int[] loads={0};
+ m.call(loader,service,new Object[0],()->{loads[0]++; return null;});
+ check(loads[0]==(supported?0:1));
+ check(protectedApps.mZybEnforcedDisabledPackages.isEmpty()==supported);
+}
+protectedApps.setZybEnforcedDisabledPackages(blocked);
+int[] writes={0};
+m.call(setter,protectedApps,new Object[]{blocked},()->{writes[0]++;protectedApps.setZybEnforcedDisabledPackages(blocked);return null;});
+check(writes[0]==(supported?0:1));
+check(protectedApps.mZybEnforcedDisabledPackages.isEmpty()==supported);
+// All enable/install/uninstall policy branches share this membership check.
+for (String operation : new String[]{"enable","default-state","install","uninstall-user"})
+ check(!(Boolean)m.call(query,protectedApps,new Object[]{"test.blocked"},()->false));
+if (supported) {
+ for (String caller : new String[]{"systemReady","setEnabledSetting","updateSettingsInternalLI","markPackageUninstalledForUserLPw"})
+  check(m.deoptimized.contains(pms.getDeclaredMethod(caller)));
+}
+// Android's administrator protections and actual enabled state are never rewritten.
+check(!m.hooks.containsKey(policy.getMethod("isPackageStateProtected",int.class,String.class)));
+ConfigManager.enabled.remove(HookConfig.KEY_DISABLE_FORCED_FREEZE);
+m.call(setter,protectedApps,new Object[]{blocked},()->{protectedApps.setZybEnforcedDisabledPackages(blocked);return null;});
+check(protectedApps.isZybEnforcedDisabled("test.blocked"));
+check((Boolean)m.call(query,protectedApps,new Object[]{"test.blocked"},()->true));
+// Newer firmware may omit the vendor classes/methods: installation must tolerate this.
+BehaviorHooks.hookSystemServer(new XposedModule(),new ClassLoader(BehaviorHooksCheck.class.getClassLoader()) {
+ protected Class<?> loadClass(String name, boolean resolve) throws ClassNotFoundException {
+  if (name.startsWith("com.android.server.pm.")) throw new ClassNotFoundException(name);
+  return super.loadClass(name,resolve);
+ }
+});
 System.out.println("Behavior hook checks passed");
 }}
 ''',

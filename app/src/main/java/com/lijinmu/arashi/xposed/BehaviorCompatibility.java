@@ -21,9 +21,12 @@ public final class BehaviorCompatibility {
                 || HookConfig.KEY_BLOCK_APP_UNINSTALL.equals(key);
     }
 
+    public static boolean isForcedFreezeSupported() { return INSTALLER_AUTH_SUPPORTED; }
+
     public static boolean isPadMsWatchdogSupported() { return INSTALLER_AUTH_SUPPORTED; }
 
     public static boolean isAllowed(String key) {
+        if (HookConfig.KEY_DISABLE_FORCED_FREEZE.equals(key)) return isForcedFreezeSupported();
         if (HookConfig.KEY_DISABLE_PADMS_WATCHDOG.equals(key)) return isPadMsWatchdogSupported();
         return !requiresVersion(key) || isSupported();
     }

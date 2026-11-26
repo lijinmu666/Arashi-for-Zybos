@@ -4,6 +4,7 @@ import android.content.ContentResolver;
 import android.provider.Settings;
 import android.util.Log;
 
+import com.lijinmu.arashi.xposed.BehaviorCompatibility;
 import com.lijinmu.arashi.xposed.ConfigManager;
 import com.lijinmu.arashi.xposed.HookConfig;
 
@@ -28,6 +29,81 @@ public final class BehaviorHooks {
         hookAdbService(module, loader);
         hookAppCleanup(module, loader);
         hookPadMsWatchdog(module, loader);
+        hookForcedFreeze(module, loader);
+    }
+
+    /** Disable only the vendor enforced-disabled policy, preserving Android admin protections. */
+    private static void hookForcedFreeze(XposedModule module, ClassLoader loader) {
+        if (!BehaviorCompatibility.isForcedFreezeSupported()) return;
+        try {
+            Class<?> protectedPackages = Class.forName("com.android.server.pm.ProtectedPackages", false, loader);
+            Method check = protectedPackages.getDeclaredMethod("isZybEnforcedDisabled", String.class);
+            if (check.getReturnType() != boolean.class) return;
+            check.setAccessible(true);
+            module.hook(check).intercept(chain ->
+                    ConfigManager.isEnabledCached(HookConfig.KEY_DISABLE_FORCED_FREEZE)
+                            ? false : chain.proceed());
+        } catch (Throwable error) {
+            Log.w(TAG, "Enforced-disabled policy check unavailable on this firmware", error);
+        }
+        // Keep the backing collection empty too, including when callers inline the check.
+        try {
+            Class<?> protectedPackages = Class.forName("com.android.server.pm.ProtectedPackages", false, loader);
+            Method set = protectedPackages.getDeclaredMethod("setZybEnforcedDisabledPackages", java.util.Set.class);
+            if (set.getReturnType() == void.class) {
+                set.setAccessible(true);
+                module.hook(set).intercept(chain -> {
+                    if (!ConfigManager.isEnabledCached(HookConfig.KEY_DISABLE_FORCED_FREEZE)) return chain.proceed();
+                    clearEnforcedDisabled(chain.getThisObject());
+                    return null;
+                });
+            }
+        } catch (Throwable error) {
+            Log.w(TAG, "Enforced-disabled policy setter unavailable on this firmware", error);
+        }
+        try {
+            Class<?> pms = Class.forName("com.android.server.pm.PackageManagerService", false, loader);
+            for (String name : new String[] { "registerZybEnforcedDisabledObserver", "refreshZybEnforcedDisabledPackages" }) {
+                try {
+                    Method method = pms.getDeclaredMethod(name);
+                    if (method.getReturnType() != void.class) continue;
+                    method.setAccessible(true);
+                    Field field = pms.getDeclaredField("mProtectedPackages");
+                    field.setAccessible(true);
+                    module.hook(method).intercept(chain -> {
+                        if (!ConfigManager.isEnabledCached(HookConfig.KEY_DISABLE_FORCED_FREEZE)) return chain.proceed();
+                        try { clearEnforcedDisabled(field.get(chain.getThisObject())); }
+                        catch (Throwable error) { Log.w(TAG, "Unable to access enforced-disabled policy", error); }
+                        return null;
+                    });
+                } catch (Throwable error) {
+                    Log.w(TAG, "Enforced-disabled policy loader unavailable: " + name, error);
+                }
+            }
+            for (Method caller : pms.getDeclaredMethods()) {
+                String name = caller.getName();
+                if (name.equals("systemReady") || name.equals("setEnabledSetting")
+                        || name.equals("updateSettingsInternalLI")
+                        || name.equals("markPackageUninstalledForUserLPw")
+                        || name.startsWith("access$")) deoptimize(module, caller);
+            }
+        } catch (Throwable error) {
+            Log.w(TAG, "Enforced-disabled PMS policy unavailable on this firmware", error);
+        }
+    }
+
+    private static void clearEnforcedDisabled(Object owner) {
+        if (owner == null) return;
+        try {
+            Field field = owner.getClass().getDeclaredField("mZybEnforcedDisabledPackages");
+            field.setAccessible(true);
+            synchronized (owner) {
+                Object value = field.get(owner);
+                if (value instanceof Collection<?>) ((Collection<?>) value).clear();
+            }
+        } catch (Throwable error) {
+            Log.w(TAG, "Unable to clear enforced-disabled policy collection", error);
+        }
     }
 
     /** Verified against AIbangOS 7.14.0 services.jar; absent methods are left alone. */

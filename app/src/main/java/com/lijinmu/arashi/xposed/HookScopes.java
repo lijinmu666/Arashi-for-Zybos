@@ -186,6 +186,7 @@ public final class HookScopes {
         }
 
         public boolean isAvailable(String key) {
+            if (HookConfig.KEY_DISABLE_FORCED_FREEZE.equals(key) && !BehaviorCompatibility.isForcedFreezeSupported()) return false;
             if (HookConfig.KEY_DISABLE_PADMS_WATCHDOG.equals(key) && !BehaviorCompatibility.isPadMsWatchdogSupported()) return false;
             if (HookConfig.KEY_DISABLE_INSTALLER_AUTH.equals(key) && !BehaviorCompatibility.isInstallerAuthSupported()) return false;
             if (BehaviorCompatibility.requiresVersion(key) && !BehaviorCompatibility.isSupported()) return false;
@@ -198,6 +199,7 @@ public final class HookScopes {
         }
 
         public String unavailableReason(String key) {
+            if (HookConfig.KEY_DISABLE_FORCED_FREEZE.equals(key) && !BehaviorCompatibility.isForcedFreezeSupported()) return BehaviorCompatibility.INSTALLER_AUTH_REQUIREMENT;
             if (HookConfig.KEY_DISABLE_PADMS_WATCHDOG.equals(key) && !BehaviorCompatibility.isPadMsWatchdogSupported()) return BehaviorCompatibility.INSTALLER_AUTH_REQUIREMENT;
             if (HookConfig.KEY_DISABLE_INSTALLER_AUTH.equals(key) && !BehaviorCompatibility.isInstallerAuthSupported()) return BehaviorCompatibility.INSTALLER_AUTH_REQUIREMENT;
             if (BehaviorCompatibility.requiresVersion(key) && !BehaviorCompatibility.isSupported()) {
