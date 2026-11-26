@@ -92,7 +92,7 @@ with tempfile.TemporaryDirectory(prefix='arashi-boot-animation-') as directory:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(source)
     files = list(temp.rglob('*.java')) + [ROOT / 'app/src/main/java/com/lijinmu/arashi/xposed' / name
-                                         for name in ['HookConfig.java', 'hooks/BootAnimationHooks.java']]
+                                         for name in ['HookConfig.java', 'BehaviorCompatibility.java', 'hooks/BootAnimationHooks.java']]
     compiler = [shutil.which('javac')] if shutil.which('javac') else ['java', 'com.sun.tools.javac.Main']
     subprocess.run(compiler + ['-d', str(temp / 'classes')] + [str(p) for p in files], check=True)
     subprocess.run(['java', '-cp', str(temp / 'classes'), 'Check'], check=True)

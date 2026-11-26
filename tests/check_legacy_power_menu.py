@@ -141,7 +141,7 @@ for version in [12, 14]:
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(source)
         files = list(temp.rglob('*.java')) + [ROOT / 'app/src/main/java/com/lijinmu/arashi/xposed' / name
-                                            for name in ['HookConfig.java', 'Reflect.java', 'hooks/LegacyPowerMenuHooks.java']]
+                                            for name in ['HookConfig.java', 'BehaviorCompatibility.java', 'Reflect.java', 'hooks/LegacyPowerMenuHooks.java']]
         compiler = [shutil.which('javac')] if shutil.which('javac') else ['java', 'com.sun.tools.javac.Main']
         subprocess.run(compiler + ['-d', str(temp / 'classes')] + [str(p) for p in files], check=True)
         subprocess.run(['java', '-cp', str(temp / 'classes'), 'com.android.server.policy.Check', str(version)], check=True)

@@ -117,6 +117,6 @@ for parent in ['android.app.Activity', 'android.app.Dialog']:
             p.parent.mkdir(parents=True, exist_ok=True)
             p.write_text(text)
         subprocess.run([*compiler, '-d', str(tmp/'classes'), *map(str, tmp.rglob('*.java')),
-                        str(ROOT/'app/src/main/java/com/lijinmu/arashi/xposed/HookConfig.java'),
+                        str(ROOT/'app/src/main/java/com/lijinmu/arashi/xposed/HookConfig.java'),str(ROOT/'app/src/main/java/com/lijinmu/arashi/xposed/BehaviorCompatibility.java'),
                         str(ROOT/'app/src/main/java/com/lijinmu/arashi/xposed/hooks/ScreenRecordingHooks.java')], check=True)
         subprocess.run(['java', '-cp', str(tmp/'classes'), 'Check', parent], check=True)

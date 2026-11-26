@@ -121,5 +121,5 @@ with tempfile.TemporaryDirectory(prefix='arashi-reply-') as directory:
         target=tmp/name;target.parent.mkdir(parents=True,exist_ok=True);target.write_text(source)
     real=ROOT/'app/src/main/java/com/lijinmu/arashi/xposed'
     subprocess.run(['javac','-d',str(tmp/'classes'),*map(str,tmp.rglob('*.java')),
-                    str(real/'HookConfig.java'),str(real/'Reflect.java'),str(real/'hooks/NotificationReplyHooks.java')],check=True)
+                    str(real/'HookConfig.java'),str(real/'BehaviorCompatibility.java'),str(real/'Reflect.java'),str(real/'hooks/NotificationReplyHooks.java')],check=True)
     subprocess.run(['java','-cp',str(tmp/'classes'),'Check'],check=True)

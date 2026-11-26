@@ -145,7 +145,7 @@ for version in (12,14):
         temp=Path(directory)
         for name,content in stubs.items():
             path=temp/name;path.parent.mkdir(parents=True,exist_ok=True);path.write_text(content)
-        sources=list(temp.rglob('*.java'))+[ROOT/'app/src/main/java/com/lijinmu/arashi/xposed'/n for n in ['Reflect.java','HookConfig.java','hooks/AppDetailsHooks.java','hooks/AppInfoPageHooks.java']]
+        sources=list(temp.rglob('*.java'))+[ROOT/'app/src/main/java/com/lijinmu/arashi/xposed'/n for n in ['Reflect.java','HookConfig.java', 'BehaviorCompatibility.java','hooks/AppDetailsHooks.java','hooks/AppInfoPageHooks.java']]
         compiler=[shutil.which('javac')] if shutil.which('javac') else ['java','com.sun.tools.javac.Main']
         subprocess.run(compiler+['-d',str(temp/'classes')]+[str(p) for p in sources],check=True)
         subprocess.run(['java','-cp',str(temp/'classes'),'Check'],check=True)

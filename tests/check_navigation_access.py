@@ -145,7 +145,7 @@ with tempfile.TemporaryDirectory(prefix="arashi-navigation-") as directory:
         target.write_text(source)
     (tmp / "NavigationCheck.java").write_text(CHECK)
     real = ROOT / "app/src/main/java/com/lijinmu/arashi/xposed"
-    sources = [*tmp.rglob("*.java"), real / "HookConfig.java",
+    sources = [*tmp.rglob("*.java"), real / "HookConfig.java", real / "BehaviorCompatibility.java",
                real / "NavigationAccessPolicy.java", real / "hooks/NavigationAccessHooks.java"]
     subprocess.run(["javac", "-d", str(tmp / "classes"), *map(str, sources)], check=True)
     subprocess.run(["java", "-cp", str(tmp / "classes"), "NavigationCheck"], check=True)

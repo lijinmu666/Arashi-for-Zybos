@@ -127,7 +127,7 @@ with tempfile.TemporaryDirectory(prefix='arashi-tcp-check-') as temp:
         path.write_text(content)
         sources.append(str(path))
     sources += [str(ROOT / 'app/src/main/java' / name) for name in (
-        'com/lijinmu/arashi/xposed/HookConfig.java', 'com/lijinmu/arashi/xposed/Reflect.java',
+        'com/lijinmu/arashi/xposed/HookConfig.java', 'com/lijinmu/arashi/xposed/BehaviorCompatibility.java', 'com/lijinmu/arashi/xposed/Reflect.java',
         'com/lijinmu/arashi/xposed/TcpLoginPolicy.java', 'com/lijinmu/arashi/xposed/hooks/TcpLoginHooks.java')]
     subprocess.run(['javac', '-encoding', 'UTF-8', '-d', str(folder / 'classes'), *sources], check=True)
     subprocess.run(['java', '-cp', str(folder / 'classes'), 'Check'], check=True)

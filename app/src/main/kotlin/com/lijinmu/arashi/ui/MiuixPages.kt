@@ -222,6 +222,7 @@ object MiuixPages {
             if (a is Main) id = android.R.id.content
             setContent {
                 val uiPrefs = remember(a) { a.getSharedPreferences("ui", Context.MODE_PRIVATE) }
+                var useInter by remember(uiPrefs) { mutableStateOf(uiPrefs.getBoolean("use_inter", true)) }
                 var mode by remember(uiPrefs) { mutableIntStateOf(uiPrefs.getInt("mode", 0)) }
                 var colorScheme by remember(uiPrefs) {
                     mutableIntStateOf(uiPrefs.getInt("color_scheme", 2))
@@ -229,6 +230,7 @@ object MiuixPages {
                 DisposableEffect(uiPrefs) {
                     val listener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { prefs, key ->
                         when (key) {
+                            "use_inter" -> useInter = prefs.getBoolean("use_inter", true)
                             "mode" -> mode = prefs.getInt("mode", 0)
                             "color_scheme" -> colorScheme = prefs.getInt("color_scheme", 2)
                         }
@@ -292,7 +294,7 @@ object MiuixPages {
                         applySystemBars(a, dark, colors.background.toArgb())
                     }
                 }
-                MiuixTheme(colors = colors) {
+                MiuixTheme(colors = colors, textStyles = arashiTextStyles(useInter)) {
                     if (a is UninstallPromptActivity) {
                         page()
                     } else {
@@ -2904,7 +2906,17 @@ private fun SettingsPage(
         Link("工作模式", workMode.label) { onWorkMode() }
         Link("冻结方式", freezeMode.title) { onFreezeMode() }
     }
+    var useInter by remember(prefs) { mutableStateOf(prefs.getBoolean("use_inter", true)) }
     Group("外观") {
+        SwitchPreference(
+            title = "使用 Inter 字体",
+            summary = "在应用内使用 Inter，中文等不支持的字符使用系统字体",
+            checked = useInter,
+            onCheckedChange = { enabled ->
+                useInter = enabled
+                prefs.edit().putBoolean("use_inter", enabled).apply()
+            },
+        )
         OverlayDropdownPreference(
             items = listOf("蓝色", "紫色", "系统默认的 Monet 颜色"),
             selectedIndex = selectedColorScheme,
