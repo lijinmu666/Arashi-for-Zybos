@@ -1075,6 +1075,10 @@ private fun HookPage(
         label = "搜索…",
     )
     val prefs = a.getSharedPreferences(HookConfig.PREF_NAME, Context.MODE_PRIVATE)
+    val installerAuthSupported = remember { com.lijinmu.arashi.xposed.BehaviorCompatibility.isInstallerAuthSupported() }
+    LaunchedEffect(prefs, installerAuthSupported) {
+        if (!installerAuthSupported) prefs.edit().putBoolean(HookConfig.KEY_DISABLE_INSTALLER_AUTH, false).apply()
+    }
     val behaviorSupported = remember { com.lijinmu.arashi.xposed.BehaviorCompatibility.isSupported() }
     LaunchedEffect(prefs, behaviorSupported) {
         if (!behaviorSupported) {
@@ -1123,6 +1127,7 @@ private fun HookPage(
         ),
         "限制" to listOf(
             HookItem("允许打开开发者选项", "绕过系统设置检查，允许打开开发者选项的 Activity", HookConfig.KEY_DEV_OPTIONS),
+            HookItem("禁用安装器授权验证", "允许未经授权的软件包安装应用", HookConfig.KEY_DISABLE_INSTALLER_AUTH),
             HookItem("允许使用无线调试", "解除系统对无线调试的强制禁用，保留手动开关", HookConfig.KEY_ALLOW_WIRELESS_DEBUGGING),
             HookItem("阻止卸载应用", "清空系统自动清理应用的硬编码黑名单并阻止清理卸载执行", HookConfig.KEY_BLOCK_APP_UNINSTALL),
             HookItem("允许 USB 文件传输", "允许挂载外部 USB 设备和使用数据传输", HookConfig.KEY_ALLOW_USB),

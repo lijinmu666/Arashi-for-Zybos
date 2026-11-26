@@ -70,6 +70,11 @@ check(BehaviorCompatibility.supportsVersion(version));
 for (String version : new String[]{"", "V7.10.0", "V7.12.99", "V6.99.0", "7.13.0", "unknown", "V7.13", "V7.13.-1"})
 check(!BehaviorCompatibility.supportsVersion(version));
 check(!BehaviorCompatibility.supportsVersion(null));
+for (String version : new String[]{"V7.14.0", "V7.14.1", "V9.1.2"})
+check(BehaviorCompatibility.supportsVersion(version, 14));
+for (String version : new String[]{"V7.13.99", "V7.10.0", "unknown", ""})
+check(!BehaviorCompatibility.supportsVersion(version, 14));
+check(!HookConfig.defaultEnabled(HookConfig.KEY_DISABLE_INSTALLER_AUTH));
 BehaviorHooks.hookSystemServer(m,BehaviorHooksCheck.class.getClassLoader());
 read=android.provider.Settings.Global.class.getDeclaredMethod("getInt",android.content.ContentResolver.class,String.class,int.class);
 ready=AdbService.class.getDeclaredMethod("systemReady");

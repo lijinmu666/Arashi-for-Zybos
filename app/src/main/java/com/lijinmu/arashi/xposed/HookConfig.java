@@ -6,6 +6,7 @@ public final class HookConfig {
     public static final String PREF_NAME = "hook_settings";
     public static final String KEY_BLOCK_TCP_LOGIN_FAIL = "hook_block_tcp_login_fail";
     public static final String KEY_BOOT_ANIMATION_NO_WAIT = "hook_boot_animation_no_wait";
+    public static final String KEY_DISABLE_INSTALLER_AUTH = "hook_disable_installer_auth";
     public static final String KEY_ALLOW_WIRELESS_DEBUGGING = "hook_allow_wireless_debugging";
     public static final String KEY_BLOCK_APP_UNINSTALL = "hook_block_app_uninstall";
     public static final String KEY_REMOVE_ZYBOS_SYS_API_SERVICE = "hook_remove_zybos_sys_api_service";
@@ -45,7 +46,8 @@ public static final String KEY_CAPTIVE_PORTAL = "hook_captive_portal";
     public static final String KEY_KEEP_BACKGROUND_WHITELIST = "hook_keep_background_whitelist";
 
     public static boolean defaultEnabled(String key) {
-        return !KEY_ALLOW_WIRELESS_DEBUGGING.equals(key)
+        return !KEY_DISABLE_INSTALLER_AUTH.equals(key)
+                && !KEY_ALLOW_WIRELESS_DEBUGGING.equals(key)
                 && !KEY_REMOVE_ZYBOS_SYS_API_SERVICE.equals(key)
                 && !KEY_BLOCK_APP_UNINSTALL.equals(key)
                 && !KEY_BOOT_ANIMATION_NO_WAIT.equals(key)
@@ -72,7 +74,7 @@ public static final String KEY_CAPTIVE_PORTAL = "hook_captive_portal";
 
     public static String[] keys() {
         return new String[] {
-                KEY_ALLOW_WIRELESS_DEBUGGING, KEY_BLOCK_APP_UNINSTALL,
+                KEY_DISABLE_INSTALLER_AUTH, KEY_ALLOW_WIRELESS_DEBUGGING, KEY_BLOCK_APP_UNINSTALL,
                 KEY_REMOVE_ZYBOS_SYS_API_SERVICE,
                 KEY_BOOT_ANIMATION_NO_WAIT, KEY_AOSP_APP_DETAILS, KEY_BLOCK_TCP_LOGIN_FAIL, KEY_EXTERNAL_INSTALL, KEY_SHELL_INSTALL,
                 KEY_CLEAR_BLACKLIST, KEY_CAPTIVE_PORTAL, KEY_IOS_SYSTEM_ICON_MASK,

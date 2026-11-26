@@ -186,6 +186,7 @@ public final class HookScopes {
         }
 
         public boolean isAvailable(String key) {
+            if (HookConfig.KEY_DISABLE_INSTALLER_AUTH.equals(key) && !BehaviorCompatibility.isInstallerAuthSupported()) return false;
             if (BehaviorCompatibility.requiresVersion(key) && !BehaviorCompatibility.isSupported()) return false;
             if (HookConfig.KEY_IOS_SYSTEM_ICON_MASK.equals(key) && android.os.Build.VERSION.SDK_INT < 34) return false;
             return hasSelectedScope(key) && (!usesSystemServer(key) || systemActive);
@@ -196,6 +197,7 @@ public final class HookScopes {
         }
 
         public String unavailableReason(String key) {
+            if (HookConfig.KEY_DISABLE_INSTALLER_AUTH.equals(key) && !BehaviorCompatibility.isInstallerAuthSupported()) return BehaviorCompatibility.INSTALLER_AUTH_REQUIREMENT;
             if (BehaviorCompatibility.requiresVersion(key) && !BehaviorCompatibility.isSupported()) {
                 return BehaviorCompatibility.REQUIREMENT;
             }

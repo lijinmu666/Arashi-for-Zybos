@@ -31,6 +31,7 @@ public final class InstallHooks {
 
 public static void hookSystemServer(XposedModule mod, ClassLoader cl) {
         
+        hookInstallerAuthorization(mod, cl);
         hookPackageManagerShellCommand(mod, cl);
 
 hookZybosNoArg(mod, cl, "isDisallowInstallPackage", false);
@@ -46,6 +47,52 @@ hookLegacyPackageManagerBlacklist(mod, cl);
 hookZybosServiceCtor(mod, cl);
 
         Log.i(TAG, "system_server hooks initialized");
+    }
+
+    /** Only mask the installer name for the vendor authorization branch.
+     * The original source and all subsequent installation verification stay intact.
+     */
+    private static void hookInstallerAuthorization(XposedModule mod, ClassLoader cl) {
+        try {
+            Class<?> session = Class.forName("com.android.server.pm.PackageInstallerSession", false, cl);
+            Method install = Reflect.findMethodExact(session, "handleInstall");
+            Method privileged = Reflect.findMethodExact(session, "isZybInstallerPrivileged");
+            Method installer = Reflect.findMethodExact(session, "getInstallerPackageName");
+            if (install == null || privileged == null || installer == null) return;
+            // The two small vendor methods may have been inlined into handleInstall.
+            mod.deoptimize(install);
+            ThreadLocal<Object> active = new ThreadLocal<>();
+            ThreadLocal<Object> maskNextInstaller = new ThreadLocal<>();
+            mod.hook(installer).intercept(chain -> {
+                if (chain.getThisObject() == maskNextInstaller.get()) {
+                    maskNextInstaller.remove();
+                    return null;
+                }
+                return chain.proceed();
+            });
+            mod.hook(privileged).intercept(chain -> {
+                if (chain.getThisObject() == active.get()) {
+                    maskNextInstaller.set(chain.getThisObject());
+                    return true;
+                }
+                return chain.proceed();
+            });
+            mod.hook(install).intercept(chain -> {
+                if (!ConfigManager.isEnabled(HookConfig.KEY_DISABLE_INSTALLER_AUTH)) return chain.proceed();
+                Object previous = active.get();
+                Object previousMask = maskNextInstaller.get();
+                active.set(chain.getThisObject());
+                try {
+                    return chain.proceed();
+                } finally {
+                    if (previous == null) active.remove(); else active.set(previous);
+                    if (previousMask == null) maskNextInstaller.remove(); else maskNextInstaller.set(previousMask);
+                }
+            });
+            Log.i(TAG, "Installer authorization hooks registered");
+        } catch (Throwable t) {
+            Log.w(TAG, "Installer authorization hook unavailable: " + t);
+        }
     }
 
     /**

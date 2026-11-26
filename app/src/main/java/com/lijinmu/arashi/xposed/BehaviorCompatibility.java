@@ -8,7 +8,11 @@ public final class BehaviorCompatibility {
     public static final String REQUIREMENT = "需要 AIbangOS V7.13.0 及更新版本";
     private static final Pattern VERSION = Pattern.compile(
             "^V([0-9]+)\\.([0-9]+)\\.([0-9]+)(?:[._+\\-].*)?$");
-    private static final boolean SUPPORTED = readSupported();
+    private static final boolean SUPPORTED = readSupported(13);
+    private static final boolean INSTALLER_AUTH_SUPPORTED = readSupported(14);
+    public static final String INSTALLER_AUTH_REQUIREMENT = "需要 AIbangOS V7.14.0 及更新版本";
+
+    public static boolean isInstallerAuthSupported() { return INSTALLER_AUTH_SUPPORTED; }
 
     private BehaviorCompatibility() {}
 
@@ -20,6 +24,10 @@ public final class BehaviorCompatibility {
     public static boolean isSupported() { return SUPPORTED; }
 
     public static boolean supportsVersion(String value) {
+        return supportsVersion(value, 13);
+    }
+
+    public static boolean supportsVersion(String value, int minimumMinor) {
         if (value == null) return false;
         Matcher match = VERSION.matcher(value.trim());
         if (!match.matches()) return false;
@@ -27,17 +35,17 @@ public final class BehaviorCompatibility {
             int major = Integer.parseInt(match.group(1));
             int minor = Integer.parseInt(match.group(2));
             Integer.parseInt(match.group(3));
-            return major > 7 || (major == 7 && minor >= 13);
+            return major > 7 || (major == 7 && minor >= minimumMinor);
         } catch (NumberFormatException error) {
             return false;
         }
     }
 
-    private static boolean readSupported() {
+    private static boolean readSupported(int minimumMinor) {
         try {
             Class<?> properties = Class.forName("android.os.SystemProperties");
             return supportsVersion((String) properties.getDeclaredMethod("get", String.class)
-                    .invoke(null, "ro.build.version.os"));
+                    .invoke(null, "ro.build.version.os"), minimumMinor);
         } catch (ReflectiveOperationException | RuntimeException error) {
             return false;
         }
