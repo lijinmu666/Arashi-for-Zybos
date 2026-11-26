@@ -10,7 +10,6 @@ public final class HookConfig {
     public static final String KEY_ALLOW_WIRELESS_DEBUGGING = "hook_allow_wireless_debugging";
     public static final String KEY_DISABLE_PADMS_WATCHDOG = "hook_disable_padms_watchdog";
     public static final String KEY_BLOCK_APP_UNINSTALL = "hook_block_app_uninstall";
-    public static final String KEY_REMOVE_ZYBOS_SYS_API_SERVICE = "hook_remove_zybos_sys_api_service";
     public static final String KEY_REMOTE_READY = "remote_config_ready";
 
 public static final boolean DEFAULT_ENABLED = true;
@@ -50,7 +49,6 @@ public static final String KEY_CAPTIVE_PORTAL = "hook_captive_portal";
         if (KEY_DISABLE_PADMS_WATCHDOG.equals(key)) return BehaviorCompatibility.isPadMsWatchdogSupported();
         if (BehaviorCompatibility.requiresVersion(key)) return BehaviorCompatibility.isSupported();
         return !KEY_DISABLE_INSTALLER_AUTH.equals(key)
-                && !KEY_REMOVE_ZYBOS_SYS_API_SERVICE.equals(key)
                 && !KEY_BOOT_ANIMATION_NO_WAIT.equals(key)
                 && !KEY_AOSP_APP_DETAILS.equals(key)
                 && !KEY_UNLIMITED_NOTIFICATION_ICONS.equals(key)
@@ -76,7 +74,6 @@ public static final String KEY_CAPTIVE_PORTAL = "hook_captive_portal";
     public static String[] keys() {
         return new String[] {
                 KEY_DISABLE_PADMS_WATCHDOG, KEY_DISABLE_INSTALLER_AUTH, KEY_ALLOW_WIRELESS_DEBUGGING, KEY_BLOCK_APP_UNINSTALL,
-                KEY_REMOVE_ZYBOS_SYS_API_SERVICE,
                 KEY_BOOT_ANIMATION_NO_WAIT, KEY_AOSP_APP_DETAILS, KEY_BLOCK_TCP_LOGIN_FAIL, KEY_EXTERNAL_INSTALL, KEY_SHELL_INSTALL,
                 KEY_CLEAR_BLACKLIST, KEY_CAPTIVE_PORTAL, KEY_IOS_SYSTEM_ICON_MASK,
                 KEY_ALLOW_USB, KEY_LEGACY_POWER_MENU, KEY_UNLIMITED_NOTIFICATION_ICONS,

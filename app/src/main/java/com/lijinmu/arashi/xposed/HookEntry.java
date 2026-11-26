@@ -63,7 +63,6 @@ public final class HookEntry extends XposedModule {
         log("onSystemServerStarting");
         ClassLoader cl = param.getClassLoader();
         ConfigManager.init("android");
-        com.lijinmu.arashi.xposed.hooks.ZybosSysApiServiceHooks.hookSystemServer(this, cl);
         com.lijinmu.arashi.xposed.hooks.GlobalIconMaskHooks.hookSystemServer(this, cl);
         com.lijinmu.arashi.xposed.hooks.BehaviorHooks.hookSystemServer(this, cl);
         InstallHooks.hookSystemServer(this, cl);
