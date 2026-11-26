@@ -115,6 +115,7 @@ public final class ConfigManager {
     }
 
     public static boolean isEnabledCached(String key) {
+        if (!BehaviorCompatibility.isAllowed(key)) return false;
         Boolean value;
         Snapshot remote = remoteCache;
         if (remote != null && (value = remote.enabled.get(key)) != null) return value;
@@ -128,6 +129,7 @@ public static boolean isEnabled(String key) {
     }
 
 public static boolean isEnabled(String key, boolean fallback) {
+        if (!BehaviorCompatibility.isAllowed(key)) return false;
         Boolean value;
         Snapshot remote = remoteCache;
         if (remote != null && (value = remote.enabled.get(key)) != null) return value;

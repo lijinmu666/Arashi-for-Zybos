@@ -21,6 +21,13 @@ public final class BehaviorCompatibility {
                 || HookConfig.KEY_BLOCK_APP_UNINSTALL.equals(key);
     }
 
+    public static boolean isPadMsWatchdogSupported() { return INSTALLER_AUTH_SUPPORTED; }
+
+    public static boolean isAllowed(String key) {
+        if (HookConfig.KEY_DISABLE_PADMS_WATCHDOG.equals(key)) return isPadMsWatchdogSupported();
+        return !requiresVersion(key) || isSupported();
+    }
+
     public static boolean isSupported() { return SUPPORTED; }
 
     public static boolean supportsVersion(String value) {

@@ -51,6 +51,14 @@ public ActivityManagerService() {}
 public void deleteIllegalApps() {}
 public void manualUninstall() {}
 }''',
+    'com/android/server/ZybosSysApiService.java': '''package com.android.server;
+public class ZybosSysApiService {
+private void startPadMsWatchdog() {}
+private void ensurePadMsAlive() {}
+public void systemReady() {}
+public void unrelatedApi() {}
+static void access$500(ZybosSysApiService s) {s.ensurePadMsAlive();}
+}''',
     'BehaviorHooksCheck.java': '''import com.lijinmu.arashi.xposed.*;
 import com.lijinmu.arashi.xposed.hooks.BehaviorHooks;
 import com.android.server.adb.AdbService;
@@ -80,8 +88,8 @@ read=android.provider.Settings.Global.class.getDeclaredMethod("getInt",android.c
 ready=AdbService.class.getDeclaredMethod("systemReady");
 disable=AdbService.class.getDeclaredMethod("shouldDisableWifiAdb");
 cleanup=ActivityManagerService.class.getDeclaredMethod("deleteIllegalApps");
-check(!HookConfig.defaultEnabled(HookConfig.KEY_ALLOW_WIRELESS_DEBUGGING));
-check(!HookConfig.defaultEnabled(HookConfig.KEY_BLOCK_APP_UNINSTALL));
+check(HookConfig.defaultEnabled(HookConfig.KEY_ALLOW_WIRELESS_DEBUGGING)==BehaviorCompatibility.isSupported());
+check(HookConfig.defaultEnabled(HookConfig.KEY_BLOCK_APP_UNINSTALL)==BehaviorCompatibility.isSupported());
 check(java.util.Arrays.asList(HookConfig.keys()).contains(HookConfig.KEY_BLOCK_APP_UNINSTALL));
 // Both disabled: execute firmware normally and retain blacklist.
 ActivityManagerService.mZybMustDeletedApps.add("bin.mt.plus.canary");
@@ -116,6 +124,25 @@ m.call(cleanup,null,new Object[0],()->{throw new AssertionError("Both enabled cl
 ConfigManager.enabled.clear();
 m.call(cleanup,null,new Object[0],()->{runs[0]++; return null;});
 check(runs[0]==3);
+Class<?> vendor = Class.forName("com.android.server.ZybosSysApiService");
+for (String name : new String[]{"startPadMsWatchdog", "ensurePadMsAlive"}) {
+ Method method = vendor.getDeclaredMethod(name);
+ final int[] calls = {0};
+ m.call(method,null,new Object[0],()->{calls[0]++; return null;});
+ check(calls[0]==1);
+ ConfigManager.enabled.add(HookConfig.KEY_DISABLE_PADMS_WATCHDOG);
+ m.call(method,null,new Object[0],()->{throw new AssertionError("Watchdog ran");});
+ ConfigManager.enabled.clear();
+ m.call(method,null,new Object[0],()->{calls[0]++; return null;});
+ check(calls[0]==2);
+}
+check(HookConfig.defaultEnabled(HookConfig.KEY_DISABLE_PADMS_WATCHDOG)==BehaviorCompatibility.isPadMsWatchdogSupported());
+check(BehaviorCompatibility.isAllowed(HookConfig.KEY_DISABLE_PADMS_WATCHDOG)==BehaviorCompatibility.isPadMsWatchdogSupported());
+check(BehaviorCompatibility.isAllowed(HookConfig.KEY_ALLOW_WIRELESS_DEBUGGING)==BehaviorCompatibility.isSupported());
+check(BehaviorCompatibility.isAllowed(HookConfig.KEY_BLOCK_APP_UNINSTALL)==BehaviorCompatibility.isSupported());
+check(java.util.Arrays.asList(HookConfig.keys()).contains(HookConfig.KEY_DISABLE_PADMS_WATCHDOG));
+check(!m.hooks.containsKey(vendor.getMethod("unrelatedApi")));
+check(!m.hooks.containsKey(vendor.getMethod("systemReady")));
 System.out.println("Behavior hook checks passed");
 }}
 ''',
@@ -131,5 +158,5 @@ with tempfile.TemporaryDirectory() as directory:
     subprocess.run(['javac', '-d', str(base / 'classes'), *map(str, files)], check=True)
     subprocess.run(['java', '-cp', str(base / 'classes'), 'BehaviorHooksCheck'], check=True)
 
-    for version in ('V7.10.0', '', 'unknown', '9.1.2'):
+    for version in ('V7.10.0', 'V7.13.0', 'V7.14.0', 'V7.14.1', 'V9.1.2', '', 'unknown', '9.1.2'):
         subprocess.run(['java', '-Dtest.os.version=' + version, '-cp', str(base / 'classes'), 'BehaviorHooksCheck'], check=True)

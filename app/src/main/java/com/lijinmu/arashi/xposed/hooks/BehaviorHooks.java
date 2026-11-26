@@ -27,6 +27,38 @@ public final class BehaviorHooks {
         hookWirelessSettings(module);
         hookAdbService(module, loader);
         hookAppCleanup(module, loader);
+        hookPadMsWatchdog(module, loader);
+    }
+
+    /** Verified against AIbangOS 7.14.0 services.jar; absent methods are left alone. */
+    private static void hookPadMsWatchdog(XposedModule module, ClassLoader loader) {
+        try {
+            Class<?> service = Class.forName("com.android.server.ZybosSysApiService", false, loader);
+            // Resolve both signatures before installing either interceptor.
+            Method start = service.getDeclaredMethod("startPadMsWatchdog");
+            Method ensure = service.getDeclaredMethod("ensurePadMsAlive");
+            if (start.getReturnType() != void.class || ensure.getReturnType() != void.class) return;
+            for (Method method : new Method[] { start, ensure }) {
+                method.setAccessible(true);
+                module.hook(method).intercept(chain ->
+                        ConfigManager.isEnabledCached(HookConfig.KEY_DISABLE_PADMS_WATCHDOG)
+                                ? null : chain.proceed());
+            }
+            // These private methods can be inlined in systemReady and the synthetic accessor.
+            for (Method caller : service.getDeclaredMethods()) {
+                if (caller.getName().equals("systemReady")
+                        || caller.getName().startsWith("access$")) deoptimize(module, caller);
+            }
+            // The 7.14.0 periodic callback invokes ensurePadMsAlive via access$500.
+            try {
+                Class<?> callback = Class.forName("com.android.server.ZybosSysApiService$3", false, loader);
+                deoptimize(module, callback.getDeclaredMethod("run"));
+            } catch (Throwable error) {
+                Log.w(TAG, "PadMs watchdog callback deoptimization unavailable", error);
+            }
+        } catch (Throwable error) {
+            Log.w(TAG, "PadMs watchdog hook unavailable on this firmware", error);
+        }
     }
 
     private static void hookWirelessSettings(XposedModule module) {
