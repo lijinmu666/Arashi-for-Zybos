@@ -16,16 +16,35 @@ final class RootShell {
  static class Result {boolean ok;String output;Result(boolean a,String b){ok=a;output=b;}}
  static Result run(String c){return new Result(ok,output);}
 }""")
+    context = temp / "Context.java"
+    context.write_text("package android.content; public class Context {}")
+    mode = temp / "WorkMode.java"
+    mode.write_text("""package com.lijinmu.arashi.tools;
+final class WorkMode {
+ static final WorkMode INSTANCE = new WorkMode();
+ static android.content.Context expected;
+ static WorkMode get(android.content.Context context) {
+  if (context != expected) throw new AssertionError("Wrong context");
+  return INSTANCE;
+ }
+ RootShell.Result execute(android.content.Context context, String command) {
+  if (context != expected || !command.equals(ScopedAppStopper.buildCommand()))
+   throw new AssertionError("Wrong execution request");
+  return RootShell.run(command);
+ }
+}""")
     check = temp / "Check.java"
     check.write_text("""package com.lijinmu.arashi.tools;
 public class Check {public static void main(String[] args){
- if(!ScopedAppStopper.stop().ok)throw new AssertionError();
+ android.content.Context context = new android.content.Context();
+ WorkMode.expected = context;
+ if(!ScopedAppStopper.stop(context).ok)throw new AssertionError();
  RootShell.ok=false;RootShell.output="ROOT_GRANTED\\nAPP_KILL_FAILED";
- if(ScopedAppStopper.stop().ok||!ScopedAppStopper.stop().output.contains("APP_KILL_FAILED"))throw new AssertionError();
+ if(ScopedAppStopper.stop(context).ok||!ScopedAppStopper.stop(context).output.contains("APP_KILL_FAILED"))throw new AssertionError();
  System.out.print(ScopedAppStopper.buildCommand());
 }}""")
     compiler = [shutil.which("javac")] if shutil.which("javac") else ["java", "com.sun.tools.javac.Main"]
-    subprocess.run(compiler + ["-d", str(temp), str(stub), str(check), str(source)], check=True)
+    subprocess.run(compiler + ["-d", str(temp), str(stub), str(context), str(mode), str(check), str(source)], check=True)
     command = subprocess.check_output(["java", "-cp", str(temp),
             "com.lijinmu.arashi.tools.Check"], text=True)
     assert "force-stop" not in command and "am kill" not in command

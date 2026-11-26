@@ -4,7 +4,6 @@ import android.content.ContentResolver;
 import android.provider.Settings;
 import android.util.Log;
 
-import com.lijinmu.arashi.xposed.BehaviorCompatibility;
 import com.lijinmu.arashi.xposed.ConfigManager;
 import com.lijinmu.arashi.xposed.HookConfig;
 
@@ -34,7 +33,6 @@ public final class BehaviorHooks {
 
     /** Disable only the vendor enforced-disabled policy, preserving Android admin protections. */
     private static void hookForcedFreeze(XposedModule module, ClassLoader loader) {
-        if (!BehaviorCompatibility.isForcedFreezeSupported()) return;
         try {
             Class<?> protectedPackages = Class.forName("com.android.server.pm.ProtectedPackages", false, loader);
             Method check = protectedPackages.getDeclaredMethod("isZybEnforcedDisabled", String.class);

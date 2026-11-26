@@ -174,38 +174,15 @@ Log.w(TAG, "reject untrusted caller uid=" + Binder.getCallingUid());
         SharedPreferences prefs = context.getSharedPreferences(HookConfig.PREF_NAME, Context.MODE_PRIVATE);
         
         Bundle result = new Bundle();
-        result.putBoolean(HookConfig.KEY_BLOCK_TCP_LOGIN_FAIL,
-                prefs.getBoolean(HookConfig.KEY_BLOCK_TCP_LOGIN_FAIL, false));
-        result.putBoolean(HookConfig.KEY_EXTERNAL_INSTALL, prefs.getBoolean(HookConfig.KEY_EXTERNAL_INSTALL, HookConfig.DEFAULT_ENABLED));
-        result.putBoolean(HookConfig.KEY_SHELL_INSTALL, prefs.getBoolean(HookConfig.KEY_SHELL_INSTALL, HookConfig.DEFAULT_ENABLED));
-        result.putBoolean(HookConfig.KEY_CLEAR_BLACKLIST, prefs.getBoolean(HookConfig.KEY_CLEAR_BLACKLIST, HookConfig.DEFAULT_ENABLED));
-        result.putBoolean(HookConfig.KEY_CAPTIVE_PORTAL, prefs.getBoolean(HookConfig.KEY_CAPTIVE_PORTAL, HookConfig.DEFAULT_ENABLED));
-        result.putBoolean(HookConfig.KEY_ALLOW_USB, prefs.getBoolean(HookConfig.KEY_ALLOW_USB, HookConfig.DEFAULT_ENABLED));
-        result.putBoolean(HookConfig.KEY_RECORD_INTERNAL_AUDIO, prefs.getBoolean(HookConfig.KEY_RECORD_INTERNAL_AUDIO, HookConfig.defaultEnabled(HookConfig.KEY_RECORD_INTERNAL_AUDIO)));
-        result.putBoolean(HookConfig.KEY_NOTIFICATION_LONG_PRESS, prefs.getBoolean(HookConfig.KEY_NOTIFICATION_LONG_PRESS, false));
-        result.putBoolean(HookConfig.KEY_NOTIFICATION_REPLY, prefs.getBoolean(HookConfig.KEY_NOTIFICATION_REPLY, false));
-        result.putBoolean(HookConfig.KEY_AOSP_STATUS_ICONS, HookConfig.statusBarIconsEnabled(prefs.getAll()));
-        result.putBoolean(HookConfig.KEY_BOOT_ANIMATION_NO_WAIT,
-                prefs.getBoolean(HookConfig.KEY_BOOT_ANIMATION_NO_WAIT, false));
-        result.putBoolean(HookConfig.KEY_LEGACY_POWER_MENU, prefs.getBoolean(HookConfig.KEY_LEGACY_POWER_MENU, false));
-        result.putBoolean(HookConfig.KEY_UNLIMITED_NOTIFICATION_ICONS,
-                prefs.getBoolean(HookConfig.KEY_UNLIMITED_NOTIFICATION_ICONS, false));
-        result.putBoolean(HookConfig.KEY_STATUS_BAR_DATE, prefs.getBoolean(HookConfig.KEY_STATUS_BAR_DATE, false));
-        result.putBoolean(HookConfig.KEY_IOS_ICONS, prefs.getBoolean(HookConfig.KEY_IOS_ICONS, false));
-        result.putBoolean(HookConfig.KEY_IOS_SYSTEM_ICON_MASK,
-                prefs.getBoolean(HookConfig.KEY_IOS_SYSTEM_ICON_MASK, false));
-        result.putBoolean(HookConfig.KEY_ALLOW_WALLPAPER, prefs.getBoolean(HookConfig.KEY_ALLOW_WALLPAPER, HookConfig.DEFAULT_ENABLED));
-        result.putBoolean(HookConfig.KEY_AOSP_APP_DETAILS, prefs.getBoolean(HookConfig.KEY_AOSP_APP_DETAILS, false));
-        result.putBoolean(HookConfig.KEY_CLEAR_DETAIL_BLACK, prefs.getBoolean(HookConfig.KEY_CLEAR_DETAIL_BLACK, HookConfig.DEFAULT_ENABLED));
-        result.putBoolean(HookConfig.KEY_DEV_OPTIONS, prefs.getBoolean(HookConfig.KEY_DEV_OPTIONS, HookConfig.DEFAULT_ENABLED));
-        result.putBoolean(HookConfig.KEY_DEV_OPTIONS_MENU,
-                prefs.getBoolean(HookConfig.KEY_DEV_OPTIONS_MENU,
-                        HookConfig.defaultEnabled(HookConfig.KEY_DEV_OPTIONS_MENU)));
-        result.putBoolean(HookConfig.KEY_KEEP_BACKGROUND, prefs.getBoolean(HookConfig.KEY_KEEP_BACKGROUND, HookConfig.defaultEnabled(HookConfig.KEY_KEEP_BACKGROUND)));
+        for (String key : HookConfig.keys()) {
+            boolean enabled = HookConfig.KEY_AOSP_STATUS_ICONS.equals(key)
+                    ? HookConfig.statusBarIconsEnabled(prefs.getAll())
+                    : prefs.getBoolean(key, HookConfig.defaultEnabled(key));
+            result.putBoolean(key, enabled);
+        }
         result.putStringArrayList(HookConfig.KEY_KEEP_BACKGROUND_WHITELIST,
                 new java.util.ArrayList<>(prefs.getStringSet(
                         HookConfig.KEY_KEEP_BACKGROUND_WHITELIST, java.util.Collections.emptySet())));
-        result.putBoolean(HookConfig.KEY_BLOCK_DEFAULT_BROWSER, prefs.getBoolean(HookConfig.KEY_BLOCK_DEFAULT_BROWSER, HookConfig.DEFAULT_ENABLED));
         return result;
     }
 

@@ -101,7 +101,7 @@ for (String version : new String[]{"V7.14.0", "V7.14.1", "V9.1.2"})
 check(BehaviorCompatibility.supportsVersion(version, 14));
 for (String version : new String[]{"V7.13.99", "V7.10.0", "unknown", ""})
 check(!BehaviorCompatibility.supportsVersion(version, 14));
-check(!HookConfig.defaultEnabled(HookConfig.KEY_DISABLE_INSTALLER_AUTH));
+check(HookConfig.defaultEnabled(HookConfig.KEY_DISABLE_INSTALLER_AUTH)==BehaviorCompatibility.isInstallerAuthSupported());
 BehaviorHooks.hookSystemServer(m,BehaviorHooksCheck.class.getClassLoader());
 read=android.provider.Settings.Global.class.getDeclaredMethod("getInt",android.content.ContentResolver.class,String.class,int.class);
 ready=AdbService.class.getDeclaredMethod("systemReady");
@@ -156,13 +156,10 @@ for (String name : new String[]{"startPadMsWatchdog", "ensurePadMsAlive"}) {
  check(calls[0]==2);
 }
 check(HookConfig.defaultEnabled(HookConfig.KEY_DISABLE_PADMS_WATCHDOG)==BehaviorCompatibility.isPadMsWatchdogSupported());
-check(BehaviorCompatibility.isAllowed(HookConfig.KEY_DISABLE_PADMS_WATCHDOG)==BehaviorCompatibility.isPadMsWatchdogSupported());
-check(BehaviorCompatibility.isAllowed(HookConfig.KEY_ALLOW_WIRELESS_DEBUGGING)==BehaviorCompatibility.isSupported());
-check(BehaviorCompatibility.isAllowed(HookConfig.KEY_BLOCK_APP_UNINSTALL)==BehaviorCompatibility.isSupported());
 check(java.util.Arrays.asList(HookConfig.keys()).contains(HookConfig.KEY_DISABLE_PADMS_WATCHDOG));
 check(!m.hooks.containsKey(vendor.getMethod("unrelatedApi")));
 check(!m.hooks.containsKey(vendor.getMethod("systemReady")));
-// Vendor forced-disable policy: runtime toggle, existing state and firmware gate.
+// Firmware gates belong to the UI; an explicit setting controls existing vendor methods.
 Class<?> policy = Class.forName("com.android.server.pm.ProtectedPackages");
 Class<?> pms = Class.forName("com.android.server.pm.PackageManagerService");
 Object service = pms.getConstructor().newInstance();
@@ -174,29 +171,27 @@ java.util.Set<String> blocked = java.util.Collections.singleton("test.blocked");
 protectedApps.setZybEnforcedDisabledPackages(blocked);
 check((Boolean)m.call(query,protectedApps,new Object[]{"test.blocked"},()->true));
 ConfigManager.enabled.add(HookConfig.KEY_DISABLE_FORCED_FREEZE);
-boolean supported = BehaviorCompatibility.isForcedFreezeSupported();
-check(BehaviorCompatibility.isAllowed(HookConfig.KEY_DISABLE_FORCED_FREEZE)==supported);
-check(!HookConfig.defaultEnabled(HookConfig.KEY_DISABLE_FORCED_FREEZE));
+check(HookConfig.defaultEnabled(HookConfig.KEY_DISABLE_FORCED_FREEZE)==BehaviorCompatibility.isForcedFreezeSupported());
 check(java.util.Arrays.asList(HookConfig.keys()).contains(HookConfig.KEY_DISABLE_FORCED_FREEZE));
-check((Boolean)m.call(query,protectedApps,new Object[]{"test.blocked"},()->true)==!supported);
+check(!(Boolean)m.call(query,protectedApps,new Object[]{"test.blocked"},()->true));
 // Loader hooks clear stale state and suppress both initial registration and later refresh.
 for (String name : new String[]{"registerZybEnforcedDisabledObserver","refreshZybEnforcedDisabledPackages"}) {
  Method loader = pms.getDeclaredMethod(name);
  protectedApps.setZybEnforcedDisabledPackages(blocked);
  int[] loads={0};
  m.call(loader,service,new Object[0],()->{loads[0]++; return null;});
- check(loads[0]==(supported?0:1));
- check(protectedApps.mZybEnforcedDisabledPackages.isEmpty()==supported);
+ check(loads[0]==0);
+ check(protectedApps.mZybEnforcedDisabledPackages.isEmpty());
 }
 protectedApps.setZybEnforcedDisabledPackages(blocked);
 int[] writes={0};
 m.call(setter,protectedApps,new Object[]{blocked},()->{writes[0]++;protectedApps.setZybEnforcedDisabledPackages(blocked);return null;});
-check(writes[0]==(supported?0:1));
-check(protectedApps.mZybEnforcedDisabledPackages.isEmpty()==supported);
+check(writes[0]==0);
+check(protectedApps.mZybEnforcedDisabledPackages.isEmpty());
 // All enable/install/uninstall policy branches share this membership check.
 for (String operation : new String[]{"enable","default-state","install","uninstall-user"})
  check(!(Boolean)m.call(query,protectedApps,new Object[]{"test.blocked"},()->false));
-if (supported) {
+{
  for (String caller : new String[]{"systemReady","setEnabledSetting","updateSettingsInternalLI","markPackageUninstalledForUserLPw"})
   check(m.deoptimized.contains(pms.getDeclaredMethod(caller)));
 }

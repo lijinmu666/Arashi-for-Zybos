@@ -3,7 +3,7 @@ package com.lijinmu.arashi.xposed;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-/** Firmware requirement shared by the settings UI and system_server hooks. */
+/** Firmware requirements for settings availability and initial defaults. */
 public final class BehaviorCompatibility {
     public static final String REQUIREMENT = "需要 AIbangOS V7.13.0 及更新版本";
     private static final Pattern VERSION = Pattern.compile(
@@ -24,12 +24,6 @@ public final class BehaviorCompatibility {
     public static boolean isForcedFreezeSupported() { return INSTALLER_AUTH_SUPPORTED; }
 
     public static boolean isPadMsWatchdogSupported() { return INSTALLER_AUTH_SUPPORTED; }
-
-    public static boolean isAllowed(String key) {
-        if (HookConfig.KEY_DISABLE_FORCED_FREEZE.equals(key)) return isForcedFreezeSupported();
-        if (HookConfig.KEY_DISABLE_PADMS_WATCHDOG.equals(key)) return isPadMsWatchdogSupported();
-        return !requiresVersion(key) || isSupported();
-    }
 
     public static boolean isSupported() { return SUPPORTED; }
 
