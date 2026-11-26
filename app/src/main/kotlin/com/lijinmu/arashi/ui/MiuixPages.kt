@@ -80,7 +80,2535 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment…34243 tokens truncated…00启时生效") {
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.platform.ComposeView
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import com.lijinmu.arashi.xposed.HookConfig
+import com.lijinmu.arashi.xposed.HookScopes
+import com.lijinmu.arashi.xposed.SettingsProvider
+import com.lijinmu.arashi.uninstall.UninstallHistoryStore
+import top.yukonga.miuix.kmp.basic.Card
+import top.yukonga.miuix.kmp.basic.Slider
+import top.yukonga.miuix.kmp.basic.BasicComponent
+import top.yukonga.miuix.kmp.basic.CardDefaults
+import top.yukonga.miuix.kmp.basic.DropdownDefaults
+import top.yukonga.miuix.kmp.basic.DropdownEntry
+import top.yukonga.miuix.kmp.basic.DropdownItem
+import top.yukonga.miuix.kmp.basic.ButtonDefaults
+import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.IconButton
+import top.yukonga.miuix.kmp.basic.SnackbarHost
+import top.yukonga.miuix.kmp.basic.SnackbarHostState
+import top.yukonga.miuix.kmp.basic.SnackbarDuration
+import top.yukonga.miuix.kmp.basic.Scaffold
+import top.yukonga.miuix.kmp.basic.PullToRefresh
+import top.yukonga.miuix.kmp.basic.SmallTopAppBar
+import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.basic.TextButton
+import top.yukonga.miuix.kmp.basic.LinearProgressIndicator
+import top.yukonga.miuix.kmp.basic.TextField
+import top.yukonga.miuix.kmp.basic.TopAppBar
+import top.yukonga.miuix.kmp.icon.MiuixIcons
+import top.yukonga.miuix.kmp.icon.basic.ArrowRight
+import top.yukonga.miuix.kmp.icon.extended.Back
+import top.yukonga.miuix.kmp.icon.extended.Link
+import top.yukonga.miuix.kmp.icon.extended.MoreCircle
+import top.yukonga.miuix.kmp.overlay.OverlayDialog
+import top.yukonga.miuix.kmp.preference.ArrowPreference
+import top.yukonga.miuix.kmp.preference.CheckboxLocation
+import top.yukonga.miuix.kmp.preference.CheckboxPreference
+import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
+import top.yukonga.miuix.kmp.basic.Switch
+import top.yukonga.miuix.kmp.preference.SwitchPreference
+import top.yukonga.miuix.kmp.popup.OverlayDropdownPopup
+import top.yukonga.miuix.kmp.theme.ColorSchemeMode
+import top.yukonga.miuix.kmp.theme.ThemeController
+import top.yukonga.miuix.kmp.theme.MiuixTheme
+import top.yukonga.miuix.kmp.theme.darkColorScheme
+import top.yukonga.miuix.kmp.theme.lightColorScheme
+import java.util.WeakHashMap
+import java.util.Date
+import java.util.Locale
+import java.text.SimpleDateFormat
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.job
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
+import com.lijinmu.arashi.uninstall.UninstallConfig
+
+object MiuixPages {
+    private data class Message(
+        val title: String,
+        val body: String,
+        val buttonLabel: String = "知道了",
+        val loading: Boolean = false,
+        val feedback: Boolean = false,
+        val id: Long = System.nanoTime(),
+    )
+    private val messages = WeakHashMap<Activity, MutableState<Message?>>()
+
+    @JvmStatic fun renderHome(a: Main) = render(a) { MainNavigationPage(a) }
+    @JvmStatic fun renderHookSettings(a: HookSettings) = render(a) { HookPage(a) }
+    @JvmStatic fun renderBackgroundWhitelist(a: BackgroundWhitelistActivity) =
+        render(a) { BackgroundWhitelistPage(a) }
+    @JvmStatic fun renderUninstallSettings(a: UninstallSettings) = render(a) { UninstallPage(a) }
+    @JvmStatic fun renderTcpHistory(a: TcpHistoryActivity) = render(a) { TcpHistoryPage(a) }
+    @JvmStatic fun renderUninstallHistory(a: UninstallHistoryActivity) = render(a) { UninstallHistoryPage(a) }
+    @JvmStatic fun renderUninstallList(a: UninstallListActivity, blacklist: Boolean) =
+        render(a) {
+            UninstallListPage(a, blacklist,
+                blockedTargets = a.intent.getBooleanExtra("blocked_targets", false),
+                unmanagedTargets = a.intent.getBooleanExtra("unmanaged_targets", false))
+        }
+    @JvmStatic fun renderUninstallPrompt(
+        a: UninstallPromptActivity,
+        target: String?,
+        uid: Int,
+        packages: Array<String>?,
+        deadline: Long,
+    ) = render(a) { UninstallPrompt(a, target, uid, packages, deadline) }
+    @JvmStatic fun renderZybosEnvController(a: com.lijinmu.arashi.tools.ZybosEnvController) = render(a) { ZybosEnvPage(a) }
+
+
+    @JvmStatic fun renderUnsupportedDevice(a: Main) = render(a) { UnsupportedDevicePage(a) }
+    @JvmStatic fun showMessage(a: Activity, title: String, body: String) {
+        com.lijinmu.arashi.logs.RuntimeLogger.record(
+            if (title.contains("失败") || title.contains("错误")) "WARN" else "INFO",
+            "Operation", (title + "\n" + body).trim(), null,
+        )
+        a.runOnUiThread { messageState(a).value = Message(title, body, feedback = true) }
+    }
+
+    @JvmStatic fun showDetails(a: Activity, title: String, body: String) {
+        a.runOnUiThread { messageState(a).value = Message(title, body) }
+    }
+
+    @JvmStatic fun showProgress(a: Activity, title: String, detail: String) {
+        a.runOnUiThread { messageState(a).value = Message(title, detail, loading = true) }
+    }
+
+    @JvmStatic fun showSignatureWarning(a: Activity) {
+        a.runOnUiThread {
+            messageState(a).value = Message(
+                "签名验证",
+                "当前应用与原作者签名不匹配，安装包可能被篡改！",
+                "哦",
+            )
+        }
+    }
+
+    private fun messageState(a: Activity): MutableState<Message?> = synchronized(messages) {
+        messages.getOrPut(a) { mutableStateOf(null) }
+    }
+
+    private fun render(a: Activity, page: @Composable () -> Unit) {
+        a.setContentView(ComposeView(a).apply {
+            if (a is Main) id = android.R.id.content
+            setContent {
+                val uiPrefs = remember(a) { a.getSharedPreferences("ui", Context.MODE_PRIVATE) }
+                var mode by remember(uiPrefs) { mutableIntStateOf(uiPrefs.getInt("mode", 0)) }
+                var colorScheme by remember(uiPrefs) {
+                    mutableIntStateOf(uiPrefs.getInt("color_scheme", 2))
+                }
+                DisposableEffect(uiPrefs) {
+                    val listener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { prefs, key ->
+                        when (key) {
+                            "mode" -> mode = prefs.getInt("mode", 0)
+                            "color_scheme" -> colorScheme = prefs.getInt("color_scheme", 2)
+                        }
+                    }
+                    uiPrefs.registerOnSharedPreferenceChangeListener(listener)
+                    onDispose { uiPrefs.unregisterOnSharedPreferenceChangeListener(listener) }
+                }
+                val usePurple = colorScheme != 1
+                val dark = when (mode) {
+                    1 -> false
+                    2 -> true
+                    else -> isSystemInDarkTheme()
+                }
+                val systemTheme = remember(dark) {
+                    ThemeController(if (dark) ColorSchemeMode.MonetDark else ColorSchemeMode.MonetLight)
+                }
+                val colors = if (colorScheme == 2) {
+                    val dynamic = systemTheme.currentColors()
+                    // Miuix maps these containers to Monet's accent2/accent3 palettes.
+                    // Arashi uses them as main-theme highlights, so keep their paired
+                    // backgrounds/text on accent1 in both light and dark appearances.
+                    dynamic.copy(
+                        secondaryContainer = dynamic.primaryContainer,
+                        onSecondaryContainer = dynamic.onPrimaryContainer,
+                        tertiaryContainer = dynamic.primaryContainer,
+                        onTertiaryContainer = dynamic.onPrimaryContainer,
+                        tertiaryContainerVariant = dynamic.onPrimaryContainer,
+                    )
+                } else if (!usePurple) {
+                    if (dark) darkColorScheme() else lightColorScheme()
+                } else if (dark) {
+                    darkColorScheme(
+                        primary = Color(0xFFB69CFF),
+                        primaryVariant = Color(0xFF9B7BFA),
+                        onPrimaryVariant = Color(0xFFE6DEFF),
+                        disabledPrimary = Color(0xFF493F66),
+                        disabledPrimaryButton = Color(0xFF493F66),
+                        disabledPrimarySlider = Color(0xFF5B5078),
+                        primaryContainer = Color(0xFF7655D9),
+                        tertiaryContainer = Color(0xFF382D57),
+                        onTertiaryContainer = Color(0xFFC8B6FF),
+                    )
+                } else {
+                    lightColorScheme(
+                        primary = Color(0xFF7655D9),
+                        primaryVariant = Color(0xFF6845CC),
+                        onPrimaryVariant = Color(0xFFE3D9FF),
+                        disabledPrimary = Color(0xFFD9CEF5),
+                        disabledPrimaryButton = Color(0xFFD9CEF5),
+                        disabledPrimarySlider = Color(0xFFC8BAEA),
+                        primaryContainer = Color(0xFF8768E7),
+                        tertiaryContainer = Color(0xFFF0EBFF),
+                        onTertiaryContainer = Color(0xFF6845CC),
+                    )
+                }
+
+                SideEffect {
+                    if (a is UninstallPromptActivity) {
+                        a.window.setBackgroundDrawable(ColorDrawable(android.graphics.Color.TRANSPARENT))
+                    } else {
+                        applySystemBars(a, dark, colors.background.toArgb())
+                    }
+                }
+                MiuixTheme(colors = colors) {
+                    if (a is UninstallPromptActivity) {
+                        page()
+                    } else {
+                        // Paint behind transparent system bars as well as the page.
+                        Box(Modifier.fillMaxSize().background(colors.background)) { page() }
+                    }
+                }
+            }
+        })
+    }
+
+    @Suppress("DEPRECATION")
+    private fun applySystemBars(a: Activity, dark: Boolean, background: Int) {
+        a.window.statusBarColor = android.graphics.Color.TRANSPARENT
+        a.window.navigationBarColor = android.graphics.Color.TRANSPARENT
+        // Draw the chosen background directly, without Android's contrast scrim.
+        a.window.isStatusBarContrastEnforced = false
+        a.window.isNavigationBarContrastEnforced = false
+        a.window.setBackgroundDrawable(ColorDrawable(background))
+        val lightAppearance = WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS or
+            WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS
+        a.window.insetsController?.setSystemBarsAppearance(
+            if (dark) 0 else lightAppearance,
+            lightAppearance,
+        )
+    }
+
+    @Composable
+    fun MessageDialog(a: Activity) {
+        val message = messageState(a)
+        val current = message.value
+        val feedbackHost = remember(current?.id) { SnackbarHostState() }
+        LaunchedEffect(current?.id) {
+            val result = current ?: return@LaunchedEffect
+            if (!result.feedback) return@LaunchedEffect
+            val body = result.body.trim()
+            val detailed = body.length > 80 || body.lines().size > 2
+            val preview = body.lineSequence().firstOrNull { it.isNotBlank() }.orEmpty()
+            val summary = if (detailed) {
+                (if (result.title.isBlank()) "" else result.title + if (preview.isEmpty()) "" else "：") +
+                    preview.take(70) + if (body.length > preview.take(70).length) "…" else ""
+            } else if (result.title.isBlank()) {
+                body
+            } else {
+                result.title + if (body.isEmpty() || body == result.title) "" else "\n" + body
+            }
+            val response = feedbackHost.showSnackbar(
+                message = summary,
+                actionLabel = if (detailed) "查看详情" else null,
+                withDismissAction = true,
+                duration = SnackbarDuration.Long,
+            )
+            if (message.value?.id == result.id) {
+                message.value = if (response == top.yukonga.miuix.kmp.basic.SnackbarResult.ActionPerformed)
+                    result.copy(feedback = false, id = System.nanoTime()) else null
+            }
+        }
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
+            SnackbarHost(feedbackHost)
+        }
+        // Visibility can change immediately, but the overlay still draws its
+        // content during the exit animation. Retain the last displayed message
+        // until replacement or composition disposal rather than blanking it.
+        var retained by remember(a) { mutableStateOf(current) }
+        SideEffect {
+            if (current != null) retained = current
+        }
+        val displayed = current ?: retained
+        OverlayDialog(
+            show = current != null && !current.feedback,
+            title = displayed?.title,
+            summary = displayed?.body,
+            onDismissRequest = { message.value = null },
+        ) {
+            if (displayed?.loading == true) {
+                Box(Modifier.fillMaxWidth().padding(bottom = 16.dp), contentAlignment = Alignment.Center) {
+                    LoadingIndicator(displayed.title)
+                }
+            }
+            TextButton(
+                displayed?.buttonLabel ?: "知道了",
+                { message.value = null },
+                Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.textButtonColorsPrimary(),
+            )
+        }
+    }
+}
+
+@Composable
+private fun Page(
+    activity: Activity,
+    title: String,
+    back: (() -> Unit)? = null,
+    actions: @Composable RowScope.() -> Unit = {},
+    snackbarHost: @Composable () -> Unit = {},
+    overlay: @Composable () -> Unit = {},
+    bottomBar: @Composable () -> Unit = {},
+    body: @Composable ColumnScope.() -> Unit,
+) {
+    val scrollBehavior = MiuixScrollBehavior()
+    Scaffold(
+        snackbarHost = snackbarHost,
+        bottomBar = bottomBar,
+        modifier = Modifier.fillMaxSize(),
+        topBar = {
+            TopAppBar(
+                title = title,
+                largeTitle = title,
+                scrollBehavior = scrollBehavior,
+                navigationIcon = {
+                    if (back != null) {
+                        IconButton(onClick = back) {
+                            Icon(MiuixIcons.Back, contentDescription = "返回")
+                        }
+                    }
+                },
+                actions = actions,
+            )
+        },
+    ) { innerPadding ->
+        Box(
+            Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+                .consumeWindowInsets(innerPadding),
+        ) {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize().nestedScroll(scrollBehavior.nestedScrollConnection),
+                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = LocalNavigationContentPadding.current),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                item { Column(verticalArrangement = Arrangement.spacedBy(16.dp), content = body) }
+            }
+            MiuixPages.MessageDialog(activity)
+            overlay()
+        }
+    }
+}
+
+@Composable
+private fun Group(title: String, body: @Composable ColumnScope.() -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(
+            title,
+            modifier = Modifier.padding(start = 12.dp),
+            color = MiuixTheme.colorScheme.primary,
+            style = MiuixTheme.textStyles.footnote1,
+        )
+        Card(Modifier.fillMaxWidth()) { Column(content = body) }
+    }
+}
+
+@Composable
+private fun InfoCard(text: String) {
+    Card(Modifier.fillMaxWidth(), insideMargin = PaddingValues(16.dp)) {
+        Text(text, color = MiuixTheme.colorScheme.onSurfaceVariantSummary)
+    }
+}
+
+@Composable
+private fun IntroCard(text: String) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        insideMargin = PaddingValues(16.dp),
+        colors = CardDefaults.defaultColors(
+            color = MiuixTheme.colorScheme.tertiaryContainer,
+            contentColor = MiuixTheme.colorScheme.onSurface,
+        ),
+    ) {
+        Text(text, color = MiuixTheme.colorScheme.onSurfaceVariantSummary)
+    }
+}
+
+@Composable
+private fun Link(
+    title: String,
+    summary: String? = null,
+    icon: androidx.compose.ui.graphics.vector.ImageVector? = null,
+    action: () -> Unit,
+) = ArrowPreference(
+    title = title,
+    summary = summary,
+    startAction = if (icon == null) null else {
+        {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = MiuixTheme.colorScheme.onSurface,
+                modifier = Modifier.padding(end = 16.dp).size(24.dp),
+            )
+        }
+    },
+    onClick = action,
+)
+
+private fun isLsposedActive(context: Context): Boolean {
+    return HookScopes.isSystemServerActive(context)
+}
+
+@Composable
+private fun rememberSystemServerActivation(a: androidx.activity.ComponentActivity): MutableState<Boolean> {
+    val active = remember(a) { mutableStateOf(isLsposedActive(a)) }
+    LaunchedEffect(a) {
+        while (true) {
+            if (a.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) {
+                active.value = withContext(Dispatchers.IO) { HookScopes.read(a).systemActive }
+            }
+            delay(1000)
+        }
+    }
+    return active
+}
+
+private const val DEVICE_CONTROL_DESCRIPTION = "控制系统管控和云控组件"
+
+// Enum names form a stable, Bundle-saveable route format without reflection/serialization.
+internal enum class ArashiRoute : NavKey {
+    Main, HookSettings, BackgroundWhitelist, TcpHistory, UninstallSettings,
+    UninstallWhitelist, UninstallBlacklist, UninstallBlockedTargets, UninstallUnmanagedTargets, UninstallHistory, Notifications, About, Logs, ZybosEnv, DeviceControl, SettingsEditor, WorkModeSettings, FreezeModeSettings,
+}
+
+private val ArashiBackStackSaver = Saver<NavBackStack, ArrayList<String>>(
+    save = { stack -> ArrayList(stack.map { (it as ArashiRoute).name }) },
+    restore = { names ->
+        val routes = names.mapNotNull { name -> ArashiRoute.entries.find { it.name == name } }
+        navBackStackOf(*routes.ifEmpty { listOf(ArashiRoute.Main) }.toTypedArray())
+    },
+)
+
+@Composable
+private fun MainNavigationPage(a: Main) {
+    val stack = rememberSaveable(saver = ArashiBackStackSaver) { navBackStackOf(ArashiRoute.Main) }
+    val back: () -> Unit = { if (stack.size > 1) stack.removeAt(stack.lastIndex) }
+    val open: (ArashiRoute) -> Unit = { route ->
+        // The library requires unique entry identities, including during rapid repeated taps.
+        if (route !in stack) stack.add(route)
+    }
+    val direction = if (LocalLayoutDirection.current == LayoutDirection.Rtl)
+        NavSwipeDirection.RightToLeft else NavSwipeDirection.LeftToRight
+    NavDisplay(
+        backStack = stack,
+        modifier = Modifier.fillMaxSize(),
+        onBack = back,
+        effects = NavDisplayEffects(
+            cornerClipRadius = rememberNavSystemCornerRadius(),
+            backdropColor = MiuixTheme.colorScheme.background,
+        ),
+    ) {
+        entry<ArashiRoute>(swipeDismiss = direction) { destination ->
+            when (destination) {
+                ArashiRoute.HookSettings -> HookPage(a, back,
+                    { open(ArashiRoute.TcpHistory) }, { open(ArashiRoute.BackgroundWhitelist) })
+                ArashiRoute.BackgroundWhitelist -> BackgroundWhitelistPage(a, back)
+                ArashiRoute.TcpHistory -> TcpHistoryPage(a, back)
+                ArashiRoute.UninstallSettings -> UninstallPage(a, back,
+                    { open(ArashiRoute.UninstallWhitelist) }, { open(ArashiRoute.UninstallBlacklist) },
+                    { open(ArashiRoute.UninstallHistory) }, { open(ArashiRoute.UninstallBlockedTargets) },
+                    { open(ArashiRoute.UninstallUnmanagedTargets) })
+                ArashiRoute.UninstallWhitelist -> UninstallListPage(a, false, back)
+                ArashiRoute.UninstallBlacklist -> UninstallListPage(a, true, back)
+                ArashiRoute.UninstallBlockedTargets -> UninstallListPage(a, true, back, blockedTargets = true)
+                ArashiRoute.UninstallUnmanagedTargets -> UninstallListPage(a, false, back, unmanagedTargets = true)
+                ArashiRoute.UninstallHistory -> UninstallHistoryPage(a, back)
+                ArashiRoute.DeviceControl -> DeviceControlPage(a, back)
+                ArashiRoute.SettingsEditor -> SettingsEditorPage(a, back) { open(ArashiRoute.ZybosEnv) }
+                ArashiRoute.ZybosEnv -> ZybosEnvPage(a, back)
+                ArashiRoute.WorkModeSettings -> WorkModePage(a, back)
+                ArashiRoute.FreezeModeSettings -> FreezeModePage(a, back)
+                ArashiRoute.Notifications -> NotificationSettingsPage(a, back)
+                ArashiRoute.About -> AboutPage(a, back)
+                ArashiRoute.Logs -> RuntimeLogPage(a, back)
+                ArashiRoute.Main -> ArashiNavigation(a) { page ->
+                    if (page == 0) HomePage(a, bottomBar = {},
+                        onHookSettings = { open(ArashiRoute.HookSettings) },
+                        onDeviceControl = { open(ArashiRoute.DeviceControl) },
+                        onSettingsEditor = { open(ArashiRoute.SettingsEditor) },
+                        onUninstallSettings = { open(ArashiRoute.UninstallSettings) })
+                    else if (page == 1) JailbreakPage(a)
+                    else SettingsPage(a,
+                        onWorkMode = { open(ArashiRoute.WorkModeSettings) },
+                        onFreezeMode = { open(ArashiRoute.FreezeModeSettings) },
+                        onNotifications = { open(ArashiRoute.Notifications) },
+                        onAbout = { open(ArashiRoute.About) },
+                        onLogs = { open(ArashiRoute.Logs) })
+                }
+            }
+        }
+    }
+}
+
+
+/** Guided UI only: no privileged native code is loaded or executed here. */
+@Composable
+private fun JailbreakPage(a: Main) = Page(a, "越狱") {
+    var stage by rememberSaveable { mutableIntStateOf(0) }
+    var disableModules by rememberSaveable { mutableStateOf(false) }
+    var softReboot by rememberSaveable { mutableStateOf(false) }
+    val operation by JailbreakController.state.collectAsState()
+    LaunchedEffect(operation) {
+        stage = when {
+            operation.running -> 4
+            operation.finished && operation.success -> 5
+            operation.finished -> 6
+            stage == 4 -> 6 // The process died before it could report a result.
+            else -> stage
+        }
+    }
+    var deviceModel by remember { mutableStateOf("") }
+    var androidVersion by remember { mutableStateOf("") }
+    var kernelVersion by remember { mutableStateOf("") }
+    var problem by remember { mutableStateOf("") }
+    var managerInstalled by remember { mutableStateOf(false) }
+    var checking by remember { mutableStateOf(false) }
+    var rootWarning by rememberSaveable { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    val error = stage == 1 || stage == 6 || stage == 7 || stage == 8 || stage == 9
+    val cardColor by animateColorAsState(
+        targetValue = if (error) Color(0xFFB3261E).copy(alpha = 0.20f)
+            else MiuixTheme.colorScheme.tertiaryContainer,
+        animationSpec = tween(durationMillis = 320),
+        label = "jailbreakCardColor",
+    )
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        insideMargin = PaddingValues(20.dp),
+        colors = CardDefaults.defaultColors(color = cardColor, contentColor = MiuixTheme.colorScheme.onSurface),
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            AnimatedContent(
+                targetState = stage,
+                transitionSpec = {
+                    (fadeIn(tween(150)) +
+                        slideInHorizontally(tween(190, easing = FastOutSlowInEasing)) { it / 9 })
+                        .togetherWith(
+                            fadeOut(tween(110)) +
+                                slideOutHorizontally(tween(160)) { -it / 9 }
+                        ).using(
+                            // One size animation owns the card height; avoid the default spring
+                            // and an outer animateContentSize chasing its intermediate sizes.
+                            SizeTransform(clip = false) { _, _ ->
+                                tween(durationMillis = 190, easing = FastOutSlowInEasing)
+                            },
+                        )
+                },
+                label = "jailbreakStage",
+            ) { visibleStage ->
+                Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    val statusTitle = when (visibleStage) {
+                        1 -> "无法继续"
+                        2 -> "请核对信息"
+                        3 -> "准备提权"
+                        4 -> "正在提权"
+                        5 -> "越狱成功"
+                        6 -> "提权失败"
+                        7 -> "安装 KernelSU"
+                        8 -> "已获得超级用户权限"
+                        9 -> "无需提权"
+                        else -> "准备越狱"
+                    }
+                    val statusIcon = when (visibleStage) {
+                        1, 6, 8, 9 -> Icons.Rounded.ErrorOutline
+                        2 -> Icons.Rounded.FactCheck
+                        4 -> Icons.Rounded.HourglassTop
+                        5 -> Icons.Rounded.CheckCircle
+                        7 -> Icons.Rounded.Download
+                        else -> Icons.Rounded.Shield
+                    }
+                    val statusColor = if (visibleStage == 1 || visibleStage == 6 || visibleStage == 7 || visibleStage == 8 || visibleStage == 9)
+                        Color(0xFFB3261E) else MiuixTheme.colorScheme.primary
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Box(
+                            modifier = Modifier.size(44.dp)
+                                .background(statusColor.copy(alpha = 0.12f),
+                                    androidx.compose.foundation.shape.CircleShape),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Icon(statusIcon, contentDescription = null,
+                                modifier = Modifier.size(26.dp), tint = statusColor)
+                        }
+                        Text(statusTitle, style = MiuixTheme.textStyles.title3,
+                            fontWeight = FontWeight.Bold,
+                            color = MiuixTheme.colorScheme.onSurface)
+                    }
+                    val summary = when (visibleStage) {
+                        1 -> problem
+                        2 -> "确认设备信息后继续"
+                        3 -> "Arashi 即将开始提权操作。"
+                        4 -> "正在处理，请稍候…"
+                        5 -> "提权完毕，请前往 KernelSU 继续。"
+                        6 -> "提权未完成，可查看详情了解原因。"
+                        7 -> "未安装 KernelSU（me.weishu.kernelsu），请先安装。"
+                        8 -> "Arashi 已获得超级用户权限，不建议继续提权"
+                        9 -> "Arashi 已获得 KernelSU 的超级用户权限，无需提权"
+                        else -> "在不修改系统的情况下使用 KernelSU 的越狱模式。Arashi 将会执行提权操作，以此越狱获得超级用户权限。"
+                    }
+                    Text(summary, color = MiuixTheme.colorScheme.onSurfaceVariantSummary)
+                    if (visibleStage == 2) {
+                        Column(
+                            modifier = Modifier.fillMaxWidth()
+                                .clip(androidx.compose.foundation.shape.RoundedCornerShape(16.dp))
+                                .background(MiuixTheme.colorScheme.surface.copy(alpha = 0.5f))
+                                .padding(horizontal = 16.dp),
+                        ) {
+                            val deviceInfo = listOf(
+                                "产品型号" to deviceModel,
+                                "Android 版本" to androidVersion,
+                                "内核版本" to kernelVersion,
+                            )
+                            deviceInfo.forEachIndexed { index, (label, value) ->
+                                if (index > 0) {
+                                    Box(Modifier.fillMaxWidth().height(1.dp)
+                                        .background(MiuixTheme.colorScheme.onSurface.copy(alpha = 0.08f)))
+                                }
+                                Row(
+                                    modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                                    verticalAlignment = Alignment.Top,
+                                ) {
+                                    Text(label, modifier = Modifier.width(116.dp),
+                                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary)
+                                    Text(value, modifier = Modifier.weight(1f),
+                                        color = MiuixTheme.colorScheme.onSurface,
+                                        textAlign = androidx.compose.ui.text.style.TextAlign.End)
+                                }
+                            }
+                        }
+                    }
+                    if (visibleStage == 4) {
+                        LinearProgressIndicator(
+                            modifier = Modifier.fillMaxWidth(),
+                            progress = null,
+                        )
+                    }
+                }
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.End),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                if (stage == 2 || stage == 3) {
+                    TextButton(
+                        "上一步",
+                        { stage = if (stage == 3) 2 else if (rootWarning) 8 else 0 },
+                        colors = ButtonDefaults.textButtonColors(
+                            color = MiuixTheme.colorScheme.onSurface.copy(alpha = 0.06f),
+                            textColor = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                        ),
+                    )
+                    Spacer(Modifier.weight(1f))
+                }
+                when (stage) {
+                    0 -> TextButton("继续", {
+                        if (checking) return@TextButton
+                        checking = true
+                        scope.launch {
+                            val result = withContext(Dispatchers.IO) {
+                                val kernel = System.getProperty("os.version")
+                                    ?: android.system.Os.uname().release
+                                val model = Build.MODEL ?: ""
+                                val androidRelease = Build.VERSION.RELEASE ?: ""
+                                val supported = kernel.startsWith("5.10.") && android.os.Process.is64Bit()
+                                    && android.os.Process.myUid() / 100000 == 0
+                                val installed = try {
+                                    a.packageManager.getPackageInfo("me.weishu.kernelsu", 0)
+                                    true
+                                } catch (_: android.content.pm.PackageManager.NameNotFoundException) {
+                                    false
+                                }
+                                val rootAccess = com.lijinmu.arashi.jailbreak.RootAccessProbe.detect()
+                                arrayOf(kernel, model, androidRelease, supported.toString(),
+                                    installed.toString(), rootAccess.name)
+                            }
+                            kernelVersion = result[0]
+                            deviceModel = result[1]
+                            androidVersion = result[2]
+                            managerInstalled = result[4].toBoolean()
+                            rootWarning = result[5] == "OTHER"
+                            problem = when {
+                                deviceModel.isBlank() || kernelVersion.isBlank() -> "读取设备信息失败。"
+                                result[3] != "true" -> "内核版本不支持，在该设备上无法使用越狱模式。"
+                                else -> ""
+                            }
+                            checking = false
+                            stage = when {
+                                result[5] == "KERNELSU" -> 9
+                                problem.isNotBlank() -> 1
+                                rootWarning -> 8
+                                !managerInstalled -> 7
+                                else -> 2
+                            }
+                        }
+                    }, colors = ButtonDefaults.textButtonColorsPrimary())
+                    1, 9 -> TextButton("返回", { stage = 0 },
+                        colors = ButtonDefaults.textButtonColors(
+                            color = Color(0xFFB3261E),
+                            textColor = Color.White,
+                        ),
+                    )
+                    2 -> TextButton("继续", { stage = 3 }, colors = ButtonDefaults.textButtonColorsPrimary())
+                    3 -> TextButton("继续", {
+                        stage = 4
+                        JailbreakController.start(
+                            a,
+                            disableModules = disableModules,
+                            softReboot = softReboot,
+                        )
+                    }, colors = ButtonDefaults.textButtonColorsPrimary())
+                    5 -> TextButton("打开 KernelSU", {
+                        a.packageManager.getLaunchIntentForPackage("me.weishu.kernelsu")?.let(a::startActivity)
+                    }, colors = ButtonDefaults.textButtonColorsPrimary(
+                        textColor = Color.White,
+                    ))
+                    6 -> {
+                        TextButton("查看详情", {
+                            MiuixPages.showDetails(a, "提权详情",
+                                operation.detail.ifBlank { "提权进程已中断，请重启设备后重试" })
+                        }, colors = ButtonDefaults.textButtonColors(
+                            color = Color.Transparent,
+                            textColor = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                        ))
+                        TextButton("返回", { stage = 0 },
+                            colors = ButtonDefaults.textButtonColors(
+                                color = Color(0xFFB3261E),
+                                textColor = Color.White,
+                            ),
+                        )
+                    }
+                    8 -> {
+                        TextButton("返回", { stage = 0 },
+                            colors = ButtonDefaults.textButtonColors(
+                                color = MiuixTheme.colorScheme.onSurface.copy(alpha = 0.06f),
+                                textColor = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                            ),
+                        )
+                        TextButton("继续", { stage = if (managerInstalled) 2 else 7 },
+                            colors = ButtonDefaults.textButtonColors(
+                                color = Color(0xFFB3261E),
+                                textColor = Color.White,
+                            ),
+                        )
+                    }
+                    7 -> {
+                        TextButton("返回", { stage = 0 },
+                            colors = ButtonDefaults.textButtonColors(
+                                color = MiuixTheme.colorScheme.onSurface.copy(alpha = 0.06f),
+                                textColor = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                            ),
+                        )
+                        TextButton("安装", {
+                            a.startActivity(Intent(Intent.ACTION_VIEW,
+                                android.net.Uri.parse("https://github.com/tiann/KernelSU/releases")))
+                        }, colors = ButtonDefaults.textButtonColors(
+                            color = Color(0xFFB3261E),
+                            textColor = Color.White,
+                        ))
+                    }
+                }
+            }
+        }
+    }
+    AnimatedVisibility(
+        visible = stage == 2 && !rootWarning,
+        enter = expandVertically(
+            animationSpec = tween(190, easing = FastOutSlowInEasing),
+            expandFrom = Alignment.Top,
+        ) + fadeIn(tween(150)),
+        exit = shrinkVertically(
+            animationSpec = tween(190, easing = FastOutSlowInEasing),
+            shrinkTowards = Alignment.Top,
+        ) + fadeOut(tween(110)),
+        label = "jailbreakRootNotice",
+    ) {
+        InfoCard("如果设备已获得 Root 权限，不建议重复提权，以免提权失败或出现系统异常。")
+    }
+    AnimatedVisibility(
+        visible = stage == 3,
+        enter = expandVertically(
+            animationSpec = tween(190, easing = FastOutSlowInEasing),
+            expandFrom = Alignment.Top,
+        ) + fadeIn(tween(150)),
+        exit = shrinkVertically(
+            animationSpec = tween(190, easing = FastOutSlowInEasing),
+            shrinkTowards = Alignment.Top,
+        ) + fadeOut(tween(110)),
+        label = "jailbreakMoreOptions",
+    ) {
+        Group("更多选项") {
+            CheckboxPreference(
+                checked = disableModules,
+                onCheckedChange = { disableModules = it },
+                title = "禁用所有模块",
+                summary = "在 KernelSU 接管前禁用所有已安装模块",
+                checkboxLocation = CheckboxLocation.End,
+            )
+            CheckboxPreference(
+                checked = softReboot,
+                onCheckedChange = { softReboot = it },
+                title = "越狱后软重启",
+                summary = "越狱成功后重启系统进程而不重启内核",
+                checkboxLocation = CheckboxLocation.End,
+            )
+        }
+    }
+}
+
+@Composable
+private fun HomePage(
+    a: Main,
+    bottomBar: @Composable () -> Unit,
+    onHookSettings: () -> Unit,
+    onDeviceControl: () -> Unit,
+    onSettingsEditor: () -> Unit,
+    onUninstallSettings: () -> Unit,
+) =
+    Page(a, "Arashi for Zybos", bottomBar = bottomBar) {
+    val moduleActive by rememberSystemServerActivation(a)
+    val statusColor = if (moduleActive) MiuixTheme.colorScheme.primary else Color.White
+    val statusBackground = if (moduleActive) MiuixTheme.colorScheme.tertiaryContainer
+        else Color(0xFFD32F2F)
+    val versionColor = if (moduleActive) MiuixTheme.colorScheme.onSurfaceVariantSummary
+        else Color.White.copy(alpha = 0.85f)
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        insideMargin = PaddingValues(0.dp),
+        colors = CardDefaults.defaultColors(
+            color = statusBackground,
+            contentColor = if (moduleActive) MiuixTheme.colorScheme.onSurface else Color.White,
+        ),
+    ) {
+        Box(Modifier.fillMaxWidth().clipToBounds()) {
+            // Decorative status watermark: it does not duplicate accessibility text.
+            Canvas(Modifier.matchParentSize()) {
+                val extent = minOf(size.height * 1.25f, 190.dp.toPx())
+                val left = size.width - extent * 0.92f
+                val top = (size.height - extent) / 2f
+                val watermark = statusColor.copy(alpha = 0.13f)
+                if (moduleActive) {
+                    val center = Offset(left + extent * 0.54f, top + extent * 0.5f)
+                    drawCircle(watermark, radius = extent * 0.34f, center = center,
+                        style = Stroke(width = extent * 0.07f))
+                    val check = Path().apply {
+                        moveTo(center.x - extent * 0.17f, center.y)
+                        lineTo(center.x - extent * 0.04f, center.y + extent * 0.13f)
+                        lineTo(center.x + extent * 0.18f, center.y - extent * 0.13f)
+                    }
+                    drawPath(check, watermark, style = Stroke(
+                        width = extent * 0.07f,
+                        cap = StrokeCap.Round,
+                        join = StrokeJoin.Round,
+                    ))
+                } else {
+                    val center = Offset(left + extent * 0.54f, top + extent * 0.5f)
+                    drawCircle(watermark, radius = extent * 0.34f, center = center,
+                        style = Stroke(width = extent * 0.10f))
+                    drawLine(watermark,
+                        Offset(center.x, center.y - extent * 0.13f),
+                        Offset(center.x, center.y + extent * 0.03f),
+                        strokeWidth = extent * 0.07f, cap = StrokeCap.Round)
+                    drawCircle(watermark, radius = extent * 0.04f,
+                        center = Offset(center.x, center.y + extent * 0.16f))
+                }
+            }
+            Column(
+                Modifier.fillMaxWidth().padding(horizontal = 22.dp, vertical = 24.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Text("LSPosed", color = statusColor, style = MiuixTheme.textStyles.body1)
+                Text(
+                    if (moduleActive) "已激活" else "未激活",
+                    color = statusColor,
+                    style = MiuixTheme.textStyles.title1.copy(fontWeight = FontWeight.SemiBold),
+                )
+                Text(
+                    "版本 ${BuildConfig.VERSION_NAME}",
+                    color = versionColor,
+                    style = MiuixTheme.textStyles.footnote1,
+                )
+            }
+        }
+    }
+    Group("功能") {
+        Link("Hook 设置", "控制 Hook 是否启用", Icons.Rounded.Extension) { onHookSettings() }
+        Link("管控和云控", DEVICE_CONTROL_DESCRIPTION, Icons.Rounded.Block) { onDeviceControl() }
+        Link("设置编辑器", SETTINGS_EDITOR_DESCRIPTION, Icons.Rounded.Tune) { onSettingsEditor() }
+        Link("包管理服务", "管理冻结、隐藏、卸载、暂停和清空应用数据", Icons.Rounded.Apps) { onUninstallSettings() }
+    }
+}
+
+@Composable
+private fun UnsupportedDevicePage(a: Main) = Page(a, "Arashi") {
+    OverlayDialog(
+        show = true,
+        summary = "当前系统不支持 Arashi",
+        onDismissRequest = a::exitUnsupportedDevice,
+    ) {
+        TextButton(
+            "确定",
+            a::exitUnsupportedDevice,
+            Modifier.fillMaxWidth(),
+            colors = ButtonDefaults.textButtonColorsPrimary(),
+        )
+    }
+}
+
+private data class HookItem(val title: String, val summary: String, val key: String)
+
+@Composable
+private fun HookPage(
+    a: ComponentActivity,
+    back: () -> Unit = a::finish,
+    onTcpHistory: () -> Unit = { a.startActivity(Intent(a, TcpHistoryActivity::class.java)) },
+    onBackgroundWhitelist: () -> Unit = { a.startActivity(Intent(a, BackgroundWhitelistActivity::class.java)) },
+) {
+    LaunchedEffect(a) {
+        if (a.getSharedPreferences(HookConfig.PREF_NAME, Context.MODE_PRIVATE)
+                .getBoolean(HookConfig.KEY_BLOCK_TCP_LOGIN_FAIL, false) &&
+            com.lijinmu.arashi.notifications.NotificationPreferences.enabled(a,
+                com.lijinmu.arashi.notifications.NotificationPreferences.TCP)) {
+            com.lijinmu.arashi.notifications.AppNotifications.requestPermissionIfNeeded(a)
+        }
+    }
+    var query by rememberSaveable { mutableStateOf("") }
+    var actionsExpanded by remember { mutableStateOf(false) }
+    var stoppingScopes by remember { mutableStateOf(false) }
+    val coroutineScope = rememberCoroutineScope()
+    val snackbar = remember { SnackbarHostState() }
+
+    Page(a, "Hook 设置", back,
+        snackbarHost = { SnackbarHost(snackbar) },
+        actions = {
+        Box {
+            IconButton(
+                onClick = { actionsExpanded = !actionsExpanded },
+                modifier = Modifier.semantics { contentDescription = "更多操作" },
+            ) {
+                Icon(
+                    imageVector = MiuixIcons.MoreCircle,
+                    contentDescription = "更多操作",
+                    tint = MiuixTheme.colorScheme.onSurface,
+                )
+            }
+            OverlayDropdownPopup(
+                entry = DropdownEntry(listOf(
+                    DropdownItem(
+                        text = "杀死后台进程",
+                        selected = false,
+                        onClick = {
+                            actionsExpanded = false
+                            if (!stoppingScopes) {
+                                stoppingScopes = true
+                                coroutineScope.launch {
+                                    try {
+                                        withContext(Dispatchers.IO) { ScopedAppStopper.stop(a) }
+                                    } finally {
+                                        stoppingScopes = false
+                                    }
+                                }
+                            }
+                        },
+                    ),
+                )),
+                show = actionsExpanded,
+                onDismiss = { actionsExpanded = false },
+                onDismissFinished = {},
+                maxHeight = null,
+                dropdownColors = DropdownDefaults.dropdownColors(),
+                renderInRootScaffold = true,
+            )
+        }
+    }) {
+    IntroCard("首次使用请启用模块并勾选推荐作用域并重启系统。修改应用作用域后需重启对应应用，部分需要重启系统")
+    AppSearchBar(
+        query = query,
+        onQueryChange = { query = it },
+        label = "搜索…",
+    )
+    val prefs = a.getSharedPreferences(HookConfig.PREF_NAME, Context.MODE_PRIVATE)
+    val installerAuthSupported = remember { com.lijinmu.arashi.xposed.BehaviorCompatibility.isInstallerAuthSupported() }
+    LaunchedEffect(prefs, installerAuthSupported) {
+        if (!installerAuthSupported) prefs.edit().putBoolean(HookConfig.KEY_DISABLE_INSTALLER_AUTH, false).apply()
+    }
+    val padMsWatchdogSupported = remember { com.lijinmu.arashi.xposed.BehaviorCompatibility.isPadMsWatchdogSupported() }
+    LaunchedEffect(prefs, padMsWatchdogSupported) {
+        if (!padMsWatchdogSupported) prefs.edit().putBoolean(HookConfig.KEY_DISABLE_PADMS_WATCHDOG, false).apply()
+    }
+    val behaviorSupported = remember { com.lijinmu.arashi.xposed.BehaviorCompatibility.isSupported() }
+    LaunchedEffect(prefs, behaviorSupported) {
+        if (!behaviorSupported) {
+            prefs.edit()
+                .putBoolean(HookConfig.KEY_ALLOW_WIRELESS_DEBUGGING, false)
+                .putBoolean(HookConfig.KEY_BLOCK_APP_UNINSTALL, false)
+                .apply()
+        }
+    }
+
+    var backgroundSelected by remember {
+        mutableStateOf(prefs.getStringSet(HookConfig.KEY_KEEP_BACKGROUND_WHITELIST, emptySet()).orEmpty().toSet())
+    }
+    DisposableEffect(prefs) {
+        val listener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+            if (key == HookConfig.KEY_KEEP_BACKGROUND_WHITELIST) {
+                backgroundSelected = prefs.getStringSet(key, emptySet()).orEmpty().toSet()
+            }
+        }
+        prefs.registerOnSharedPreferenceChangeListener(listener)
+        onDispose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
+    }
+    var scopes by remember {
+        mutableStateOf(HookScopes.Snapshot(isLsposedActive(a), false, emptySet<String>()))
+    }
+    LaunchedEffect(a) {
+        while (true) {
+            if (a.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) {
+                scopes = withContext(Dispatchers.IO) { HookScopes.read(a) }
+            }
+            delay(1000)
+        }
+    }
+    val developerMenuTitle = "注入开发者选项入口"
+    val developerMenuSummary = "在系统设置的左侧菜单中添加 “开发者选项” 入口"
+    val tcpHistoryTitle = "TCP 拦截记录"
+    val tcpHistorySummary = "查看触发时间、错误码、响应状态和调用详情"
+    val backgroundListTitle = "后台保留白名单"
+    val backgroundListSummary = if (backgroundSelected.isEmpty()) "目前划卡后保留所有应用后台进程"
+        else "目前划卡后只保留已选择的 ${backgroundSelected.size} 个应用"
+    val groups = listOf(
+        "安装" to listOf(
+            HookItem("允许外部应用安装", "绕过 PackageInstaller 安装限制，允许安装外部应用", HookConfig.KEY_EXTERNAL_INSTALL),
+            HookItem("允许 Shell 安装", "绕过系统的 Shell 安装限制，允许 adb 和 pm install 安装应用", HookConfig.KEY_SHELL_INSTALL),
+            HookItem("解除安装黑名单限制", "允许安装和平精英等在内被硬编码 mZybBlacklistApp 中的包名", HookConfig.KEY_CLEAR_BLACKLIST),
+        ),
+        "限制" to listOf(
+            HookItem("允许打开开发者选项", "绕过系统设置检查，允许打开开发者选项的 Activity", HookConfig.KEY_DEV_OPTIONS),
+            HookItem("禁用 PadMs 看门狗", "阻止系统监视和重新拉起 PadMs，修改后需重启系统", HookConfig.KEY_DISABLE_PADMS_WATCHDOG),
+            HookItem("禁用安装器授权验证", "允许未经授权的软件包安装应用", HookConfig.KEY_DISABLE_INSTALLER_AUTH),
+            HookItem("允许使用无线调试", "解除系统对无线调试的强制禁用，保留手动开关", HookConfig.KEY_ALLOW_WIRELESS_DEBUGGING),
+            HookItem("阻止卸载应用", "清空系统自动清理应用的硬编码黑名单并阻止清理卸载执行", HookConfig.KEY_BLOCK_APP_UNINSTALL),
+            HookItem("允许 USB 文件传输", "允许挂载外部 USB 设备和使用数据传输", HookConfig.KEY_ALLOW_USB),
+            HookItem("允许任意应用设置壁纸", "允许任意应用设置壁纸，并移除新版桌面覆盖系统壁纸的静态背景。需要系统框架和桌面作用域", HookConfig.KEY_ALLOW_WALLPAPER),
+            HookItem("允许 WiFi 网页登录", "允许连接到认证型 WiFi 并正常跳转到 “登录到网络” 登录验证网页", HookConfig.KEY_CAPTIVE_PORTAL),
+            HookItem("解除应用详情页限制", "允许打开 WebView、report服务 和 PadMs 的应用设置详情页", HookConfig.KEY_CLEAR_DETAIL_BLACK),
+            HookItem("阻止禁用系统导航与下拉面板", "拦截返回、主页、最近任务及下拉面板的禁用限制。需要系统框架、系统界面和桌面的作用域", HookConfig.KEY_KEEP_NAVIGATION),
+            HookItem("屏蔽锁机广播", "拦截 ZpTcpService 发出的所有 login.fail 广播，以此防止云控锁机", HookConfig.KEY_BLOCK_TCP_LOGIN_FAIL),
+        ),
+        "行为" to listOf(
+            HookItem("保留后台进程", "拦截系统在划卡后杀死应用后台进程", HookConfig.KEY_KEEP_BACKGROUND),
+            HookItem("始终使用传统电源菜单", "将长按电源键与下拉面板的电源菜单改为系统传统对话框。需要系统框架和系统界面作用域", HookConfig.KEY_LEGACY_POWER_MENU),
+            HookItem("原版应用详情页设置", "恢复完整的 AOSP 原版应用信息页及应用通知设置，沿用系统控制器", HookConfig.KEY_AOSP_APP_DETAILS),
+            HookItem("恢复录屏声音", "修复 SystemUI 录屏菜单的设备声音、麦克风及混合音源选择选项", HookConfig.KEY_RECORD_INTERNAL_AUDIO),
+            HookItem("恢复通知快捷回复", "修复 SystemUI 通知回复框出现后立即关闭的问题", HookConfig.KEY_NOTIFICATION_REPLY),
+            HookItem("阻止重设默认浏览器", "拦截 SystemUI 开机时将 “学习网站” 设为默认浏览器", HookConfig.KEY_BLOCK_DEFAULT_BROWSER),
+            HookItem("恢复通知长按操作", "允许使用通知卡片的长按菜单", HookConfig.KEY_NOTIFICATION_LONG_PRESS),
+            HookItem("解除开机动画等待", "系统准备好显示桌面后立即结束开机动画，取消对原桌面的等待。适用于 Android 14", HookConfig.KEY_BOOT_ANIMATION_NO_WAIT),
+            HookItem("恢复 Monet 颜色", "修复基于壁纸的动态配色", HookConfig.KEY_SYSTEMUI_MONET),
+        ),
+        "美化" to listOf(
+            HookItem("原版状态栏图标", "将电池、WLAN、蓝牙图标恢复为 AOSP 原版样式", HookConfig.KEY_AOSP_STATUS_ICONS),
+            HookItem("解除通知图标数量限制", "取消普通状态栏通知图标的固定数量上限，按可用宽度显示", HookConfig.KEY_UNLIMITED_NOTIFICATION_ICONS),
+            HookItem("桌面图标圆角", "桌面应用图标与文件夹的改成 iOS 样式的圆角，文件夹使用半透明底色", HookConfig.KEY_IOS_ICONS),
+            HookItem("系统应用图标遮罩", "全局修改系统自适应图标形状为 iOS 连续圆角，只需勾选系统框架。需要 Android 14 或更新版本", HookConfig.KEY_IOS_SYSTEM_ICON_MASK),
+            HookItem("状态栏显示日期", "仿 iPadOS 在状态栏左侧时间后显示月日与星期，如 16:40  10月17日周六", HookConfig.KEY_STATUS_BAR_DATE),
+        ),
+    )
+    val searchQuery = query.trim()
+    val visibleGroups = groups.mapNotNull { (name, entries) ->
+        val matching = entries.filter { entry ->
+            val relatedText = when (entry.key) {
+                HookConfig.KEY_DEV_OPTIONS -> developerMenuTitle + " " + developerMenuSummary
+                HookConfig.KEY_KEEP_BACKGROUND -> backgroundListTitle + " " + backgroundListSummary
+                HookConfig.KEY_BLOCK_TCP_LOGIN_FAIL -> tcpHistoryTitle + " " + tcpHistorySummary
+                else -> ""
+            }
+            searchQuery.isEmpty() || entry.title.contains(searchQuery, ignoreCase = true) ||
+                entry.summary.contains(searchQuery, ignoreCase = true) ||
+                relatedText.contains(searchQuery, ignoreCase = true)
+        }
+        if (matching.isEmpty()) null else name to matching
+    }
+    if (visibleGroups.isEmpty()) {
+        InfoCard("没有匹配的 Hook 功能")
+    }
+    visibleGroups.forEach { (name, entries) ->
+        key(name) {
+            Group(name) {
+                entries.forEach { entry ->
+                    key(entry.key) {
+                        val available = scopes.isAvailable(entry.key)
+                        var checked by remember(entry.key) {
+                            mutableStateOf(
+                                if (entry.key == HookConfig.KEY_AOSP_STATUS_ICONS)
+                                    HookConfig.statusBarIconsEnabled(prefs.all)
+                                else prefs.getBoolean(entry.key, HookConfig.defaultEnabled(entry.key)),
+                            )
+                        }
+                        DisposableEffect(prefs, entry.key) {
+                            val listener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+                                if (key == entry.key) {
+                                    a.runOnUiThread {
+                                        checked = prefs.getBoolean(entry.key, HookConfig.defaultEnabled(entry.key))
+                                    }
+                                }
+                            }
+                            prefs.registerOnSharedPreferenceChangeListener(listener)
+                            onDispose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
+                        }
+                        fun saveHook(enabled: Boolean) {
+                            checked = enabled
+                            prefs.edit().putBoolean(entry.key, enabled).apply()
+                            val effectMessage = when (entry.key) {
+                                HookConfig.KEY_NOTIFICATION_LONG_PRESS,
+                                HookConfig.KEY_SYSTEMUI_MONET,
+                                HookConfig.KEY_AOSP_STATUS_ICONS -> "重启 SystemUI 后生效"
+                                HookConfig.KEY_DISABLE_PADMS_WATCHDOG,
+                                HookConfig.KEY_ALLOW_WIRELESS_DEBUGGING,
+                                HookConfig.KEY_BLOCK_APP_UNINSTALL,
+                                HookConfig.KEY_BOOT_ANIMATION_NO_WAIT,
+                                HookConfig.KEY_CLEAR_BLACKLIST -> "重启系统后生效"
+                                HookConfig.KEY_STATUS_BAR_DATE -> "下一次时钟刷新后生效"
+                                HookConfig.KEY_IOS_ICONS -> "重启桌面后生效"
+                                HookConfig.KEY_IOS_SYSTEM_ICON_MASK -> "全局图标遮罩已请求更新，重启应用刷新，部分图标需重启系统"
+                                else -> null
+                            }
+                            if (effectMessage != null && scopes.isAvailable(entry.key)) {
+                                coroutineScope.launch {
+                                    snackbar.newestSnackbarData()?.dismiss()
+                                    snackbar.showSnackbar(effectMessage)
+                                }
+                            }
+                            if (entry.key == HookConfig.KEY_BLOCK_TCP_LOGIN_FAIL && enabled &&
+                                com.lijinmu.arashi.notifications.NotificationPreferences.enabled(a, com.lijinmu.arashi.notifications.NotificationPreferences.TCP)) {
+                                com.lijinmu.arashi.notifications.AppNotifications.requestPermissionIfNeeded(a)
+                            }
+
+                        }
+                        Box {
+                            SwitchPreference(
+                                checked = available && checked,
+                                onCheckedChange = { enabled ->
+                                    if (available) saveHook(enabled)
+                                },
+                                title = entry.title,
+                                summary = entry.summary,
+                                enabled = available,
+                            )
+                            if (!available) {
+                                Box(
+                                    Modifier.matchParentSize()
+                                        .semantics { contentDescription = entry.title + "，不可用，点击查看原因" }
+                                        .clickable {
+                                            coroutineScope.launch {
+                                                snackbar.newestSnackbarData()?.dismiss()
+                                                snackbar.showSnackbar(scopes.unavailableReason(entry.key))
+                                            }
+                                        },
+                                )
+                            }
+                        }
+                        if (entry.key == HookConfig.KEY_BLOCK_TCP_LOGIN_FAIL) {
+                            ArrowPreference(
+                                title = tcpHistoryTitle,
+                                summary = tcpHistorySummary,
+                                onClick = onTcpHistory,
+                            )
+                        }
+                        if (entry.key == HookConfig.KEY_DEV_OPTIONS) {
+                            var injectDeveloperMenu by remember {
+                                mutableStateOf(
+                                    prefs.getBoolean(
+                                        HookConfig.KEY_DEV_OPTIONS_MENU,
+                                        HookConfig.defaultEnabled(HookConfig.KEY_DEV_OPTIONS_MENU),
+                                    ),
+                                )
+                            }
+                            DisposableEffect(prefs) {
+                                val listener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+                                    if (key == HookConfig.KEY_DEV_OPTIONS_MENU) {
+                                        injectDeveloperMenu = prefs.getBoolean(
+                                            HookConfig.KEY_DEV_OPTIONS_MENU,
+                                            HookConfig.defaultEnabled(HookConfig.KEY_DEV_OPTIONS_MENU),
+                                        )
+                                    }
+                                }
+                                prefs.registerOnSharedPreferenceChangeListener(listener)
+                                onDispose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
+                            }
+                            AnimatedVisibility(
+                                visible = available && checked,
+                                enter = expandVertically(
+                                    animationSpec = tween(250, easing = FastOutSlowInEasing),
+                                    expandFrom = Alignment.Top,
+                                ) + fadeIn(animationSpec = tween(200)),
+                                exit = shrinkVertically(
+                                    animationSpec = tween(250, easing = FastOutSlowInEasing),
+                                    shrinkTowards = Alignment.Top,
+                                ) + fadeOut(animationSpec = tween(150)),
+                            ) {
+                                SwitchPreference(
+                                    checked = available && injectDeveloperMenu,
+                                    onCheckedChange = {
+                                        if (available) {
+                                            injectDeveloperMenu = it
+                                            prefs.edit().putBoolean(HookConfig.KEY_DEV_OPTIONS_MENU, it).apply()
+                                        }
+                                    },
+                                    title = developerMenuTitle,
+                                    summary = developerMenuSummary,
+                                    enabled = available,
+                                )
+                            }
+                        }
+                        AnimatedVisibility(
+                            visible = entry.key == HookConfig.KEY_KEEP_BACKGROUND && available && checked,
+                            enter = expandVertically(
+                                animationSpec = tween(250, easing = FastOutSlowInEasing),
+                                expandFrom = Alignment.Top,
+                            ) + fadeIn(animationSpec = tween(200)),
+                            exit = shrinkVertically(
+                                animationSpec = tween(250, easing = FastOutSlowInEasing),
+                                shrinkTowards = Alignment.Top,
+                            ) + fadeOut(animationSpec = tween(150)),
+                        ) {
+                            ArrowPreference(
+                                title = backgroundListTitle,
+                                summary = backgroundListSummary,
+                                onClick = {
+                                    onBackgroundWhitelist()
+                                },
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+    InfoCard("开关修改后自动保存")
+}
+}
+
+private data class BackgroundChoice(val packageName: String, val label: String, val isSystem: Boolean? = null)
+
+@Composable
+private fun PruneMissingAppSelections(
+    a: androidx.activity.ComponentActivity,
+    selected: Set<String>,
+    prefixed: Boolean,
+    onPruned: (Set<String>) -> Unit,
+    refreshKey: Any? = null,
+) {
+    var revision by remember { mutableIntStateOf(0) }
+    DisposableEffect(a) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) revision++
+        }
+        a.lifecycle.addObserver(observer)
+        onDispose { a.lifecycle.removeObserver(observer) }
+    }
+    LaunchedEffect(a, selected, prefixed, revision, refreshKey) {
+        val missing = withContext(Dispatchers.IO) {
+            com.lijinmu.arashi.settings.InstalledAppSelections.findMissing(
+                a.packageManager, selected, prefixed)
+        }
+        // A selection change cancels the previous check; never replace new edits
+        // with the result of an older snapshot.
+        if (missing.isNotEmpty()) onPruned(selected - missing)
+    }
+}
+
+@Composable
+private fun AppPickerCheckbox(
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    title: String,
+    summary: String?,
+    icon: Drawable?,
+) {
+    Card(Modifier.fillMaxWidth()) {
+        // The icon is inside the preference's hit/press area, not a sibling.
+        CheckboxPreference(
+            checked = checked,
+            onCheckedChange = onCheckedChange,
+            title = title,
+            summary = summary,
+            checkboxLocation = CheckboxLocation.End,
+            startAction = if (icon == null) null else {
+                {
+                    AndroidView(
+                        factory = { context ->
+                            ImageView(context).apply { scaleType = ImageView.ScaleType.FIT_CENTER }
+                        },
+                        update = { it.setImageDrawable(icon) },
+                        modifier = Modifier.padding(end = 16.dp).size(40.dp),
+                    )
+                }
+            },
+        )
+    }
+}
+
+@Composable
+private fun BackgroundWhitelistPage(a: ComponentActivity, back: () -> Unit = a::finish) {
+    val prefs = a.getSharedPreferences(HookConfig.PREF_NAME, Context.MODE_PRIVATE)
+    var selected by remember {
+        mutableStateOf(prefs.getStringSet(HookConfig.KEY_KEEP_BACKGROUND_WHITELIST, emptySet()).orEmpty().toSet())
+    }
+    // Freeze selected-first ranking for this visit so checkbox changes never move rows.
+    val selectedOnEntry = remember(a) { selected.toSet() }
+    var query by remember { mutableStateOf("") }
+    var showSystemApps by remember { mutableStateOf(false) }
+    val apps = rememberAppPickerData(a) {
+        val manager = a.packageManager
+        manager.getInstalledApplications(0)
+            .filterNot { BackgroundPolicy.isExempt(it.packageName) }
+            .map { info ->
+                BackgroundChoice(info.packageName,
+                    runCatching { info.loadLabel(manager).toString() }.getOrDefault(info.packageName),
+                    (info.flags and (ApplicationInfo.FLAG_SYSTEM or ApplicationInfo.FLAG_UPDATED_SYSTEM_APP)) != 0)
+            }
+            .sortedWith(compareBy<BackgroundChoice> { it.label.lowercase() }.thenBy { it.packageName })
+    }
+    val choices = apps.choices
+    val knownPackages = remember(choices) { choices.mapTo(HashSet<String>()) { it.packageName } }
+    val missing = selected.filterNot { it in knownPackages || BackgroundPolicy.isExempt(it) }
+        .sorted().map { BackgroundChoice(it, "未安装或不可见的应用") }
+    val visible = (missing + choices).filter {
+        val matchesCategory = showSystemApps || it.isSystem == false
+        matchesCategory && (query.isBlank() || it.label.contains(query, true) || it.packageName.contains(query, true))
+    }.sortedWith(
+        compareBy<BackgroundChoice> { if (it.packageName in selectedOnEntry) 0 else 1 }
+            .thenBy { if (it.isSystem == true) 1 else 0 }
+            .thenBy { it.label.lowercase() }
+            .thenBy { it.packageName },
+    )
+    fun save(next: Set<String>) {
+        selected = next
+        prefs.edit().putStringSet(HookConfig.KEY_KEEP_BACKGROUND_WHITELIST, next).apply()
+    }
+    PruneMissingAppSelections(a, selected, prefixed = false, onPruned = ::save, refreshKey = apps.generation)
+    Scaffold(
+        modifier = Modifier.fillMaxSize(),
+        topBar = {
+            SmallTopAppBar(
+                title = "后台保留白名单",
+                navigationIcon = {
+                    IconButton(onClick = back) {
+                        Icon(MiuixIcons.Back, contentDescription = "返回")
+                    }
+                },
+                actions = {
+                    AppPickerFilterMenu(showSystemApps, onShowSystemAppsChange = { showSystemApps = it })
+                },
+            )
+        },
+    ) { innerPadding ->
+        AppPickerRefreshList(
+            data = apps,
+            modifier = Modifier.fillMaxSize().padding(innerPadding).consumeWindowInsets(innerPadding),
+        ) {
+            item {
+                IntroCard(
+                    "选中的应用划卡后不会被强杀，不选择任何应用时默认全不杀，系统原有豁免的应用（微信、QQ等）不显示。选择后立即保存")
+            }
+            item {
+                AppSearchBar(
+                    query = query,
+                    onQueryChange = { query = it },
+                    label = "搜索应用名或包名",
+                )
+            }
+            item {
+                AppPickerStatus(if (selected.isEmpty()) "当前保留全部应用" else "已选择 ${selected.size} 个应用")
+            }
+            items(visible, key = { it.packageName }) { choice ->
+                val icon = remember(choice.packageName, apps.generation) {
+                    runCatching { a.packageManager.getApplicationIcon(choice.packageName) }
+                        .getOrElse { a.packageManager.defaultActivityIcon }
+                }
+                AppPickerCheckbox(
+                    checked = choice.packageName in selected,
+                    onCheckedChange = { checked ->
+                        save(if (checked) selected + choice.packageName else selected - choice.packageName)
+                    },
+                    title = choice.label,
+                    summary = choice.packageName,
+                    icon = icon,
+                )
+            }
+            if (!apps.loading && visible.isEmpty()) {
+                item { InfoCard("没有匹配的应用") }
+            }
+        }
+    }
+}
+
+private data class UninstallChoice(
+    val key: String,
+    val title: String,
+    val summary: String,
+    val kind: Int,
+)
+
+@Composable
+private fun UninstallPage(
+    a: ComponentActivity,
+    back: () -> Unit = a::finish,
+    onWhitelist: () -> Unit = { a.startActivity(Intent(a, UninstallListActivity::class.java).putExtra("blacklist", false)) },
+    onBlacklist: () -> Unit = { a.startActivity(Intent(a, UninstallListActivity::class.java).putExtra("blacklist", true)) },
+    onHistory: () -> Unit = { a.startActivity(Intent(a, UninstallHistoryActivity::class.java)) },
+    onBlockedTargets: () -> Unit = { a.startActivity(Intent(a, UninstallListActivity::class.java).putExtra("blocked_targets", true)) },
+    onUnmanagedTargets: () -> Unit = { a.startActivity(Intent(a, UninstallListActivity::class.java).putExtra("unmanaged_targets", true)) },
+) = Page(a, "包管理服务", back) {
+    val prefs = a.getSharedPreferences(UninstallConfig.PREF_NAME, Context.MODE_PRIVATE)
+    var moduleActive by rememberSystemServerActivation(a)
+    var enabled by remember { mutableStateOf(prefs.getBoolean(UninstallConfig.ENABLED, false)) }
+    DisposableEffect(a, prefs) {
+        val runtime = a.getSharedPreferences(SettingsProvider.STATUS_PREF_NAME, Context.MODE_PRIVATE)
+        fun refreshActivation() {
+            moduleActive = isLsposedActive(a)
+            enabled = UninstallConfig.syncActivation(a, moduleActive)
+        }
+        val listener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+            if (key == null || key == SettingsProvider.KEY_SYSTEM_SERVER_BOOT) {
+                refreshActivation()
+            }
+        }
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) refreshActivation()
+        }
+        runtime.registerOnSharedPreferenceChangeListener(listener)
+        a.lifecycle.addObserver(observer)
+        refreshActivation()
+        onDispose {
+            runtime.unregisterOnSharedPreferenceChangeListener(listener)
+            a.lifecycle.removeObserver(observer)
+        }
+    }
+    var whitelistOnly by remember { mutableStateOf(prefs.getBoolean(UninstallConfig.WHITELIST_ONLY, false)) }
+    var freezeEnabled by remember { mutableStateOf(prefs.getBoolean(UninstallConfig.FREEZE_ENABLED, false)) }
+    var response by remember {
+        val previous = if (prefs.getBoolean(UninstallConfig.SPOOF_RESULT, false))
+            UninstallConfig.SPOOF_SUCCESS else UninstallConfig.DEFAULT_RESPONSE
+        mutableIntStateOf(prefs.getInt(UninstallConfig.DENIAL_RESPONSE, previous)
+            .takeIf { it in UninstallConfig.DEFAULT_RESPONSE..UninstallConfig.CUSTOM_RESPONSE }
+            ?: UninstallConfig.DEFAULT_RESPONSE)
+    }
+    var editResponse by remember { mutableStateOf(false) }
+    var denialMessage by remember { mutableStateOf("") }
+    var keepData by remember { mutableStateOf(prefs.getBoolean(UninstallConfig.KEEP_DATA, true)) }
+    val durations = listOf(5, 10, 15, 20, 30)
+    var duration by remember {
+        mutableIntStateOf(durations.indexOf(UninstallConfig.normalizeTimeoutSeconds(
+            prefs.getInt(UninstallConfig.TIMEOUT_SECONDS, UninstallConfig.DEFAULT_TIMEOUT))))
+    }
+    Group("操作拦截") {
+        SwitchPreference(
+            checked = enabled && moduleActive,
+            onCheckedChange = { requested ->
+                moduleActive = isLsposedActive(a)
+                enabled = requested && moduleActive
+                prefs.edit().putBoolean(UninstallConfig.ENABLED, enabled)
+                    .putBoolean(UninstallConfig.RESTORE_ENABLED, requested && !moduleActive).apply()
+                if (enabled && com.lijinmu.arashi.notifications.NotificationPreferences.uninstallEnabled(a)) {
+                    com.lijinmu.arashi.notifications.AppNotifications.requestPermissionIfNeeded(a)
+                }
+            },
+            title = "启用包管理服务",
+            summary = if (moduleActive) "按下方策略处理隐藏、卸载、暂停和清空应用数据请求"
+                else "等待 system_server Hook 激活，激活后恢复上次设置",
+            enabled = moduleActive,
+        )
+        SwitchPreference(
+            checked = freezeEnabled,
+            onCheckedChange = {
+                freezeEnabled = it
+                prefs.edit().putBoolean(UninstallConfig.FREEZE_ENABLED, it).apply()
+            },
+            title = "拦截应用冻结",
+            summary = "对 disable、disable-user、disable-until-used 等整包禁用请求应用相同策略",
+            enabled = enabled && moduleActive,
+        )
+        Column {
+            BasicComponent(
+                title = "确认倒计时",
+                summary = "${durations[duration]} 秒",
+            )
+            Slider(
+                value = duration.toFloat(),
+                onValueChange = { value ->
+                    val index = kotlin.math.round(value).toInt().coerceIn(durations.indices)
+                    if (duration != index) {
+                        duration = index
+                        prefs.edit().putInt(UninstallConfig.TIMEOUT_SECONDS, durations[index]).apply()
+                    }
+                },
+                valueRange = 0f..durations.lastIndex.toFloat(),
+                steps = durations.size - 2,
+                modifier = Modifier.fillMaxWidth()
+                    .padding(horizontal = 24.dp)
+                    .padding(bottom = 16.dp)
+                    .semantics {
+                        contentDescription = "确认倒计时，${durations[duration]} 秒"
+                    },
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth()
+                    .padding(horizontal = 24.dp)
+                    .padding(bottom = 16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                durations.forEach { seconds ->
+                    Text(
+                        text = "$seconds 秒",
+                        style = MiuixTheme.textStyles.footnote1,
+                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                    )
+                }
+            }
+        }
+        OverlayDropdownPreference(
+            items = listOf("默认", "伪装成功", "自定义"),
+            selectedIndex = response,
+            title = "拒绝后的响应",
+            onSelectedIndexChange = { index ->
+                response = index
+                prefs.edit().putInt(UninstallConfig.DENIAL_RESPONSE, index).apply()
+            },
+        )
+        if (response == UninstallConfig.CUSTOM_RESPONSE) {
+            Link("自定义响应", "设置所有操作被拒绝时共用的回调文案") {
+                denialMessage = prefs.getString(UninstallConfig.DENIAL_MESSAGE, "").orEmpty()
+                editResponse = true
+            }
+        }
+        SwitchPreference(
+            checked = keepData,
+            onCheckedChange = {
+                keepData = it
+                prefs.edit().putBoolean(UninstallConfig.KEEP_DATA, it).apply()
+            },
+            title = "卸载时保留数据",
+            summary = "按保留数据的方式卸载受包管理服务管控的应用",
+        )
+    }
+
+    Group("目标应用策略") {
+        Link("保护名单", "直接拒绝针对名单内应用的受管控操作，优先于发起方策略") {
+            onBlockedTargets()
+        }
+        Link("不拦截名单", "交由系统处理针对名单内应用的操作") {
+            onUnmanagedTargets()
+        }
+    }
+    Group("发起方策略") {
+        Link("白名单", "白名单中的发起方不会弹窗向你确认，直接允许") {
+            onWhitelist()
+        }
+        Link("黑名单", "直接拒绝名单内发起方的请求，优先于发起方白名单") {
+            onBlacklist()
+        }
+        SwitchPreference(
+            checked = whitelistOnly,
+            onCheckedChange = {
+                whitelistOnly = it
+                prefs.edit().putBoolean(UninstallConfig.WHITELIST_ONLY, it).apply()
+            },
+            title = "仅允许白名单发起请求",
+            summary = "拒绝发起方白名单之外的请求。目标应用策略和发起方黑名单优先",
+        )
+    }
+    Group("记录") {
+        Link("操作记录", "查看操作类型、发起方和处理结果") {
+            onHistory()
+        }
+    }
+    OverlayDialog(
+        show = editResponse,
+        title = "自定义响应",
+        onDismissRequest = { editResponse = false },
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            TextField(
+                value = denialMessage,
+                onValueChange = { denialMessage = it.take(UninstallConfig.MAX_MESSAGE_LENGTH) },
+                modifier = Modifier.fillMaxWidth(),
+                label = "回调文案（留空使用默认文案）",
+                singleLine = true,
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                TextButton("取消", { editResponse = false }, Modifier.weight(1f))
+                TextButton(
+                    "保存",
+                    {
+                        prefs.edit()
+                            .putString(UninstallConfig.DENIAL_MESSAGE, denialMessage.trim()).apply()
+                        editResponse = false
+                    },
+                    Modifier.weight(1f),
+                    colors = ButtonDefaults.textButtonColorsPrimary(),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun UninstallHistoryPage(a: ComponentActivity, back: () -> Unit = a::finish) {
+    var records by remember { mutableStateOf<List<UninstallHistoryStore.Record>>(emptyList()) }
+    var request by remember { mutableIntStateOf(0) }
+    var confirmClear by remember { mutableStateOf(false) }
+    var clearing by remember { mutableStateOf(false) }
+    var loading by remember { mutableStateOf(true) }
+    var initialLoading by remember { mutableStateOf(true) }
+    var refreshingRequested by remember { mutableStateOf(false) }
+    var hasMore by remember { mutableStateOf(true) }
+    var loadError by remember { mutableStateOf<String?>(null) }
+    var clearError by remember { mutableStateOf<String?>(null) }
+    val scope = rememberCoroutineScope()
+    var readJob by remember { mutableStateOf<Job?>(null) }
+    LaunchedEffect(request) {
+        if (clearing) return@LaunchedEffect
+        readJob = currentCoroutineContext().job
+        loading = true
+        try {
+            val before = records.lastOrNull()?.id ?: Long.MAX_VALUE
+            val batch = withContext(Dispatchers.IO) { UninstallHistoryStore.read(a, before, 101) }
+            records = records + batch.take(100)
+            hasMore = batch.size > 100
+            loadError = null
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: Exception) {
+            loadError = error.message ?: "读取记录失败"
+        } finally {
+            loading = false
+            initialLoading = false
+            refreshingRequested = false
+        }
+    }
+    fun refreshRecords() {
+        if (loading || clearing) return
+        refreshingRequested = true
+        records = emptyList()
+        hasMore = true
+        request++
+    }
+    fun clearRecords() {
+        if (clearing) return
+        clearing = true
+        scope.launch {
+            try {
+                readJob?.cancelAndJoin()
+                val (count, batch) = withContext(Dispatchers.IO) {
+                    val count = UninstallHistoryStore.clear(a)
+                    count to UninstallHistoryStore.read(a, Long.MAX_VALUE, 101)
+                }
+                records = batch.take(100)
+                hasMore = batch.size > 100
+                loadError = null
+                clearError = null
+                MiuixPages.showMessage(a, "清空完成", "已清空 $count 条操作记录")
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                clearError = error.message ?: "清空记录失败"
+                MiuixPages.showMessage(a, "清空失败", clearError.orEmpty())
+            } finally {
+                clearing = false
+                loading = false
+            }
+        }
+    }
+    Scaffold(
+        modifier = Modifier.fillMaxSize(),
+        topBar = {
+            SmallTopAppBar(
+                title = "操作记录",
+                navigationIcon = {
+                    IconButton(onClick = back) {
+                        Icon(MiuixIcons.Back, contentDescription = "返回")
+                    }
+                },
+            )
+        },
+    ) { innerPadding ->
+        PullToRefresh(
+            isRefreshing = refreshingRequested || (loading && !initialLoading),
+            onRefresh = ::refreshRecords,
+            modifier = Modifier.fillMaxSize().padding(innerPadding).consumeWindowInsets(innerPadding),
+            refreshTexts = listOf("下拉刷新", "松开刷新", "正在刷新", "刷新完成"),
+        ) {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 28.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                item {
+                    IntroCard("记录包管理服务的放行与拒绝决定。放行后的执行结果由系统决定")
+                }
+                item {
+                    LoadingTextButton(
+                        "清空记录",
+                        { confirmClear = true },
+                        Modifier.fillMaxWidth(),
+                        enabled = records.isNotEmpty() && !loading && !clearing,
+                        loading = clearing,
+                    )
+                }
+                items(records, key = { it.id }) { record ->
+                    val time = remember(record.time) {
+                        SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date(record.time))
+                    }
+                    Card(Modifier.fillMaxWidth(), insideMargin = PaddingValues(16.dp)) {
+                        Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text(
+                                    if (record.allowed) "允许" else "拒绝",
+                                    color = if (record.allowed) Color(0xFF36A866) else Color(0xFFE05252),
+                                    style = MiuixTheme.textStyles.title3,
+                                )
+                                Text(time, color = MiuixTheme.colorScheme.onSurfaceVariantSummary)
+                            }
+                            Text("操作：" + UninstallConfig.operationLabel(record.operation))
+                            if (record.operation == UninstallConfig.FREEZE) {
+                                val state = when (record.requestedState) {
+                                    2 -> "disabled"
+                                    3 -> "disabled-user"
+                                    4 -> "disabled-until-used"
+                                    else -> record.requestedState.toString()
+                                }
+                                Text("请求状态：$state · 用户：${record.userId}")
+                            }
+                            Text("目标应用：" + (record.targetName ?: record.targetPackage ?: "未知应用"))
+                            if (!record.targetPackage.isNullOrBlank()
+                                && record.targetPackage != record.targetName) {
+                                Text(record.targetPackage.orEmpty(),
+                                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary)
+                            }
+                            Text("发起方：" + (record.callerName ?: "进程") + " (" + record.callerUid + ")")
+                            if (!record.callerPackage.isNullOrBlank()
+                                && record.callerPackage != record.callerName) {
+                                Text(record.callerPackage.orEmpty(),
+                                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary)
+                            }
+                            if (record.callerPid > 0) Text("发起进程 PID：${record.callerPid}")
+                            Text("原因：" + (record.reason ?: "未知"),
+                                color = MiuixTheme.colorScheme.onSurfaceVariantSummary)
+                        }
+                    }
+                }
+                if (records.isEmpty() && !loading && loadError == null) {
+                    item { InfoCard("暂无操作记录") }
+                }
+                if (loading) {
+                    item { LoadingCard("加载记录") }
+                }
+                if (loadError != null) {
+                    item { InfoCard("读取失败：" + loadError) }
+                }
+                if (clearError != null) {
+                    item { InfoCard("清空失败：" + clearError) }
+                }
+                if (hasMore && !loading && !clearing && loadError == null) {
+                    item {
+                        TextButton("加载更多", { request++ }, Modifier.fillMaxWidth())
+                    }
+                }
+            }
+        }
+        // Miuix overlays must share the Scaffold's popup host; siblings have no host.
+        MiuixPages.MessageDialog(a)
+        OverlayDialog(
+            show = confirmClear,
+            title = "清空操作记录",
+            summary = "确定清空全部操作记录吗？",
+            onDismissRequest = { confirmClear = false },
+        ) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                TextButton("取消", { confirmClear = false }, Modifier.weight(1f))
+                TextButton(
+                    "清空",
+                    {
+                        confirmClear = false
+                        clearRecords()
+                    },
+                    Modifier.weight(1f),
+                    colors = ButtonDefaults.textButtonColorsPrimary(),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun UninstallListPage(
+    a: ComponentActivity,
+    blacklist: Boolean,
+    back: () -> Unit = a::finish,
+    blockedTargets: Boolean = false,
+    unmanagedTargets: Boolean = false,
+) {
+    val targetList = blockedTargets || unmanagedTargets
+    val prefKey = when {
+        blockedTargets -> UninstallConfig.BLOCKED_TARGETS
+        unmanagedTargets -> UninstallConfig.UNMANAGED_TARGETS
+        blacklist -> UninstallConfig.BLACKLIST
+        else -> UninstallConfig.WHITELIST
+    }
+    val title = when {
+        blockedTargets -> "保护名单"
+        unmanagedTargets -> "不拦截名单"
+        blacklist -> "发起方黑名单"
+        else -> "发起方白名单"
+    }
+    val prefs = a.getSharedPreferences(UninstallConfig.PREF_NAME, Context.MODE_PRIVATE)
+    var selected by remember(prefKey) {
+        mutableStateOf(prefs.getStringSet(prefKey, mutableSetOf()).orEmpty().toSet())
+    }
+    // Freeze selected-first ranking for this visit so checkbox changes never move rows.
+    val selectedOnEntry = remember(prefKey) { selected.toSet() }
+    var query by remember { mutableStateOf("") }
+    var showSystemApps by remember { mutableStateOf(false) }
+    var showUid by remember { mutableStateOf(false) }
+    var manual by remember { mutableStateOf("") }
+    var inputError by remember { mutableStateOf<String?>(null) }
+    val apps = rememberAppPickerData(a) {
+        val manager = a.packageManager
+        val installed = manager.getInstalledApplications(0)
+        val applications = installed.map { info ->
+            val label = runCatching { info.loadLabel(manager).toString() }.getOrDefault(info.packageName)
+            val isSystem = (info.flags and
+                (ApplicationInfo.FLAG_SYSTEM or ApplicationInfo.FLAG_UPDATED_SYSTEM_APP)) != 0
+            UninstallChoice(
+                "pkg:" + info.packageName,
+                label,
+                info.packageName,
+                if (isSystem) 2 else 1,
+            )
+        }.sortedWith(compareBy<UninstallChoice> { it.kind }.thenBy { it.title.lowercase() })
+        val systemUids = listOf(
+            "root" to 0, "daemon" to 1, "bin" to 2,
+            "sys" to 3, "system" to 1000, "shell" to 2000,
+        )
+        val uids = systemUids.map { (name, uid) ->
+            UninstallChoice("uid:" + uid, name, "UID " + uid, 3)
+        }
+        if (targetList) applications else applications + uids
+    }
+    val choices = apps.choices
+    val knownKeys = remember(choices) { choices.mapTo(HashSet<String>()) { it.key } }
+    val manualChoices = selected.filterNot { it in knownKeys }.sorted().map { key ->
+        if (key.startsWith("uid:")) {
+            UninstallChoice(key, "UID " + key.removePrefix("uid:"), "手动添加", 3)
+        } else {
+            UninstallChoice(key, key.removePrefix("pkg:"), "手动添加", 0)
+        }
+    }
+    val visible = (manualChoices + choices).filter { choice ->
+        val inFilter = if (choice.kind == 3) showUid else showSystemApps || choice.kind == 1
+        inFilter && (query.isBlank() || choice.title.contains(query, true) ||
+            choice.summary.contains(query, true) || choice.key.contains(query, true))
+    }.sortedWith(
+        compareBy<UninstallChoice> { if (it.key in selectedOnEntry) 0 else 1 }
+            .thenBy { it.kind }
+            .thenBy { it.title.lowercase() }
+            .thenBy { it.key },
+    )
+    fun save(next: Set<String>) {
+        selected = next
+        prefs.edit().putStringSet(prefKey, next).apply()
+    }
+    PruneMissingAppSelections(a, selected, prefixed = true, onPruned = ::save, refreshKey = apps.generation)
+    Scaffold(
+        modifier = Modifier.fillMaxSize(),
+        topBar = {
+            SmallTopAppBar(
+                title = title,
+                navigationIcon = {
+                    IconButton(onClick = back) {
+                        Icon(MiuixIcons.Back, contentDescription = "返回")
+                    }
+                },
+                actions = {
+                    AppPickerFilterMenu(
+                        showSystemApps,
+                        onShowSystemAppsChange = { showSystemApps = it },
+                        showUid = if (targetList) null else showUid,
+                        onShowUidChange = { showUid = it },
+                    )
+                },
+            )
+        },
+    ) { innerPadding ->
+        AppPickerRefreshList(
+            data = apps,
+            modifier = Modifier.fillMaxSize().padding(innerPadding).consumeWindowInsets(innerPadding),
+        ) {
+            item {
+                IntroCard(
+                    when {
+                        blockedTargets -> "直接拒绝针对选中应用的受管控操作，优先于发起方策略"
+                        unmanagedTargets -> "针对选中应用的操作由系统直接处理，保护名单优先"
+                        blacklist -> "直接拒绝选中发起方的操作请求"
+                        else -> "直接允许选中发起方的操作请求，黑名单优先"
+                    },
+                )
+            }
+            item {
+                AppSearchBar(
+                    query = query,
+                    onQueryChange = { query = it },
+                    label = "搜索...",
+                )
+            }
+            item {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    TextField(
+                        value = manual,
+                        onValueChange = { manual = it; inputError = null },
+                        modifier = Modifier.weight(1f),
+                        label = if (targetList) "输入应用包名..." else "输入包名或 UID...",
+                        useLabelAsPlaceholder = true,
+                        singleLine = true,
+                    )
+                    TextButton(
+                        "添加",
+                        {
+                            val value = manual.trim()
+                            val packagePattern = Regex("[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)+")
+                            val rawUid = value.removePrefix("uid:").toIntOrNull()
+                            val rawPackage = value.removePrefix("pkg:")
+                            val entry = when {
+                                !targetList && rawUid != null && rawUid >= 0 -> "uid:" + rawUid
+                                packagePattern.matches(rawPackage) -> "pkg:" + rawPackage
+                                else -> null
+                            }
+                            if (entry == null) {
+                                inputError = if (targetList) "请输入应用包名" else "请输入应用包名或非负数字 UID"
+                            } else {
+                                save(selected + entry)
+                                manual = ""
+                                query = ""
+                                // Reveal the added entry using its own filter without clearing selections.
+                                if (entry.startsWith("uid:")) {
+                                    showUid = true
+                                } else if (choices.firstOrNull { it.key == entry }?.kind != 1) {
+                                    showSystemApps = true
+                                }
+                            }
+                        },
+                        colors = ButtonDefaults.textButtonColorsPrimary(),
+                    )
+                }
+            }
+            if (inputError != null) {
+                item { Text(inputError.orEmpty(), color = Color(0xFFE05252)) }
+            }
+            item {
+                AppPickerStatus("已选择 " + selected.size + " 项 · 当前显示 " + visible.size + " 项")
+            }
+            items(visible, key = { it.key }) { choice ->
+                val icon = if (choice.key.startsWith("pkg:")) {
+                    remember(choice.key, apps.generation) {
+                        runCatching {
+                            a.packageManager.getApplicationIcon(choice.key.removePrefix("pkg:"))
+                        }.getOrElse { a.packageManager.defaultActivityIcon }
+                    }
+                } else null
+                AppPickerCheckbox(
+                    checked = choice.key in selected,
+                    onCheckedChange = { checked ->
+                        save(if (checked) selected + choice.key else selected - choice.key)
+                    },
+                    title = choice.title,
+                    summary = choice.summary,
+                    icon = icon,
+                )
+            }
+            if (!apps.loading && visible.isEmpty()) {
+                item { InfoCard("没有匹配的项目") }
+            }
+        }
+    }
+}
+
+@Composable
+private fun UninstallPrompt(
+    a: UninstallPromptActivity,
+    target: String?,
+    uid: Int,
+    packages: Array<String>?,
+    deadline: Long,
+) {
+    val callerName = remember(uid, packages) {
+        val callerPackage = packages?.firstOrNull()
+        if (callerPackage != null) {
+            runCatching {
+                a.packageManager.getApplicationInfo(callerPackage, 0)
+                    .loadLabel(a.packageManager).toString()
+            }.getOrDefault(callerPackage)
+        } else {
+            when (uid) {
+                0 -> "root"
+                1 -> "daemon"
+                2 -> "bin"
+                3 -> "sys"
+                1000 -> "system"
+                2000 -> "shell"
+                else -> runCatching { a.packageManager.getNameForUid(uid) }
+                    .getOrNull()?.takeIf { it.isNotBlank() } ?: "进程"
+            }
+        }
+    }
+    val targetName = remember(target) {
+        if (target == null) "未知应用" else runCatching {
+            a.packageManager.getApplicationInfo(target, 0)
+                .loadLabel(a.packageManager).toString()
+        }.getOrDefault(target)
+    }
+    val targetIcon = remember(target) {
+        if (target == null) a.packageManager.defaultActivityIcon else runCatching {
+            a.packageManager.getApplicationIcon(target)
+        }.getOrElse { a.packageManager.defaultActivityIcon }
+    }
+    var remaining by remember { mutableIntStateOf(((deadline - SystemClock.elapsedRealtime() + 999) / 1000).toInt().coerceAtLeast(0)) }
+    LaunchedEffect(deadline) {
+        while (remaining > 0) {
+            delay(250)
+            remaining = ((deadline - SystemClock.elapsedRealtime() + 999) / 1000).toInt().coerceAtLeast(0)
+        }
+        a.timeout()
+    }
+    Box(Modifier.fillMaxWidth().padding(12.dp)) {
+        Card(Modifier.fillMaxWidth(), cornerRadius = 28.dp, insideMargin = PaddingValues(20.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                val action = UninstallConfig.operationLabel(a.intent.getStringExtra(UninstallConfig.OPERATION))
+                Text("允许 $callerName ($uid) 执行「$action」吗？", style = MiuixTheme.textStyles.title2)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    AndroidView(
+                        factory = { context ->
+                            ImageView(context).apply {
+                                scaleType = ImageView.ScaleType.FIT_CENTER
+                                setImageDrawable(targetIcon)
+                            }
+                        },
+                        update = { it.setImageDrawable(targetIcon) },
+                        modifier = Modifier.size(56.dp),
+                    )
+                    Spacer(Modifier.width(14.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(targetName, style = MiuixTheme.textStyles.body1)
+                        Text(target ?: "未知包名", color = MiuixTheme.colorScheme.onSurfaceVariantSummary)
+                    }
+                }
+                Text(
+                    "剩余 $remaining 秒",
+                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                )
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    TextButton("拒绝", { a.decide(false) }, Modifier.weight(1f))
+                    TextButton(
+                        "允许", { a.decide(true) }, Modifier.weight(1f),
+                        colors = ButtonDefaults.textButtonColorsPrimary(),
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun QuickCommandItem(title: String, summary: String, action: () -> Unit) =
+    BasicComponent(title = title, summary = summary, onClick = action)
+
+private data class QuickOption(
+    val label: String,
+    val primary: Boolean = false,
+    val execute: (QuickCommandController.Completion) -> Unit,
+)
+private data class QuickAction(val title: String, val options: List<QuickOption>, val successMessageOnly: Boolean = false)
+
+private const val PAD_MS_BACKGROUND_TITLE = "强制限制 PadMs 后台进程"
+private const val PAD_MS_BACKGROUND_OP = "com.zuoyebang.padms RUN_IN_BACKGROUND"
+
+@Composable
+private fun PadMsBackgroundItem(action: () -> Unit) =
+    QuickCommandItem(
+        PAD_MS_BACKGROUND_TITLE,
+        "限制后系统不主动运行 PadMs 的后台进程，以此防止卸载应用等行为",
+        action,
+    )
+
+@Composable
+private fun QuickActionDialog(
+    selected: QuickAction?,
+    running: Boolean,
+    dismiss: () -> Unit,
+    execute: (QuickOption) -> Unit,
+) {
+    // Keep the last visible content intact while the overlay animates out.
+    val visible = selected != null
+    val current = selected?.let { it to running }
+    var retained by remember { mutableStateOf(current) }
+    SideEffect {
+        if (current != null) retained = current
+    }
+    val displayed = current ?: retained
+    OverlayDialog(
+        show = visible,
+        title = displayed?.first?.title.orEmpty(),
+        onDismissRequest = { if (!running) dismiss() },
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            if (displayed?.second == true) {
+                Row(
+                    Modifier.fillMaxWidth().padding(vertical = 16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    top.yukonga.miuix.kmp.basic.CircularProgressIndicator()
+                    Text("正在处理…")
+                }
+            } else {
+                displayed?.first?.options?.forEach { option ->
+                    val onClick = { if (visible && !running) execute(option) }
+                    val modifier = Modifier.fillMaxWidth()
+                    if (option.primary) {
+                        TextButton(option.label, onClick, modifier, colors = ButtonDefaults.textButtonColorsPrimary())
+                    } else {
+                        TextButton(option.label, onClick, modifier)
+                    }
+                }
+            }
+        }
+    }
+}
+
+private val deviceControlComponents = mapOf(
+    "PadMs" to listOf("com.zuoyebang.padms", "com.zuoyebang.iot.padms"),
+    "ZpReport" to listOf("com.zuoyebang.iot.pad.zpreport"),
+    "桌面 ErrorActivity" to listOf(
+        "com.zuoyebang.iot.pad.launcher14/com.zuoyebang.iot.pad.launcher.ErrorActivity",
+        "com.android.launcher3/com.zuoyebang.iot.pad.launcher.ErrorActivity",
+    ),
+    "系统升级" to listOf("com.zuoyebang.iot.zp.lib.ota.server"),
+    "管控服务" to listOf("com.zuoyebang.iot.pad.supervise"),
+    "护眼中心" to listOf("com.zuoyebang.iot.pad.zpeyecare"),
+    "应用商店" to listOf("com.zuoyebang.iot.pad.appstore"),
+    "学习网站" to listOf("com.zuoyebang.iot.pad.zplearningwebsite"),
+    "日志服务" to listOf("com.zuoyebang.iot.zlog"),
+    "SlardarOsClient" to listOf("com.bytedance.os.slardar"),
+)
+
+@Suppress("DEPRECATION")
+private fun installedDeviceControlComponents(pm: PackageManager): Map<String, List<String>> {
+    val systemPackages = pm.getInstalledApplications(
+        PackageManager.MATCH_SYSTEM_ONLY or PackageManager.MATCH_DISABLED_COMPONENTS,
+    ).map { it.packageName }.toSet()
+
+    return deviceControlComponents.mapValues { (title, candidates) ->
+        val installed = candidates.filter { target ->
+            target.substringBefore('/') in systemPackages &&
+                ('/' !in target || try {
+                    pm.getActivityInfo(
+                        requireNotNull(ComponentName.unflattenFromString(target)),
+                        PackageManager.MATCH_DISABLED_COMPONENTS,
+                    )
+                    true
+                } catch (_: PackageManager.NameNotFoundException) {
+                    false
+                })
+        }
+        if (title == "PadMs" && installed.isEmpty()) {
+            systemPackages.filter { it.contains("padms", ignoreCase = true) }.sorted()
+        } else {
+            installed
+        }
+    }.filterValues { it.isNotEmpty() }
+}
+
+private fun isDeviceControlTargetFrozen(pm: PackageManager, target: String): Boolean {
+    val state = try {
+        if ('/' in target) {
+            pm.getComponentEnabledSetting(requireNotNull(ComponentName.unflattenFromString(target)))
+        } else {
+            pm.getApplicationEnabledSetting(target)
+        }
+    } catch (_: IllegalArgumentException) {
+        return false
+    } catch (_: SecurityException) {
+        return false
+    }
+    return state == PackageManager.COMPONENT_ENABLED_STATE_DISABLED ||
+        state == PackageManager.COMPONENT_ENABLED_STATE_DISABLED_USER ||
+        state == PackageManager.COMPONENT_ENABLED_STATE_DISABLED_UNTIL_USED
+}
+
+@Composable
+private fun DeviceControlPage(a: ComponentActivity, back: () -> Unit) {
+    val commands = remember(a) { QuickCommandController(a) }
+    var showComponents by remember { mutableStateOf(false) }
+    var availableComponents by remember(a) {
+        mutableStateOf(installedDeviceControlComponents(a.packageManager))
+    }
+    var checkedComponents by remember { mutableStateOf(emptySet<String>()) }
+    var showPadMsBackground by remember { mutableStateOf(false) }
+    var restrictPadMsBackground by remember { mutableStateOf(false) }
+    var componentAction by remember { mutableStateOf<QuickAction?>(null) }
+
+    fun setComponentsFrozen(freeze: Boolean) {
+        if (componentAction != null || checkedComponents.isEmpty()) return
+        val freshComponents = installedDeviceControlComponents(a.packageManager)
+        val freezeMode = DeviceFreezeMode.effective(a)
+        val verb = if (freeze) freezeMode.command else "enable"
+        val state = if (freeze) freezeMode.resultState else "enabled"
+        val action = if (freeze) "冻结" else "解冻"
+        val commandsByItem = checkedComponents.map { title ->
+            val attempts = freshComponents[title].orEmpty().joinToString("\n") { target ->
+                """if result=$(pm $verb --user current '$target' 2>&1) && printf '%s\n' "${'$'}result" | grep -q 'new state: $state$'; then item_ok=1; else printf '%s\n' "${'$'}result"; fi"""
+            }
+            "item_ok=0\n$attempts\n" +
+                """if [ "${'$'}item_ok" -eq 0 ]; then printf '%s\n' '$title：${action}失败'; failed=1; fi"""
+        }
+        val rootCheck = if (freeze && freezeMode == DeviceFreezeMode.SYSTEM) {
+            """if [ "$(id -u)" != 0 ]; then printf '%s\n' '系统级冻结需要 Root 权限，请在设置中选择 Root 工作模式并授权'; exit 1; fi""" + "\n"
+        } else {
+            ""
+        }
+        val script = commandsByItem.joinToString("\n", prefix = rootCheck + "failed=0\n", postfix = "\nexit \$failed")
+        showComponents = false
+        componentAction = QuickAction(action, emptyList())
+        commands.run(action, script, QuickCommandController.Completion { success, output ->
+            componentAction = null
+            availableComponents = installedDeviceControlComponents(a.packageManager)
+            MiuixPages.showMessage(a, if (success) "执行完毕" else "执行失败", output)
+        })
+    }
+
+    // Freeze the list data while the picker is leaving the screen.
+    var displayedComponents by remember { mutableStateOf(availableComponents) }
+    SideEffect {
+        if (showComponents) displayedComponents = availableComponents
+    }
+    val pickerComponents = if (showComponents) availableComponents else displayedComponents
+
+    Page(a, "管控和云控", back, overlay = {
+        OverlayDialog(
+            show = showComponents,
+            title = "冻结 / 解冻",
+            summary = "冻结或解冻作业帮的系统组件",
+            onDismissRequest = { if (componentAction == null) showComponents = false },
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                LazyColumn(
+                    modifier = Modifier.fillMaxWidth().heightIn(max = 240.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    items(pickerComponents.keys.toList(), key = { it }) { title ->
+                        AppPickerCheckbox(
+                            checked = title in checkedComponents,
+                            onCheckedChange = { checked ->
+                                if (componentAction == null) {
+                                    checkedComponents = if (checked) checkedComponents + title
+                                    else checkedComponents - title
+                                }
+                            },
+                            title = title,
+                            summary = null,
+                            icon = null,
+                        )
+                    }
+                }
+                if (pickerComponents.isEmpty()) Text("未找到匹配的系统组件")
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    val canExecute = checkedComponents.isNotEmpty() && componentAction == null
+                    TextButton("解冻", { setComponentsFrozen(false) }, Modifier.weight(1f), enabled = canExecute)
+                    TextButton(
+                        "冻结",
+                        { setComponentsFrozen(true) },
+                        Modifier.weight(1f),
+                        enabled = canExecute,
+                        colors = ButtonDefaults.textButtonColorsPrimary(),
+                    )
+                }
+            }
+        }
+        OverlayDialog(
+            show = showPadMsBackground,
+            title = PAD_MS_BACKGROUND_TITLE,
+            onDismissRequest = { showPadMsBackground = false },
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text("是否限制")
+                    Switch(
+                        checked = restrictPadMsBackground,
+                        enabled = showPadMsBackground,
+                        onCheckedChange = { restrictPadMsBackground = it },
+                        modifier = Modifier.semantics { contentDescription = "是否限制" },
+                    )
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TextButton("取消", { showPadMsBackground = false }, Modifier.weight(1f))
+                    TextButton(
+                        "确定",
+                        {
+                            if (showPadMsBackground && componentAction == null) {
+                                val mode = if (restrictPadMsBackground) "ignore" else "default"
+                                showPadMsBackground = false
+                                componentAction = QuickAction(PAD_MS_BACKGROUND_TITLE, emptyList())
+                                commands.run(PAD_MS_BACKGROUND_TITLE, "cmd appops set $PAD_MS_BACKGROUND_OP $mode") { success, output ->
+                                    componentAction = null
+                                    MiuixPages.showMessage(a, if (success) "执行完毕" else "执行失败", if (success) "" else output)
+                                }
+                            }
+                        },
+                        Modifier.weight(1f),
+                        colors = ButtonDefaults.textButtonColorsPrimary(),
+                    )
+                }
+            }
+        }
+        QuickActionDialog(componentAction, componentAction != null, {}) {}
+    }) {
+        IntroCard(DEVICE_CONTROL_DESCRIPTION)
+        Group("应用") {
+            QuickCommandItem("冻结 / 解冻", "冻结或解冻作业帮的系统组件") {
+                val pm = a.packageManager
+                val components = installedDeviceControlComponents(pm)
+                availableComponents = components
+                checkedComponents = components.filterValues { targets ->
+                    targets.any { isDeviceControlTargetFrozen(pm, it) }
+                }.keys
+                showComponents = true
+            }
+            PadMsBackgroundItem {
+                if (componentAction == null) {
+                    componentAction = QuickAction(PAD_MS_BACKGROUND_TITLE, emptyList())
+                    commands.run(PAD_MS_BACKGROUND_TITLE, "cmd appops get $PAD_MS_BACKGROUND_OP") { success, output ->
+                        restrictPadMsBackground = success && output.lineSequence().any { it.trim() == "RUN_IN_BACKGROUND: ignore" }
+                        componentAction = null
+                        showPadMsBackground = true
+                    }
+                }
+            }
+        }
+    }
+}
+
+private const val SHOW_EXTRA_SETTINGS_EDITOR_ITEMS = false
+private const val SETTINGS_EDITOR_DESCRIPTION = "系统设置和属性修改"
+
+private data class EditorToggle(val title: String, val key: String, val system: Boolean)
+
+@Composable
+private fun SettingsEditorPage(
+    a: ComponentActivity,
+    back: () -> Unit,
+    onZybosEnv: () -> Unit,
+) {
+    val commands = remember(a) { QuickCommandController(a) }
+    var selected by remember { mutableStateOf<EditorToggle?>(null) }
+    var showToggle by remember { mutableStateOf(false) }
+    var checked by remember { mutableStateOf(false) }
+    var ready by remember { mutableStateOf(false) }
+    var running by remember { mutableStateOf(false) }
+    val setting = selected
+    var commandAction by remember { mutableStateOf<QuickAction?>(null) }
+
+    LaunchedEffect(showToggle, setting) {
+        if (showToggle && setting != null) {
+            val result = withContext(Dispatchers.IO) {
+                runCatching {
+                    if (setting.system) Settings.System.getString(a.contentResolver, setting.key)
+                    else Settings.Global.getString(a.contentResolver, setting.key)
+                }
+            }
+            checked = result.getOrNull() == "1"
+            ready = true
+        }
+    }
+
+    fun openToggle(title: String, key: String, system: Boolean = false) {
+        ready = false
+        checked = false
+        selected = EditorToggle(title, key, system)
+        showToggle = true
+    }
+
+    Page(a, "设置编辑器", back, overlay = {
+        QuickActionDialog(commandAction, running, { commandAction = null }) { option ->
+            if (!running) {
+                running = true
+                option.execute(QuickCommandController.Completion { success, output ->
+                    running = false
+                    val message = if (success && commandAction?.successMessageOnly == true) "" else output
+                    commandAction = null
+                    MiuixPages.showMessage(a, if (success) "执行完毕" else "执行失败", message)
+                })
+            }
+        }
+        OverlayDialog(
+            show = showToggle,
+            title = setting?.title.orEmpty(),
+            onDismissRequest = { if (!running) showToggle = false },
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                if (setting != null) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(Modifier.weight(1f).padding(start = 8.dp)) {
+                            Text(
+                                if (setting.system) "SYSTEM" else "GLOBAL",
+                                style = MiuixTheme.textStyles.footnote1,
+                                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                            )
+                            Text(
+                                setting.key,
+                                modifier = Modifier.clickable(enabled = showToggle && !running, onClickLabel = "复制键名") {
+                                    val namespace = if (setting.system) "system" else "global"
+                                    a.getSystemService(android.content.ClipboardManager::class.java)
+                                        ?.setPrimaryClip(android.content.ClipData.newPlainText(
+                                            "设置键名", "$namespace ${setting.key}",
+                                        ))
+                                }.padding(vertical = 6.dp),
+                                fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                            )
+                            if (!ready) Text("正在读取…", style = MiuixTheme.textStyles.footnote1)
+                        }
+                        Switch(
+                            checked = checked,
+                            enabled = showToggle && ready && !running,
+                            onCheckedChange = { checked = it },
+                            modifier = Modifier.semantics {
+                                contentDescription = if (setting.key == "control_panelbar") "禁用下拉面板" else setting.title
+                            },
+                        )
+                    }
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TextButton(
+                        "取消",
+                        { if (!running) showToggle = false },
+                        Modifier.weight(1f),
+                        enabled = !running,
+                    )
+                    TextButton(
+                        if (running) "正在写入…" else "确定",
+                        {
+                            if (showToggle && setting != null && ready && !running) {
+                                running = true
+                                commands.writeSettingsToggle(setting.title, setting.key, setting.system, checked) { success, output ->
+                                    running = false
+                                    showToggle = false
+                                    MiuixPages.showMessage(a, if (success) "执行完毕" else "执行失败", output)
+                                }
+                            }
+                        },
+                        Modifier.weight(1f),
+                        enabled = showToggle && ready && !running,
+                        colors = ButtonDefaults.textButtonColorsPrimary(),
+                    )
+                }
+            }
+        }
+    }) {
+        IntroCard("集成了作业帮系统的自定义设置和属性")
+        Group("Settings") {
+            QuickCommandItem("USB 调试", "是否打开系统的有线 ADB") {
+                openToggle("USB 调试", "adb_enabled")
+            }
+            QuickCommandItem("启用投屏功能", "调整无线显示和 SystemUI 投屏磁贴") {
+                val title = "启用投屏功能"
+                commandAction = QuickAction(title, listOf(true, false).map { enabled ->
+                    QuickOption(if (enabled) "开启" else "关闭") { done ->
+                        val command =
+                        "settings put global wifi_display_on ${if (enabled) 1 else 0} && am broadcast --user current -a com.android.systemui.cast.${if (enabled) "Add" else "Remove"} -p com.android.systemui"
+                        commands.run(title, command, done)
+                    }
+                })
+            }
+            QuickCommandItem("认证型 WLAN", "连接认证型 WLAN 是否允许跳转网页") {
+                openToggle("认证型 WLAN", "zyb_captiveportal_enabled", system = true)
+            }
+            QuickCommandItem("禁用下拉面板", "开启后下拉面板不可用，关闭后恢复默认。启用「阻止禁用系统导航与下拉面板」时，此设置不生效") {
+                openToggle("禁用下拉面板", "control_panelbar")
+            }
+            QuickCommandItem("截屏音效", "截屏音效是否开启，在系统静音模式下该设置不生效") {
+                openToggle("截屏音效", "zyb_screenshot_sounds_enabled")
+            }
+            QuickCommandItem("special_enable_adb_debug", "不直接控制一个功能开关，作用基本为棍母") {
+                openToggle("special_enable_adb_debug", "special_enable_adb_debug")
+            }
+            QuickCommandItem("zpad_prop_special_settings", " 7.13 系统及以上可用，控制无线调试") {
+                openToggle("zpad_prop_special_settings", "zpad_prop_special_settings")
+            }
+            QuickCommandItem("启用素养", "桌面是否显示素养标签页") {
+                openToggle("启用素养", "zyb_suyang_enabled", system = true)
+            }
+            QuickCommandItem("启用精选应用", "桌面是否显示精选应用标签页，实际显示受作业帮控制") {
+                openToggle("启用精选应用", "zyb_selected_app_enabled", system = true)
+            }
+        }
+        // Keep these settings available in source while their entries are hidden.
+        if (SHOW_EXTRA_SETTINGS_EDITOR_ITEMS) {
+            QuickCommandItem("息屏关闭 WLAN", "息屏后是否关闭 WLAN 以节省电量，仅在省电模式开启时生效") {
                 openToggle("息屏关闭 WLAN", "zyb_power_screen_off_wifi")
             }
             QuickCommandItem("三指下拉截屏", "是否开启三指下拉快捷截屏功能") {
