@@ -96,8 +96,10 @@ jobs:
         run: python3 tests/check_ios_icon.py
       - name: 验证全局图标遮罩、多用户及停用恢复
         run: python3 tests/check_system_icon_mask.py
-      - name: 验证安装器授权 Hook
-        run: python3 tests/check_installer_authorization.py
+      - name: 验证安装器授权与 Shell 安装兼容
+        run: |
+          python3 tests/check_installer_authorization.py
+          python3 tests/check_shell_install.py
       - name: 安装 Android SDK
         shell: bash
         run: |

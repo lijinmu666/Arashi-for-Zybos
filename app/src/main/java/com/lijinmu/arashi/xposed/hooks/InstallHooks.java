@@ -2,7 +2,6 @@ package com.lijinmu.arashi.xposed.hooks;
 
 import android.content.Context;
 import android.content.Intent;
-import android.os.Build;
 import android.util.ArraySet;
 import android.util.Log;
 
@@ -12,18 +11,20 @@ import com.lijinmu.arashi.xposed.ConfigManager;
 import com.lijinmu.arashi.xposed.HookConfig;
 import com.lijinmu.arashi.xposed.Reflect;
 
+import java.io.PrintWriter;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 public final class InstallHooks {
 
     private static final String TAG = "[Arashi-Install]";
 
-    private static volatile Class<?> installPkgHelperClass;
-    private static volatile Class<?> legacyPackageManagerClass;
     private static volatile Object zybServiceInstance;
 
     private InstallHooks() {
@@ -33,6 +34,7 @@ public static void hookSystemServer(XposedModule mod, ClassLoader cl) {
         
         hookInstallerAuthorization(mod, cl);
         hookPackageManagerShellCommand(mod, cl);
+        hookShellSessionCreation(mod, cl);
 
 hookZybosNoArg(mod, cl, "isDisallowInstallPackage", false);
 
@@ -58,7 +60,10 @@ hookZybosServiceCtor(mod, cl);
             Method install = Reflect.findMethodExact(session, "handleInstall");
             Method privileged = Reflect.findMethodExact(session, "isZybInstallerPrivileged");
             Method installer = Reflect.findMethodExact(session, "getInstallerPackageName");
-            if (install == null || privileged == null || installer == null) return;
+            if (install == null || privileged == null || installer == null) {
+                Log.i(TAG, "Installer authorization guard absent on this firmware");
+                return;
+            }
             // The two small vendor methods may have been inlined into handleInstall.
             mod.deoptimize(install);
             ThreadLocal<Object> active = new ThreadLocal<>();
@@ -78,7 +83,10 @@ hookZybosServiceCtor(mod, cl);
                 return chain.proceed();
             });
             mod.hook(install).intercept(chain -> {
-                if (!ConfigManager.isEnabled(HookConfig.KEY_DISABLE_INSTALLER_AUTH)) return chain.proceed();
+                // Keep the broad feature's version restriction, while Shell enablement
+                // independently covers authorization for sessions created by UID 2000.
+                if (!ConfigManager.isEnabled(HookConfig.KEY_DISABLE_INSTALLER_AUTH)
+                        && !isShellSession(chain.getThisObject())) return chain.proceed();
                 Object previous = active.get();
                 Object previousMask = maskNextInstaller.get();
                 active.set(chain.getThisObject());
@@ -95,6 +103,17 @@ hookZybosServiceCtor(mod, cl);
         }
     }
 
+    private static boolean isShellSession(Object session) {
+        if (session == null || !ConfigManager.isEnabled(HookConfig.KEY_SHELL_INSTALL)) return false;
+        try {
+            // The installation worker's Binder UID is not the original installer UID.
+            return Integer.valueOf(2000).equals(Reflect.callMethod(session, "getInstallerUid"));
+        } catch (Throwable error) {
+            Log.w(TAG, "Cannot identify Shell installation session", error);
+            return false;
+        }
+    }
+
     /**
      * Use the PackageManager Shell command dispatcher as the single compatibility
      * point for AIbangOS 7.10 and 7.13. This works whether the vendor gate reads
@@ -105,43 +124,87 @@ hookZybosServiceCtor(mod, cl);
         try {
             Class<?> shellCommand = Class.forName(
                     "com.android.server.pm.PackageManagerShellCommand", false, cl);
-            Method onCommand = Reflect.findMethodExact(
-                    shellCommand, "onCommand", String.class);
+            Method onCommand = Reflect.findMethodExact(shellCommand, "onCommand", String.class);
             if (onCommand == null) {
                 Log.w(TAG, "PackageManagerShellCommand.onCommand not found");
                 return;
             }
+            Map<String, Method> handlers = new LinkedHashMap<>();
+            String[][] commands = {
+                    {"install", "runInstall"}, {"install-streaming", "runStreamingInstall"},
+                    {"install-incremental", "runIncrementalInstall"},
+                    {"install-commit", "runInstallCommit"}, {"install-create", "runInstallCreate"}
+            };
+            for (String[] command : commands) {
+                Method method = Reflect.findMethodExact(shellCommand, command[1]);
+                if (method != null && method.getReturnType() != int.class) method = null;
+                handlers.put(command[0], method);
+                if (method == null) Log.w(TAG, command[1] + " handler not found");
+            }
             mod.hook(onCommand).intercept(chain -> {
-                if (!ConfigManager.isEnabled(HookConfig.KEY_SHELL_INSTALL)) {
-                    return chain.proceed();
-                }
+                if (!ConfigManager.isEnabled(HookConfig.KEY_SHELL_INSTALL)) return chain.proceed();
                 String command = (String) chain.getArg(0);
-                String handler;
-                if ("install".equals(command)) {
-                    handler = "runInstall";
-                } else if ("install-streaming".equals(command)) {
-                    handler = "runStreamingInstall";
-                } else if ("install-incremental".equals(command)) {
-                    handler = "runIncrementalInstall";
-                } else if ("install-commit".equals(command)) {
-                    handler = "runInstallCommit";
-                } else if ("install-create".equals(command)) {
-                    handler = "runInstallCreate";
-                } else {
-                    return chain.proceed();
-                }
+                if (!handlers.containsKey(command)) return chain.proceed();
+                Method handler = handlers.get(command);
+                if (handler == null) return reportShellInstallFailure(chain.getThisObject(), command,
+                        new NoSuchMethodException("Installation handler unavailable"));
                 try {
-                    Object result = Reflect.callMethod(chain.getThisObject(), handler);
-                    Log.i(TAG, command + " dispatched through " + handler);
-                    return result;
-                } catch (Throwable t) {
-                    Log.w(TAG, command + " direct dispatch failed; using system path: " + t);
-                    return chain.proceed();
+                    Log.i(TAG, command + " dispatched through " + handler.getName());
+                    return handler.invoke(chain.getThisObject());
+                } catch (Throwable error) {
+                    Throwable cause = error instanceof InvocationTargetException
+                            ? ((InvocationTargetException) error).getCause() : error;
+                    // The handler can consume arguments or create a session before failing.
+                    // Do not invoke it again through the original, restricted dispatcher.
+                    return reportShellInstallFailure(chain.getThisObject(), command, cause);
                 }
             });
+            deoptimizeNamed(mod, shellCommand, "onCommand");
+            try {
+                deoptimizeNamed(mod, Class.forName("com.android.server.pm.PackageManagerService", false, cl),
+                        "onShellCommand");
+            } catch (Throwable error) { Log.w(TAG, "Shell dispatcher caller unavailable", error); }
             Log.i(TAG, "PackageManagerShellCommand install gate hook registered");
-        } catch (Throwable t) {
-            Log.w(TAG, "PackageManagerShellCommand hook failed: " + t);
+        } catch (Throwable error) { Log.w(TAG, "PackageManagerShellCommand hook failed", error); }
+    }
+
+    private static int reportShellInstallFailure(Object shell, String command, Throwable error) {
+        Log.w(TAG, command + " direct dispatch failed", error);
+        try {
+            Object writer = Reflect.callMethod(shell, "getErrPrintWriter");
+            if (writer instanceof PrintWriter) {
+                ((PrintWriter) writer).println("Arashi: " + command + " failed: " + error);
+                ((PrintWriter) writer).flush();
+            }
+        } catch (Throwable outputError) { Log.w(TAG, "Cannot write Shell error", outputError); }
+        return 1;
+    }
+
+    /** AIbangOS 7.14 rejects Shell before an installation session is created. */
+    private static void hookShellSessionCreation(XposedModule mod, ClassLoader cl) {
+        try {
+            Class<?> service = Class.forName("com.android.server.pm.PackageInstallerService", false, cl);
+            Method gate = Reflect.findMethodExact(service, "enforceZybInstallerAllowed",
+                    int.class, int.class, String.class, String.class);
+            if (gate == null || gate.getReturnType() != void.class) {
+                Log.i(TAG, "Shell session-creation guard absent on this firmware");
+                return;
+            }
+            mod.hook(gate).intercept(chain -> {
+                if (ConfigManager.isEnabled(HookConfig.KEY_SHELL_INSTALL)
+                        && Integer.valueOf(2000).equals(chain.getArg(0))) return null;
+                return chain.proceed();
+            });
+            deoptimizeNamed(mod, service, "createSessionInternal");
+        } catch (Throwable error) { Log.w(TAG, "Shell session-creation hook unavailable", error); }
+    }
+
+    private static void deoptimizeNamed(XposedModule mod, Class<?> owner, String name) {
+        for (Method method : owner.getDeclaredMethods()) {
+            if (name.equals(method.getName())) {
+                try { mod.deoptimize(method); }
+                catch (Throwable error) { Log.w(TAG, "Cannot deoptimize " + method, error); }
+            }
         }
     }
 
@@ -209,50 +272,32 @@ hookZybosServiceCtor(mod, cl);
     }
 
     private static void hookInstallPackageHelper(XposedModule mod, ClassLoader cl) {
-        try {
-            Class<?> clazz = Class.forName(
-                    "com.android.server.pm.InstallPackageHelper", false, cl);
-            for (Constructor<?> ctor : Reflect.getDeclaredConstructors(clazz)) {
-                mod.hook(ctor).intercept(chain -> {
-                    Object result = chain.proceed();
-                    installPkgHelperClass = clazz;
-                    if (ConfigManager.isEnabled(HookConfig.KEY_CLEAR_BLACKLIST)
-                            && !useAndroid12BlacklistHook()) {
-                        clearBlacklistField(clazz, "mZybBlacklistApp");
-                    }
-                    return result;
-                });
-            }
-            Log.i(TAG, "InstallPackageHelper blacklist hook registered");
-        } catch (Throwable t) {
-            Log.w(TAG, "InstallPackageHelper hook failed: " + t);
-        }
+        hookBlacklistOwner(mod, cl, "com.android.server.pm.InstallPackageHelper");
     }
 
     private static void hookLegacyPackageManagerBlacklist(XposedModule mod, ClassLoader cl) {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S
-                || Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            return;
-        }
+        // Actual vendor class layout, not SDK level, determines the owner.
+        hookBlacklistOwner(mod, cl, "com.android.server.pm.PackageManagerService");
+    }
+
+    private static void hookBlacklistOwner(XposedModule mod, ClassLoader cl, String owner) {
         try {
-            Class<?> clazz = Class.forName("com.android.server.pm.PackageManagerService", false, cl);
+            Class<?> clazz = Class.forName(owner, false, cl);
             Field field = clazz.getDeclaredField("mZybBlacklistApp");
             if (!Modifier.isStatic(field.getModifiers())
-                    || !ArraySet.class.isAssignableFrom(field.getType())) {
-                return;
-            }
+                    || !ArraySet.class.isAssignableFrom(field.getType())) return;
             for (Constructor<?> ctor : Reflect.getDeclaredConstructors(clazz)) {
                 mod.hook(ctor).intercept(chain -> {
                     Object result = chain.proceed();
-                    legacyPackageManagerClass = clazz;
-                    clearLegacyBlacklistIfEnabled();
+                    if (ConfigManager.isEnabled(HookConfig.KEY_CLEAR_BLACKLIST))
+                        clearBlacklistField(clazz, "mZybBlacklistApp");
                     return result;
                 });
             }
-            Log.i(TAG, "AIBangOS Android 12 PackageManager blacklist hook registered");
-        } catch (Throwable t) {
-            Log.w(TAG, "AIBangOS Android 12 blacklist hook unavailable: " + t);
-        }
+            Log.i(TAG, owner + " blacklist hook registered");
+        } catch (ClassNotFoundException | NoSuchFieldException absent) {
+            Log.i(TAG, owner + " vendor installation blacklist absent");
+        } catch (Throwable error) { Log.w(TAG, owner + " blacklist hook failed", error); }
     }
 
     private static void hookZybosServiceCtor(XposedModule mod, ClassLoader cl) {
@@ -383,19 +428,6 @@ public static void hookPackageInstaller(XposedModule mod, ClassLoader cl) {
         } catch (Throwable t) {
             Log.w(TAG, method + " hook failed: " + t);
         }
-    }
-
-    private static void clearLegacyBlacklistIfEnabled() {
-        if (legacyPackageManagerClass != null
-                && useAndroid12BlacklistHook()
-                && ConfigManager.isEnabled(HookConfig.KEY_CLEAR_BLACKLIST)) {
-            clearBlacklistField(legacyPackageManagerClass, "mZybBlacklistApp");
-        }
-    }
-
-    private static boolean useAndroid12BlacklistHook() {
-        return Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
-                && Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU;
     }
 
     @SuppressWarnings("unchecked")
