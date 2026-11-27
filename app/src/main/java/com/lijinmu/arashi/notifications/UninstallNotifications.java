@@ -22,7 +22,7 @@ public final class UninstallNotifications {
                 key.equals(NotificationPreferences.WHITELIST_ONLY_DENIED) ? "非白名单拒绝" :
                 key.equals(NotificationPreferences.BLACKLIST) ? "黑名单拒绝" :
                 key.equals(NotificationPreferences.WHITELIST) ? "白名单放行" :
-                key.equals(NotificationPreferences.SCREEN_OFF) ? "息屏自动拒绝" : "倒计时拒绝");
+                key.equals(NotificationPreferences.SCREEN_OFF) ? "息屏自动拒绝" : "验证超时拒绝");
         AppNotifications.post(context, key, title,
                 "uninstall-" + recordId, "包管理服务", text, UninstallHistoryActivity.class);
     }
