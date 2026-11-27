@@ -24,6 +24,7 @@ public final class HookSettingsSync {
                 boolean value = HookConfig.KEY_AOSP_STATUS_ICONS.equals(key)
                         ? HookConfig.statusBarIconsEnabled(local.getAll())
                         : local.getBoolean(key, HookConfig.defaultEnabled(key));
+                value = value && HookConfig.isVersionSupported(key);
                 if (HookConfig.KEY_IOS_SYSTEM_ICON_MASK.equals(key)) {
                     value = value && android.os.Build.VERSION.SDK_INT >= 34
                             && service.getScope().contains("system");

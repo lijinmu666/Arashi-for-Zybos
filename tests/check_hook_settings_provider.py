@@ -43,6 +43,23 @@ public class ProviderCheck {
  }
  static void check(boolean ok) { if (!ok) throw new AssertionError(); }
  public static void main(String[] args) {
+  // Category defaults must respect firmware boundaries, including unreadable versions.
+  for (String key : new String[]{HookConfig.KEY_EXTERNAL_INSTALL, HookConfig.KEY_SHELL_INSTALL,
+    HookConfig.KEY_DISABLE_INSTALLER_AUTH, HookConfig.KEY_CLEAR_BLACKLIST,
+    HookConfig.KEY_ALLOW_WIRELESS_DEBUGGING, HookConfig.KEY_BLOCK_APP_UNINSTALL,
+    HookConfig.KEY_DISABLE_PADMS_WATCHDOG, HookConfig.KEY_DISABLE_FORCED_FREEZE,
+    HookConfig.KEY_CAPTIVE_PORTAL, HookConfig.KEY_ALLOW_USB}) {
+   boolean expected = true;
+   String version = System.getProperty("test.os.version");
+   if (key.equals(HookConfig.KEY_DISABLE_INSTALLER_AUTH)
+     || key.equals(HookConfig.KEY_DISABLE_PADMS_WATCHDOG)
+     || key.equals(HookConfig.KEY_DISABLE_FORCED_FREEZE))
+    expected = BehaviorCompatibility.supportsVersion(version, 14);
+   else if (key.equals(HookConfig.KEY_ALLOW_WIRELESS_DEBUGGING)
+     || key.equals(HookConfig.KEY_BLOCK_APP_UNINSTALL))
+    expected = BehaviorCompatibility.supportsVersion(version, 13);
+   check(HookConfig.defaultEnabled(key) == expected);
+  }
   Prefs prefs = new Prefs();
   Bundle defaults = read(prefs);
   for (String key : HookConfig.keys())
@@ -51,7 +68,7 @@ public class ProviderCheck {
    for (String key : HookConfig.keys()) prefs.values.put(key,enabled);
    Bundle bundle = read(prefs);
    for (String key : HookConfig.keys())
-    check(Boolean.valueOf(enabled).equals(bundle.get(key)));
+    check(Boolean.valueOf(enabled && HookConfig.isVersionSupported(key)).equals(bundle.get(key)));
   }
   prefs.values.clear();
   prefs.values.put(HookConfig.KEY_AOSP_WIFI,true);

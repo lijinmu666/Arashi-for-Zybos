@@ -46,11 +46,27 @@ public static final String KEY_CAPTIVE_PORTAL = "hook_captive_portal";
     public static final String KEY_KEEP_BACKGROUND = "hook_keep_background";
     public static final String KEY_KEEP_BACKGROUND_WHITELIST = "hook_keep_background_whitelist";
 
-    public static boolean defaultEnabled(String key) {
+    /** Version requirements always take precedence over defaults and saved values. */
+    public static boolean isVersionSupported(String key) {
         if (KEY_DISABLE_FORCED_FREEZE.equals(key)) return BehaviorCompatibility.isForcedFreezeSupported();
         if (KEY_DISABLE_INSTALLER_AUTH.equals(key)) return BehaviorCompatibility.isInstallerAuthSupported();
         if (KEY_DISABLE_PADMS_WATCHDOG.equals(key)) return BehaviorCompatibility.isPadMsWatchdogSupported();
-        if (BehaviorCompatibility.requiresVersion(key)) return BehaviorCompatibility.isSupported();
+        return !BehaviorCompatibility.requiresVersion(key) || BehaviorCompatibility.isSupported();
+    }
+
+    public static boolean defaultEnabled(String key) {
+        if (!isVersionSupported(key)) return false;
+        // All items in the Installation and Restrictions categories default to enabled.
+        if (KEY_EXTERNAL_INSTALL.equals(key)
+                || KEY_SHELL_INSTALL.equals(key)
+                || KEY_DISABLE_INSTALLER_AUTH.equals(key)
+                || KEY_CLEAR_BLACKLIST.equals(key)
+                || KEY_ALLOW_WIRELESS_DEBUGGING.equals(key)
+                || KEY_BLOCK_APP_UNINSTALL.equals(key)
+                || KEY_DISABLE_PADMS_WATCHDOG.equals(key)
+                || KEY_DISABLE_FORCED_FREEZE.equals(key)
+                || KEY_CAPTIVE_PORTAL.equals(key)
+                || KEY_ALLOW_USB.equals(key)) return true;
         return !KEY_BOOT_ANIMATION_NO_WAIT.equals(key)
                 && !KEY_AOSP_APP_DETAILS.equals(key)
                 && !KEY_UNLIMITED_NOTIFICATION_ICONS.equals(key)

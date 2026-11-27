@@ -178,7 +178,7 @@ Log.w(TAG, "reject untrusted caller uid=" + Binder.getCallingUid());
             boolean enabled = HookConfig.KEY_AOSP_STATUS_ICONS.equals(key)
                     ? HookConfig.statusBarIconsEnabled(prefs.getAll())
                     : prefs.getBoolean(key, HookConfig.defaultEnabled(key));
-            result.putBoolean(key, enabled);
+            result.putBoolean(key, enabled && HookConfig.isVersionSupported(key));
         }
         result.putStringArrayList(HookConfig.KEY_KEEP_BACKGROUND_WHITELIST,
                 new java.util.ArrayList<>(prefs.getStringSet(
