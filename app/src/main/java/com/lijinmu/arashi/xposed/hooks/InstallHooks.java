@@ -180,21 +180,35 @@ hookZybosServiceCtor(mod, cl);
         return 1;
     }
 
-    /** AIbangOS 7.14 rejects Shell before an installation session is created. */
+    /** Vendor firmware rejects Shell before an installation session is created. */
     private static void hookShellSessionCreation(XposedModule mod, ClassLoader cl) {
         try {
             Class<?> service = Class.forName("com.android.server.pm.PackageInstallerService", false, cl);
-            Method gate = Reflect.findMethodExact(service, "enforceZybInstallerAllowed",
-                    int.class, int.class, String.class, String.class);
-            if (gate == null || gate.getReturnType() != void.class) {
+            boolean registered = false;
+            for (Method gate : service.getDeclaredMethods()) {
+                if (!"enforceZybInstallerAllowed".equals(gate.getName())
+                        || gate.getReturnType() != void.class) continue;
+                Class<?>[] parameters = gate.getParameterTypes();
+                // 9.1.2 prepends a Computer snapshot; UID remains the first int.
+                final int uidIndex;
+                if (parameters.length == 4) uidIndex = 0;
+                else if (parameters.length == 5
+                        && "com.android.server.pm.Computer".equals(parameters[0].getName())) uidIndex = 1;
+                else continue;
+                if (parameters[uidIndex] != int.class || parameters[uidIndex + 1] != int.class
+                        || parameters[uidIndex + 2] != String.class
+                        || parameters[uidIndex + 3] != String.class) continue;
+                mod.hook(gate).intercept(chain -> {
+                    if (ConfigManager.isEnabled(HookConfig.KEY_SHELL_INSTALL)
+                            && Integer.valueOf(2000).equals(chain.getArg(uidIndex))) return null;
+                    return chain.proceed();
+                });
+                registered = true;
+            }
+            if (!registered) {
                 Log.i(TAG, "Shell session-creation guard absent on this firmware");
                 return;
             }
-            mod.hook(gate).intercept(chain -> {
-                if (ConfigManager.isEnabled(HookConfig.KEY_SHELL_INSTALL)
-                        && Integer.valueOf(2000).equals(chain.getArg(0))) return null;
-                return chain.proceed();
-            });
             deoptimizeNamed(mod, service, "createSessionInternal");
         } catch (Throwable error) { Log.w(TAG, "Shell session-creation hook unavailable", error); }
     }

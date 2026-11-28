@@ -54,13 +54,18 @@ original[0]=0;ConfigManager.shell=true;
 check(m.call(command,shell,new Object[]{"list"},fallback).equals(-1)&&original[0]==1);
 
 PackageInstallerService service=new PackageInstallerService();
-Method guard=service.getClass().getDeclaredMethod("enforceZybInstallerAllowed",int.class,int.class,String.class,String.class);
+for (Method guard : service.getClass().getDeclaredMethods()) {
+if (!guard.getName().equals("enforceZybInstallerAllowed")) continue;
+boolean snapshot=guard.getParameterCount()==5;
 int[] guarded={0}; XposedModule.Action enforce=()->{guarded[0]++;return null;};
-Object[] shellArgs={2000,321,"shell",null};
+// Put 2000 in PID too: only the UID argument may grant the exemption.
+Object[] shellArgs=snapshot?new Object[]{null,2000,321,"shell",null}:new Object[]{2000,321,"shell",null};
+ConfigManager.shell=true;
 m.call(guard,service,shellArgs,enforce);check(guarded[0]==0);
-m.call(guard,service,new Object[]{0,321,"root",null},enforce);check(guarded[0]==1);
-m.call(guard,service,new Object[]{12345,321,"app",null},enforce);check(guarded[0]==2);
+m.call(guard,service,snapshot?new Object[]{null,0,2000,"root",null}:new Object[]{0,2000,"root",null},enforce);check(guarded[0]==1);
+m.call(guard,service,snapshot?new Object[]{null,12345,2000,"app",null}:new Object[]{12345,2000,"app",null},enforce);check(guarded[0]==2);
 ConfigManager.shell=false;m.call(guard,service,shellArgs,enforce);check(guarded[0]==3);
+}
 
 // Probe both actual vendor owners, irrespective of Android SDK version.
 hookInstallPackageHelper(m,cl);hookLegacyPackageManagerBlacklist(m,cl);
@@ -109,8 +114,11 @@ private int runInstallCreate(){return run(14);}
         'com/android/server/pm/PackageInstallerService.java': '''package com.android.server.pm;
 public class PackageInstallerService {
 private void enforceZybInstallerAllowed(int uid,int pid,String process,String installer){}
+private void enforceZybInstallerAllowed(Computer snapshot,int uid,int pid,String process,String installer){}
 private int createSessionInternal(){return 0;}
 }''',
+        'com/android/server/pm/Computer.java': '''package com.android.server.pm;
+public interface Computer {}''',
         'com/android/server/pm/PackageManagerService.java': '''package com.android.server.pm;
 public class PackageManagerService {
 public static final android.util.ArraySet<String> mZybBlacklistApp=new android.util.ArraySet<>();
