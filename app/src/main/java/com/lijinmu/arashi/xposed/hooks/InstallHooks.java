@@ -146,8 +146,10 @@ hookZybosServiceCtor(mod, cl);
                 String command = (String) chain.getArg(0);
                 if (!handlers.containsKey(command)) return chain.proceed();
                 Method handler = handlers.get(command);
-                if (handler == null) return reportShellInstallFailure(chain.getThisObject(), command,
-                        new NoSuchMethodException("Installation handler unavailable"));
+                if (handler == null) {
+                    Log.i(TAG, command + " dispatched through session compatibility implementation");
+                    return ShellInstallCompat.run(chain.getThisObject(), command);
+                }
                 try {
                     Log.i(TAG, command + " dispatched through " + handler.getName());
                     return handler.invoke(chain.getThisObject());
